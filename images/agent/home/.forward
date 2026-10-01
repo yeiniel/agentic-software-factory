@@ -1,0 +1,2 @@
+/home/agent/Maildir/
+"|bash -lc 'cd && exec pi -p --offline --no-context-files --append-system-prompt /usr/share/agent/AGENT.md --session-dir ~/sessions --session-id mail'"
