@@ -1,0 +1,7 @@
+# A person's seat: a mail host with their account, `user` (uid 1000), whose
+# home is meant to be a volume. They log in with a login shell (bash -l),
+# where `mail` reads their ~/Maildir. The node's name says who they are:
+# user@NAME.DOMAIN.
+# Build: podman build -t asf-seat images/seat/   (after asf-mail)
+FROM localhost/asf-mail
+RUN useradd -m -u 1000 -s /bin/bash user
