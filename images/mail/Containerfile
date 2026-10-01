@@ -1,0 +1,21 @@
+# A mail host: one container whose main process is Postfix. Mail for
+# USER@HOSTNAME is kept in the user's ~/Maildir, unless their ~/.forward
+# says otherwise. The hostname must have a dot (NAME.DOMAIN); mail goes only
+# within DOMAIN. It has no account of its own: the images built on it add
+# one (seat, agent).
+# Configuration is in rootfs/, at its place in the image.
+# Build: podman build -t asf-mail images/mail/
+FROM docker.io/library/debian:trixie-slim
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postfix s-nail \
+ && rm -rf /var/lib/apt/lists/*
+
+# s-nail is `mail` (its package doesn't register itself); its inbox and the
+# character set it needs are set for logins (/etc/profile.d).
+RUN update-alternatives --install /usr/bin/mailx mailx /usr/bin/s-nail 50 \
+      --slave /usr/bin/mail mail /usr/bin/s-nail
+
+COPY rootfs/ /
+
+EXPOSE 25
+CMD ["postfix", "start-fg"]
