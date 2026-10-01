@@ -262,6 +262,45 @@ one prompt, N fresh machines.
   tested: the queue on a volume, which would deliver again what was in
   flight, the first mail's Maildir copy and command included.
   (2026-10-01.)
+- **A shared repository can be a container whose main process is `git
+  daemon`.** One image (`images/repo`: git, make, s-nail), the daemon
+  starting as root and dropping to the account `git`, repositories as
+  plain folders in that account's home, visible on the host
+  (`state/NODE/home/NAME.git`). Two other nodes cloned it and pushed over
+  `git://`, no accounts. Three lines in the image's `/etc/gitconfig`
+  (`receive.denyNonFastForwards`, `receive.denyDeletes`, a system hooks
+  path) apply to every repository: a force-push and a deletion of `main`
+  were both refused by the server, and a second pusher working from an
+  old state was rejected at once ("fetch first"), and integrated with a
+  rebase. Throwaway nodes, people's seats as pushers, no agent.
+  (2026-10-01, `images/repo`.)
+- **A check on every push to `main` can be the repository's own hook,
+  and its verdict can be mailed with no mail host on the node.** The
+  `post-receive` hook starts `make check` on a fresh checkout, detached
+  (the pusher isn't held) and one at a time, and mails the result with
+  `s-nail` speaking SMTP straight to each receiver's Postfix. A failing,
+  a failing again and a passing push were each reported in one to four
+  seconds, the mail marked `Auto-Submitted` and saying in its text that it
+  is automatic. Not tested: the 600-second time limit, two pushes at
+  once, agents as pushers or receivers. (2026-10-01.)
+- **The first version of that mail was lost without a word.** `s-nail`
+  needs the port written (the slim image has no `/etc/services`), and a
+  user in the URL, or it prints an obsoletion warning; with the user in
+  the URL it refused to send at all, "New-style URL used without
+  *v15-compat* being set", and the two verdicts that followed existed
+  only in a `dead.letter` and a line of the node's log, until a test
+  caught it. With `v15-compat` and `smtp-auth=none` it sent. Also: an
+  address that doesn't exist is reported only in the same log, the other
+  addresses still get the verdict; with no addresses at all the pusher is
+  told, on the push. (2026-10-01, s-nail 14.9.)
+- **A fresh node can't commit, and the account's full name is all it
+  lacks:** "Author identity unknown", since its account has no full name.
+  With one (`useradd -c agent`), git works out the rest itself from the
+  account and the node's fully qualified hostname: `agent
+  <agent@ana.factory>`, `user <user@yeiniel.factory>`: the same in a login
+  shell, through the agent's `.forward` (Postfix's own environment), and
+  in a real commit. (2026-10-02.)
+
 - **OpenSMTPD can't deliver between podman containers.** Podman's DNS
   answers a container's name but returns "no such domain" for its MX
   record, which rules out falling back to the name, and OpenSMTPD has no

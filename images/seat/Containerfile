@@ -4,4 +4,11 @@
 # user@NAME.DOMAIN.
 # Build: podman build -t asf-seat images/seat/   (after asf-mail)
 FROM localhost/asf-mail
-RUN useradd -m -u 1000 -s /bin/bash user
+
+# git, for the work shared in repositories.
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/*
+
+# Its full name is what git writes as the author; the host makes the address.
+RUN useradd -m -u 1000 -c user -s /bin/bash user

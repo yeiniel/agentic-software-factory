@@ -9,6 +9,11 @@ RUN npm install -g --prefix /opt/pi @earendil-works/pi-coding-agent@0.87.1
 
 FROM localhost/asf-mail
 
+# git, for the work shared in repositories.
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/*
+
 # pi, with the Node.js it runs on.
 COPY --from=pi /usr/local/bin/node /usr/local/bin/node
 COPY --from=pi /opt/pi /opt/pi
@@ -16,5 +21,6 @@ RUN ln -s /opt/pi/bin/pi /usr/local/bin/pi
 
 COPY rootfs/ /
 
-RUN useradd -m -u 1000 -s /bin/bash agent
+# Its full name is what git writes as the author; the host makes the address.
+RUN useradd -m -u 1000 -c agent -s /bin/bash agent
 COPY --chown=agent:agent home/ /home/agent/

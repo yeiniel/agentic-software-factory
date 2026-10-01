@@ -1,0 +1,21 @@
+#!/bin/sh
+# Usage: bin/repo NODE NAME [DIR]
+# Make a shared repository NAME on the repo node NODE: git://NODE.factory/NAME.git,
+# a folder in the node's home. With DIR, its first commit is DIR's files.
+set -eu
+cd "$(dirname "$0")/.."
+[ $# -ge 2 ] || { echo "usage: bin/repo NODE NAME [DIR]" >&2; exit 2; }
+node=$1 name=$2 dir=${3:-} repo=$PWD/state/$1/home/$2.git
+grep -qs '^Image=localhost/asf-repo$' "state/$node/asf-$node.container" || { echo "repo: $node is not a repo node" >&2; exit 1; }
+[ ! -e "$repo" ] || { echo "repo: $name already exists on $node" >&2; exit 1; }
+git init -q --bare -b main "$repo"
+if [ -n "$dir" ]; then
+  [ -d "$dir" ] || { echo "repo: no folder $dir" >&2; exit 1; }
+  seed=$(mktemp -d); trap 'rm -rf "$seed"' EXIT
+  cp -r "$dir/." "$seed/"
+  git -C "$seed" init -q -b main
+  git -C "$seed" add -A
+  git -C "$seed" -c user.name=factory -c user.email=factory@factory commit -q -m "first commit"
+  git -C "$seed" push -q "$repo" main
+fi
+echo "repo: git://$node.factory/$name.git"

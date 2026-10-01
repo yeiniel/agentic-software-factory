@@ -1,0 +1,7 @@
+[init]
+	defaultBranch = main
+[receive]
+	denyNonFastForwards = true
+	denyDeletes = true
+[core]
+	hooksPath = /usr/local/share/repo/hooks
