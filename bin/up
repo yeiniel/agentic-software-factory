@@ -1,0 +1,19 @@
+#!/bin/sh
+# Usage: bin/up
+# Start every node of the factory (a folder in state/), as it was: its home is
+# in its folder.
+set -eu
+cd "$(dirname "$0")/.."
+quadlet=$HOME/.config/containers/systemd
+podman network exists asf || podman network create asf >/dev/null
+mkdir -p "$quadlet"
+for d in state/*/; do
+  [ -d "$d" ] || continue
+  ln -sf "$PWD"/"$d"asf-*.container "$PWD"/"$d"asf-*.volume "$quadlet/"
+done
+systemctl --user daemon-reload
+for d in state/*/; do
+  [ -d "$d" ] || continue
+  n=${d#state/}; n=${n%/}
+  systemctl --user start "asf-$n.service" && echo "up: $n"
+done

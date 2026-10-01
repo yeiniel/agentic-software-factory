@@ -1,0 +1,32 @@
+#!/bin/sh
+# Usage: bin/onboard NAME KIND
+# Start a new node, NAME.factory, of kind KIND (a folder in config/): its unit
+# files are made from config/node.* in state/NAME, handed to Quadlet and
+# started. Its home, state/NAME/home, is filled from the image the first time;
+# then the files in config/KIND/home are added.
+set -eu
+cd "$(dirname "$0")/.."
+[ $# -eq 2 ] || { echo "usage: bin/onboard NAME KIND   (kinds: $(cd config && ls -d */ | tr -d / | tr '\n' ' '))" >&2; exit 2; }
+NAME=$1 kind=$2 dir=$PWD/state/$1
+quadlet=$HOME/.config/containers/systemd
+case $NAME in ''|[!a-z]*|*[!a-z0-9-]*) echo "onboard: NAME is lowercase letters, digits and dashes, starting with a letter" >&2; exit 2 ;; esac
+[ -f "config/$kind/kind" ] || { echo "onboard: no kind $kind (config/$kind/kind)" >&2; exit 2; }
+[ ! -e "$dir" ] || { echo "onboard: $dir already exists" >&2; exit 1; }
+. "config/$kind/kind"
+
+podman image exists "$IMAGE" || { echo "onboard: no image $IMAGE: run bin/build" >&2; exit 1; }
+podman network exists asf || podman network create asf >/dev/null
+
+mkdir -p "$dir/home" "$quadlet"
+for t in container volume; do
+  case $t in container) unit=asf-$NAME.container ;; volume) unit=asf-$NAME-home.volume ;; esac
+  sed "s|@NAME@|$NAME|g; s|@KIND@|$kind|g; s|@IMAGE@|$IMAGE|g; s|@ACCOUNT@|$ACCOUNT|g; s|@DIR@|$dir|g" \
+    "config/node.$t" > "$dir/$unit"
+  ln -sf "$dir/$unit" "$quadlet/"
+done
+systemctl --user daemon-reload
+systemctl --user start "asf-$NAME.service"
+
+# After the first start, which fills the home from the image.
+[ ! -d "config/$kind/home" ] || cp -r "config/$kind/home/." "$dir/home/"
+echo "onboard: $NAME.factory is up ($kind)"

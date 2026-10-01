@@ -1,0 +1,9 @@
+#!/bin/sh
+# Usage: bin/build
+# Build every image in images/, tagged asf-NAME: first those that build on
+# nothing of ours, then those built on them (FROM localhost/...).
+set -eu
+cd "$(dirname "$0")/.."
+build() { podman build -q -t "asf-${1##*/}" "$1" >/dev/null && echo "build: asf-${1##*/}"; }
+for d in images/*; do ! grep -q '^FROM localhost/' "$d/Containerfile" || continue; build "$d"; done
+for d in images/*; do grep -q '^FROM localhost/' "$d/Containerfile" || continue; build "$d"; done

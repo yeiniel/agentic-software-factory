@@ -1,0 +1,17 @@
+#!/bin/sh
+# Usage: bin/offboard NAME
+# Take node NAME out of the factory. Its folder, home included, moves to
+# offboarded/: what it did stays part of the record.
+set -eu
+cd "$(dirname "$0")/.."
+[ $# -eq 1 ] || { echo "usage: bin/offboard NAME" >&2; exit 2; }
+name=$1 quadlet=$HOME/.config/containers/systemd
+[ -f "state/$name/asf-$name.container" ] || { echo "offboard: no node $name" >&2; exit 1; }
+# The volume's own unit too, or a new node of this name would find it done.
+systemctl --user stop "asf-$name.service" "asf-$name-home-volume.service" 2>/dev/null || true
+rm -f "$quadlet/asf-$name.container" "$quadlet/asf-$name-home.volume"
+systemctl --user daemon-reload
+podman volume rm -f "asf-$name-home" >/dev/null
+mkdir -p offboarded
+mv "state/$name" "offboarded/$name-$(date +%Y%m%d%H%M%S)"
+echo "offboard: $name is out; its folder is in offboarded/"

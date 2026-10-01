@@ -1,0 +1,10 @@
+#!/bin/sh
+# Usage: bin/down
+# Stop every node of the factory. Nothing is lost: bin/up starts them again.
+set -eu
+cd "$(dirname "$0")/.."
+for d in state/*/; do
+  [ -d "$d" ] || continue
+  n=${d#state/}; n=${n%/}
+  systemctl --user stop "asf-$n.service" && echo "down: $n"
+done
