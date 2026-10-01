@@ -1,0 +1,28 @@
+#!/bin/sh
+# Usage: bin/team
+# Hand every agent its team: write ~/TEAM.md into each agent's home, naming
+# every agent by its node, with its address. bin/onboard and bin/offboard run
+# it, so the directory follows the team.
+set -eu
+cd "$(dirname "$0")/.."
+. config/agent/kind
+agents=
+for f in state/*/asf-*.container; do
+  [ -e "$f" ] || continue
+  grep -q "^Image=localhost/$IMAGE\$" "$f" || continue
+  n=${f#state/}; agents="$agents ${n%%/*}"
+done
+for me in $agents; do
+  {
+    echo "# Team"
+    echo
+    echo "| Name | Email |"
+    echo "| --- | --- |"
+    for n in $agents; do
+      if [ "$n" = "$me" ]; then echo "| $n (you) | $ACCOUNT@$n.factory |"
+      else echo "| $n | $ACCOUNT@$n.factory |"; fi
+    done
+  } > "state/$me/home/TEAM.md.new"
+  mv "state/$me/home/TEAM.md.new" "state/$me/home/TEAM.md"
+done
+echo "team: $(echo $agents | wc -w) agents"

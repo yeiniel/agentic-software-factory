@@ -15,3 +15,6 @@ podman volume rm -f "asf-$name-home" >/dev/null
 mkdir -p offboarded
 mv "state/$name" "offboarded/$name-$(date +%Y%m%d%H%M%S)"
 echo "offboard: $name is out; its folder is in offboarded/"
+
+# Everyone on the team knows who is on it.
+bin/team

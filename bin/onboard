@@ -30,3 +30,6 @@ systemctl --user start "asf-$NAME.service"
 # After the first start, which fills the home from the image.
 [ ! -d "config/$kind/home" ] || cp -r "config/$kind/home/." "$dir/home/"
 echo "onboard: $NAME.factory is up ($kind)"
+
+# Everyone on the team knows who is on it.
+bin/team
