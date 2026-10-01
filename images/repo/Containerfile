@@ -2,13 +2,13 @@
 # Everyone on the network fetches from and pushes to the repositories in the
 # account `git`'s home, git://HOST/NAME.git (a closed network: the network is
 # the identity). A push can't rewrite or delete history, and every push to
-# main is checked: `make check` on a fresh checkout, the verdict mailed to the
-# addresses in ~/notify. The account's home is meant to be a volume.
+# main is checked: `make check` on a fresh checkout, the verdict mailed to
+# whoever made the last commit. The account's home is meant to be a volume.
 # Configuration is in rootfs/, at its place in the image.
 # Build: podman build -t asf-repo images/repo/
 FROM docker.io/library/debian:trixie-slim
 RUN apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git make s-nail \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git make python3 s-nail \
  && rm -rf /var/lib/apt/lists/*
 
 COPY rootfs/ /

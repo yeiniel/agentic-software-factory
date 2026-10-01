@@ -293,6 +293,18 @@ one prompt, N fresh machines.
   address that doesn't exist is reported only in the same log, the other
   addresses still get the verdict; with no addresses at all the pusher is
   told, on the push. (2026-10-01, s-nail 14.9.)
+- **A verdict can go to whoever made the last commit, with no list to
+  keep.** The check mails the address of the tip commit's committer, which
+  is the node's own address by default (`agent@ana.factory`), as a short
+  mail: one line saying it is automatic, and on a failure the last 20
+  lines of the output. With the hub's real starting files (`python3` added
+  to the repo image) a failing push (9 of 12 tests) and a passing one
+  were each reported to the pusher's seat within seconds. The last 20
+  lines of the failing test run ended in the middle of a traceback: which
+  tests failed was above them. A committer address that doesn't exist is
+  reported only in the node's log, as before. Throwaway nodes, a person's
+  seat as the pusher. Not tested: agents as pushers, the 600-second time
+  limit, two pushes at once. (2026-10-02.)
 - **A fresh node can't commit, and the account's full name is all it
   lacks:** "Author identity unknown", since its account has no full name.
   With one (`useradd -c agent`), git works out the rest itself from the

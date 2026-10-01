@@ -1,9 +1,11 @@
 #!/bin/sh
 # Usage: check-push REPO COMMIT
 # `make check` on a fresh checkout of COMMIT, one check at a time, and the
-# verdict mailed to the addresses in ~/notify. What happened is in ~/check.log.
+# verdict mailed to whoever made that commit last (its committer). What
+# happened is in ~/check.log.
 exec >> "$HOME/check.log" 2>&1
 repo=$1 commit=$2 name=$(basename "$1" .git) short=$(echo "$2" | cut -c1-8)
+to=$(git -C "$repo" log -1 --format=%ce "$commit")
 exec 9> "$HOME/.check.lock"; flock 9
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
 if git clone -q "$repo" "$work" && git -C "$work" checkout -q "$commit"; then
@@ -12,21 +14,8 @@ else
   out="could not check out $commit"; code=1
 fi
 case $code in 0) verdict=pass ;; 124) verdict="fail (time limit)" ;; *) verdict=fail ;; esac
-body=$(cat <<MAIL
-This is an automatic message from the check of the repository $name. Nobody
-reads replies.
-
-$name main $short: $verdict
-
-commit:  $commit
-author:  $(git -C "$repo" log -1 --format='%an <%ae>' "$commit")
-message: $(git -C "$repo" log -1 --format=%s "$commit")
-
-make check, last 60 lines:
-$(echo "$out" | tail -n 60)
-MAIL
-)
-for a in $(cat "$HOME/notify"); do
-  echo "$body" | s-nail -C 'Auto-Submitted: auto-generated' -S v15-compat -S smtp-auth=none -S "mta=smtp://git@${a#*@}:25" \
-    -s "$name main $short: $verdict" "$a" && echo "$(date -Is) $name $short $verdict -> $a"
-done
+{ echo "An automatic message from the check of $name: nobody reads replies."
+  [ "$code" -eq 0 ] || { echo; echo "$out" | tail -n 20; }
+} | s-nail -C 'Auto-Submitted: auto-generated' -S v15-compat -S smtp-auth=none \
+      -S "mta=smtp://git@${to#*@}:25" -s "$name main $short: $verdict" "$to" \
+  && echo "$(date -Is) $name $short $verdict -> $to"
