@@ -160,6 +160,17 @@ one prompt, N fresh machines.
 - **A 30-minute turn cut a builder off twice** with four agents on one
   model slot. (`mail-office`, run 4.)
 
+## Infrastructure
+
+- **Rootless systemd-nspawn doesn't start on a default host.** Importing a
+  Debian rootfs with `importctl --user -m import-tar` failed: "Failed to
+  allocate transient user namespace". It needs `systemd-nsresourced` and
+  `systemd-mountfsd`, whose sockets are disabled by default; enabling them
+  takes root. Not tried: anything past that step. Its man page also limits
+  rootless machines to a link with the host each (no shared bridge), and
+  folders owned by the "foreign" UID range. (2026-10-01, systemd 261 on
+  Arch Linux, NetworkManager, networkd disabled.)
+
 ## Assumed, never tested
 
 Choices we hold without a run behind them. Each stays here until a run or
