@@ -641,6 +641,47 @@ one prompt, N fresh machines.
   senders of the others in its batch. The same stand-in `pi`, 15-second
   turns. Not tested: a real model, or what a batch does to its answers.
   (2026-10-02.)
+- **Three of five sessions compacted at about 82,000 tokens of a 98,304
+  window, and the agents did not go back to their memory afterwards.**
+  Ana's session compacted at 82,117 tokens, Cleo's at 82,326 and Eli's at
+  82,846, each dropping to 25,000 to 31,000; Ben's was at 79,949 and Dax's at
+  65,035 when I looked. The summaries are structured (Goal, Constraints,
+  Progress with Done / In Progress / Blocked, Key Decisions) and are
+  snapshots of an earlier moment: Eli's still lists validation as blocked
+  and Cleo's lists merge conflicts as unresolved. In the three turns after
+  the compaction the agents read their memory 1 time (Ana), 0 (Cleo) and 0
+  (Eli). Over all five sessions the agents wrote memory in 62 of their 155
+  turns and read it in 13 (8%), although their prompt says to look there
+  before starting work. Whether a lesson survives a compaction is untested.
+  (2026-10-02, from the sessions.)
+- **Every model failure in the run was "Request timed out", after about five
+  minutes, and `pi` mostly went on to retry.** 47 assistant messages ended
+  in an error, all of that kind; `pi` had waited 4.5 minutes at the median
+  (5.1 at most) for the model, and in 45 of the 47 the session continues with
+  another model call, adding to a queue that was already too long. They came
+  in two bursts, 6 at 03:05 (the whole team woke at once) and 40 between
+  11:00 and 12:25 (the retrospective), none before, between or after, until
+  the model server had two slots at 12:53 (little load has run since).
+  (2026-10-02, five sessions, one slot.)
+- **The 90-minute turn limit cut real work twice.** 26 of 155 turns ran
+  longer than 15 minutes (the median turn 2 to 7 minutes, the 90th percentile
+  10 to 44), the longest 87 minutes. Ben's and Cleo's turns, started at 03:39
+  by the lead's "start" mail, were killed at 05:09 ("Command time limit
+  exceeded") and reported by Postfix to the lead. The durations include the
+  overlap of concurrent turns during the hot swap and turns spent polling
+  for mail. (2026-10-02.)
+- **A restart keeps sessions and memory, and leaves an unread mail waiting
+  until the next mail.** Homes are volumes, so every agent kept its session
+  and memory across the restarts; the Postfix queue was lost (ten queued
+  list posts each for two agents). A mail already in the Maildir but not yet
+  shown, after a restart, stayed unread with no agent started; a normal mail
+  sent afterwards was taken with it as one batch of two. (2026-10-02.)
+- **With a 26,120-token prompt a second slot did not help.** Alone: 77 s
+  (prompt read at 378 tok/s, then 7.8 tok/s generation). Two different
+  prompts of that size at once: 157 s in all (about 330 tok/s each, then 4.4
+  and 0.8 tok/s), against about 153 s for two in a row; both finished
+  together, where in a row the first finishes at 77 s. Reading a prompt is
+  compute-bound and the slots share it. (2026-10-02, two slots, caching off.)
 
 ## Assumed, never tested
 
