@@ -1,0 +1,10 @@
+#!/bin/sh
+# Usage: bin/model [stop]
+# Start the model server the agents talk to (port 8080, two slots of 98,304
+# tokens each), as a user unit named llama-server; `stop` stops it.
+set -eu
+if [ "${1:-}" = stop ]; then systemctl --user stop llama-server.service && echo "down: llama-server"; exit; fi
+systemd-run --user --unit=llama-server /usr/bin/llama-server \
+  -m "$HOME/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf" \
+  -a qwen3.6-35b-a3b -c 196608 -np 2 -t 4 --fit on -fa on --jinja \
+  --cache-ram 24576 --host 0.0.0.0 --port 8080 && echo "up: llama-server"
