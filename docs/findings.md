@@ -408,6 +408,29 @@ one prompt, N fresh machines.
   (16k of 49k tokens). (`mail-office`, run 1.)
 - **A 30-minute turn cut a builder off twice** with four agents on one
   model slot. (`mail-office`, run 4.)
+- **A second model slot gave more generation in total and less speed to
+  each request, on a server restarted in 17 seconds.** `llama-server` went
+  from `-np 1 -c 98304` to `-np 2 -c 196608` (98,304 tokens per slot,
+  `kv_unified = false`) and came up at the first try, with no rollback
+  needed. A 200-token answer to an 813-token prompt took 12.7 s alone
+  (prompt read at 289 tok/s, generation 20.2 tok/s); two of them at once took
+  20.6 s and 20.7 s, each generating at 14.0 tok/s (28.0 together), against
+  about 25.4 s for two in a row: 18% less time in all, 39% more generation,
+  and 31% slower for each. Memory: the server's resident size 41.3 GB ->
+  22.8 GB (its prompt cache was empty after the restart), RAM available 29
+  -> 50 GB of 62, GPU 4,746 -> 4,450 MiB of 6,141. The earlier measurement
+  on this machine went the other way (two requests together: 54.8 s on one
+  slot, 62.5 s on two); the setups differ (that one queued larger requests
+  on one slot), so I don't set the two against each other. Not tested: long
+  prompts (the agents' contexts are tens of thousands of tokens, and
+  reading a prompt is compute-bound), the memory once the prompt cache
+  fills, a third slot. (2026-10-02, RTX 4050 laptop 6 GB, 62 GB RAM,
+  Qwen3.6-35B-A3B.)
+- **A real agent on the two-slot server took three mails, a second apart, as
+  two turns, and answered all three.** The first mail alone, then the other
+  two as one batch, and the three replies ("alpha", "beta", "gamma", as
+  asked) were back in about 37 seconds. Not tested: a large batch, a long
+  context. (2026-10-02.)
 
 ## Infrastructure
 
