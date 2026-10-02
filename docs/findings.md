@@ -504,6 +504,25 @@ one prompt, N fresh machines.
   a factory with a running team would have reached the real agents: I
   trimmed the test list by hand. One run, mail only, no model. Not tested:
   agents posting to it. (2026-10-02, Postfix 3.10.13.)
+- **Mail waiting behind a turn was not in the Maildir, and a blocking lock
+  did not fix that.** With the Maildir write and the `pi` command in one
+  delivery, and Postfix's default of two local deliveries at a time per
+  recipient, the third mail of a burst was not delivered until a slot freed;
+  a wake-up that blocked on a lock held a slot. Five mails two seconds apart
+  took three one-mail turns, and two had not reached the Maildir. A stand-in
+  for `pi` that logs its prompt and sleeps 15 seconds. (2026-10-02.)
+- **A non-blocking wake-up with a drain loop took a burst in one prompt.**
+  The mail is written to the Maildir at once and then `wake` runs: the run
+  that holds the lock loops (take every mail in `new`, oldest first, as one
+  prompt; after the turn look again) and a run that finds the lock held
+  exits. Five mails two seconds apart took two turns (1 mail, then 4); 19
+  mails with random gaps took six turns (1, 4, 1, 6, 6, 1 mails) and each
+  mail was shown exactly once, none missed or repeated, nothing left
+  running. A `pi` that dies is still reported by Postfix ("Command died with
+  status 1") to the sender of the mail whose run held the lock, not to the
+  senders of the others in its batch. The same stand-in `pi`, 15-second
+  turns. Not tested: a real model, or what a batch does to its answers.
+  (2026-10-02.)
 
 ## Assumed, never tested
 
