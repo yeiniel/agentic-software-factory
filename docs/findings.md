@@ -149,6 +149,103 @@ one prompt, N fresh machines.
   maildrop/...: No such file or directory`, from a seat asked to mail
   right after `bin/onboard`; the mail was delivered and answered a
   half-minute later. Seen once. (2026-10-02.)
+- **A validator told "your verdicts are your own; you work with Ana but
+  answer to me; tell me if you think they are pressured" took it in and
+  described it back correctly, and everything it reported was true.** Its
+  first command was to read `~/TEAM.md` (all four teammates spelled
+  right); it then cloned the repository unasked-for beyond "take a look"
+  (the server's log has its connection), read it, wrote four memory files
+  that include its role, "answer to Yeiniel, not Ana", and the pressure
+  rule as a protocol, changed nothing in the repository and mailed no one
+  but the sender. Of four fresh agents given the same kind of welcome
+  mail (three engineers, one validator), two cloned the repository, one
+  skipped it silently and one claimed to have done it without doing it.
+  One run each, Qwen3.6-35B-A3B. (2026-10-02.)
+- **Asked to write down what was settled and why, a lead's memory had a
+  "Key decisions and why" section, and its mail and its memory told the
+  delivery pipeline differently.** Given a mentor's two questions (what do
+  we hand the customer and how is the unvalidated kept out; what happens
+  when three engineers build one shared layer), the lead's third plan, 100
+  seconds after the mail, named one owner for the shared layer, delivery in
+  priority order with only what the validator accepted going on, and wrote
+  the decisions and their reasons into memory, as asked. Its mail said
+  engineers submit to the manager, who forwards to the validator; its memory
+  said engineer, validator, then manager. The mail also held two versions of
+  the plan ("Actually, let me reorder ..."), the memory the final one. In
+  the plan, the engineers write the tests for their own features, which the
+  validator then reviews. It acted on nothing and mailed no one but the
+  manager. One run, Qwen3.6-35B-A3B. (2026-10-02.)
+- **The first full run of a team (a lead, three builders, a validator,
+  one repository, one model slot) reached a validated product in about
+  three and a half hours.** From the manager's go-ahead (02:36) to the
+  validator's PASS (06:05): ten commits on top of the skeleton and four
+  verdicts mailed to the manager, each naming the commit and what failed:
+  FAIL (3 of 51 acceptance tests passed), FAIL (6 failed of 51; the mail
+  also says "36 passed", which does not add up), FAIL (2 failed of 51),
+  PASS (51 of 51). I re-ran the validator's 51 tests against a fresh
+  checkout of the server's `main` at the passing commit and they passed;
+  the builders' own check passed, and each command I tried by hand
+  behaved as the contract says. The validator's second verdict also held
+  one item it had not verified ("may not work correctly ... need to
+  verify"). Seat as manager, Qwen3.6-35B-A3B, five agents on one slot.
+  (2026-10-02.)
+- **At the first push of the shared layer the builders' check was green
+  and no command worked.** On a fresh checkout, `tasks list`, `shopping
+  add` and `meals add` each exited 1 with no output, while `make check`
+  said OK: the repository had no tests, and later the builder's tests
+  called the handler functions, not the commands. The builder had said
+  "Everything works" after trying only the usage-error paths. The
+  validator's black-box tests, written from the contract, failed 47 of 51
+  on it. The validator named import order as the cause; in the checkout I
+  made the imports come before the main guard, so I did not establish
+  the cause. (2026-10-02.)
+- **A contract the builders and the validator could both read left the
+  validator the details to catch.** Its failures were in what the contract
+  said exactly: a period at the end of "Added task N: ...", negative and
+  zero task numbers answered "not found" and not "invalid", and the
+  subcommands in a usage line listed alphabetically and not in the
+  contract's order. Each was fixed in the next round. The validator did
+  not ask the lead about the places where the contract was loose (task
+  numbers after a removal, column widths, trailing blanks): it compared
+  with whitespace trimmed. (2026-10-02.)
+- **What a contract leaves out, the validator can't see.** The app keeps
+  its data in a `data.json` beside `hub.py`, so any two runs of one
+  checkout share state, from any directory and any home. The validator's
+  isolation worked because it copied `hub.py` and the four modules into a
+  fresh directory for every test, having read the builders' code to learn
+  where the file went, and by naming the modules; the contract says
+  nothing about where data lives. (2026-10-02, found by running the
+  commands from two directories.)
+- **A mail to a busy agent waits for the end of its turn, and a note about
+  the state of the repository can be stale by then.** The manager's mail to
+  the validator was delivered 2.5 minutes after it was sent, the one to the
+  lead 9. The lead's mail said no stubs and no shared layer existed,
+  which was true when it was written; by the time she read it a builder
+  had pushed the layer, and she wrote her own, which collided. She took
+  the builder's version in the merge, and her commit stays in the history.
+  (2026-10-02.)
+- **Told a commit existed, four agents tried to fetch it for several
+  minutes, and none made up a contract.** The lead's briefing named a
+  commit that was only in her own clone, with an address of the wrong
+  kind. Two builders and the validator ran `git fetch` or `git show` on it
+  at least twice; two of them mailed the lead that it was missing, after
+  she had already pushed it. The lead said, on being told what the server
+  held, "I committed locally but forgot to push", and pushed. (2026-10-02.)
+- **A wrong address is reported only after the sender has moved on.** The
+  lead wrote `ben@ben.factory` for four teammates, a builder wrote
+  `ana.factory`; both mails bounced, with the correct addresses in each
+  one's `~/TEAM.md`. `mail` returned normally; the bounce was held until
+  the sender's turn ended, and in between the lead told the manager "Team
+  is briefed". Both resent correctly within about a minute of the bounce.
+  (2026-10-02.)
+- **Work was duplicated and discarded without a word, and roles blurred.**
+  A builder implemented the tasks and shopping modules that two others
+  owned, and merged over one of them ("contract-correct implementation");
+  one of those two threw away his 14 tests with `git reset --hard` (the
+  commit survives only in his reflog) and started again; the lead wrote
+  code, and the commit that fixed the last contract failures, which the
+  validator then passed, is hers. Nobody mailed anyone about the
+  conflicts. (2026-10-02.)
 - **Asked for a check by someone other than itself, it used a tool that
   ran its own tests, and shrank them until they passed.** (`mail-office`,
   run 2.)
@@ -232,6 +329,20 @@ one prompt, N fresh machines.
   its context working around them:** listing `/proc` by hand, decoding
   `/proc/net/tcp`, testing a web server with Python, where `ps`, `ss` and
   `curl` were missing. (`mail-office`, run 1, the lead.)
+- **A failing verdict with a non-ASCII character in its output was lost
+  without a word.** The repository node starts each check with an empty
+  environment (`env -i`), so `s-nail` had no character set: "Cannot find a
+  usable character set to encode message ... message not sent", the mail
+  went to a `dead.letter`, and the node's log got one line with no name in
+  it. In the run, the builder's push of his failing tests (03:48) was never
+  reported: the dash in `NotImplementedError('shopping list — not yet
+  implemented')` was enough. Reproduced with a failing check that prints a
+  dash, and fixed with `LANG=C.UTF-8` in the hook's `env -i`: the next
+  verdict arrived. Also: `s-nail` overwrites `dead.letter` each time, so
+  the next failure erased the first one's evidence, which I found when my
+  own test did. The third place the same locale gap has shown (the agent's
+  `mail`, then the agent's `mail` again via Postfix, now the check).
+  (2026-10-02.)
 
 ## Running the model
 
