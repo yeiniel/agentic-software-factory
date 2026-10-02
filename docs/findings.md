@@ -484,6 +484,26 @@ one prompt, N fresh machines.
 - **A command run by Postfix's delivery has a minimal PATH,** so the first
   wake-up failed to find pi, and said so only in a log in the agent's
   home. (2026-10-01.)
+- **A team list can be a mail node with one alias file, and a poster is
+  not woken by their own post.** The list node is the mail image with
+  `alias_maps = texthash:/home/archive/aliases` and one line, `team
+  ADDRESS, ADDRESS, ..., archive`, which `bin/team` writes from the same
+  list as every agent's `TEAM.md`, with an "Everyone" row added there; the
+  last member, `archive`, is a local account whose `~/Maildir` is the
+  record of everything posted. Every mail host also drops mail that claims
+  to come from itself (`smtpd_sender_restrictions = check_sender_access
+  inline:{ {$myhostname = DISCARD ...} }`), which over the network can only
+  be a list's copy of the host's own user's post. On throwaway nodes, a
+  post from one agent reached another member and the archive once each and
+  did not reach the poster: the poster's own Postfix logged `NOQUEUE:
+  discard`. Offboarding a member dropped it from the alias line, and
+  offboarding the list took the row out of every directory. The list still
+  sends the poster a copy; their own node drops it. `texthash` takes `key
+  value` lines, not an aliases file's `key: value`: the first version did not
+  match. Because `bin/team` lists every agent node, a post to a test list on
+  a factory with a running team would have reached the real agents: I
+  trimmed the test list by hand. One run, mail only, no model. Not tested:
+  agents posting to it. (2026-10-02, Postfix 3.10.13.)
 
 ## Assumed, never tested
 
