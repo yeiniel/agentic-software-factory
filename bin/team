@@ -1,8 +1,10 @@
 #!/bin/sh
 # Usage: bin/team
 # Hand every agent its team: write ~/TEAM.md into each agent's home, naming
-# every agent by its node, with its address. bin/onboard and bin/offboard run
-# it, so the directory follows the team.
+# every agent by its node, with its address, and the address that reaches
+# everyone when the team has a list (a node of the list kind), whose members
+# are kept to the agents on the team. bin/onboard and bin/offboard run it, so
+# the directory follows the team.
 set -eu
 cd "$(dirname "$0")/.."
 . config/agent/kind
@@ -11,6 +13,13 @@ for f in state/*/asf-*.container; do
   [ -e "$f" ] || continue
   grep -q "^Image=localhost/$IMAGE\$" "$f" || continue
   n=${f#state/}; agents="$agents ${n%%/*}"
+done
+list_image=$(. config/list/kind; echo "$IMAGE")
+list=
+for f in state/*/asf-*.container; do
+  [ -e "$f" ] || continue
+  grep -q "^Image=localhost/$list_image\$" "$f" || continue
+  n=${f#state/}; list=${n%%/*}
 done
 for me in $agents; do
   {
@@ -22,7 +31,13 @@ for me in $agents; do
       if [ "$n" = "$me" ]; then echo "| $n (you) | $ACCOUNT@$n.factory |"
       else echo "| $n | $ACCOUNT@$n.factory |"; fi
     done
+    [ -z "$list" ] || echo "| Everyone | team@$list.factory |"
   } > "state/$me/home/TEAM.md.new"
   mv "state/$me/home/TEAM.md.new" "state/$me/home/TEAM.md"
 done
-echo "team: $(echo $agents | wc -w) agents"
+if [ -n "$list" ]; then
+  members=; for n in $agents; do members="$members $ACCOUNT@$n.factory,"; done
+  echo "team$members archive" > "state/$list/home/aliases"
+  podman exec "asf-$list" postfix reload >/dev/null 2>&1 || true
+fi
+echo "team: $(echo $agents | wc -w) agents${list:+, list team@$list.factory}"

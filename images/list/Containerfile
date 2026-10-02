@@ -1,0 +1,10 @@
+# The team's list: a mail host that gives every post to everyone on it. Postfix
+# expands mail for team@HOSTNAME from the account `archive`'s ~/aliases, one
+# line (team ADDRESS, ADDRESS, ..., archive) that bin/team keeps from the team
+# list. The last member is `archive` itself: its ~/Maildir is the record of
+# everything posted. A poster isn't woken by their own post: every mail host
+# drops mail that claims to come from itself, which here can only be this echo.
+# Build: podman build -t asf-list images/list/   (after asf-mail)
+FROM localhost/asf-mail
+RUN useradd -m -u 1000 -c archive -s /bin/bash archive
+RUN postconf -e 'alias_maps = texthash:/home/archive/aliases'
