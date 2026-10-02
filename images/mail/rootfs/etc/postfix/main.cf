@@ -10,6 +10,9 @@ relay_domains = $mydomain
 default_transport = error:mail only within $mydomain
 smtp_dns_support_level = disabled
 smtpd_recipient_restrictions = check_recipient_access inline:{ {root@ = REJECT no mail for root} }
+# Mail from this host arriving over the network is a list's copy of what its
+# own user posted: drop it, so a post isn't answered by waking its author.
+smtpd_sender_restrictions = check_sender_access inline:{ {$myhostname = DISCARD a copy of its own post} }
 alias_maps =
 alias_database =
 biff = no
