@@ -1,0 +1,84 @@
+#!/bin/sh
+# Usage: bin/watch [-a]
+# One live stream of the whole factory, read from state/ (never written): every
+# mail as it lands (sender -> node: subject), what each agent says and does
+# (pi's sessions: its text, its tool calls, failed results), every commit
+# pushed to a repository, and nodes joining or leaving. From now on; -a first
+# replays everything.
+set -u
+cd "$(dirname "$0")/.."
+seen=$(mktemp -d)
+trap 'rm -rf "$seen"; exit 0' INT TERM
+touch "$seen/mail" "$seen/commits" "$seen/nodes"
+live=""     # set once what already exists has been shown
+
+header() { sed -n "s/^$1: *//Ip" "$2" | head -n 1; }
+
+mails() { # new mails, as "EPOCH TEXT"
+  find state/*/home/Maildir/new state/*/home/Maildir/cur -type f 2>/dev/null | while read -r f; do
+    id=${f##*/}; id=${id%%:*}
+    grep -qxF "$id" "$seen/mail" && continue
+    echo "$id" >> "$seen/mail"
+    node=${f#state/}; node=${node%%/*}
+    from=$(header Return-Path "$f" | tr -d '<>')
+    echo "$(stat -c %Y "$f") $node  mail ${from:-(bounce)} -> $node: $(header Subject "$f")"
+  done
+}
+
+sessions() { # new session entries, as "EPOCH TEXT"
+  for f in state/*/home/sessions/*.jsonl; do
+    [ -f "$f" ] || continue
+    node=${f#state/}; node=${node%%/*}
+    key=$seen/$(echo "$f" | tr / _)
+    done_lines=$(cat "$key" 2>/dev/null || echo 0)
+    total=$(wc -l < "$f")
+    [ "$total" -gt "$done_lines" ] || continue
+    echo "$total" > "$key"
+    tail -n +"$((done_lines + 1))" "$f" | head -n "$((total - done_lines))" |
+    jq -r --arg node "$node" '
+      select(.type == "message") |
+      (.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdate | tostring) as $t |
+      .message as $m |
+      ($m.content | if type == "string" then [{type: "text", text: .}] else . end)[] |
+      if $m.role == "assistant" and .type == "text" then
+        "\($t) \($node)  says: \(.text | gsub("\\s+"; " ") | .[0:200])"
+      elif $m.role == "assistant" and .type == "toolCall" then
+        "\($t) \($node)  -> \(.name): \(.arguments | (.command // .path // tostring) | tostring | gsub("\\s+"; " ") | .[0:160])"
+      elif $m.role == "toolResult" and ($m.isError // false) and .type == "text" then
+        "\($t) \($node)  ! \(.text | gsub("\\s+"; " ") | .[0:160])"
+      else empty end' 2>/dev/null
+  done
+}
+
+commits() { # new commits on main in the shared repositories, as "EPOCH TEXT"
+  for r in state/*/home/*.git; do
+    [ -d "$r" ] || continue
+    node=${r#state/}; node=${node%%/*}; name=${r##*/}
+    git -C "$r" log main --format='%H %ct %an: %s' 2>/dev/null | while read -r h t rest; do
+      grep -qxF "$h" "$seen/commits" && continue
+      echo "$h" >> "$seen/commits"
+      [ -z "$live" ] || t=$(date +%s)     # a push is seen when it arrives, not when it was committed
+      echo "$t $node  push ${name%.git} $(echo "$h" | cut -c1-8) $rest"
+    done
+  done
+}
+
+nodes() { # nodes joining or leaving
+  now=$(ls state 2>/dev/null | sort)
+  printf '%s\n' "$now" | comm -13 "$seen/nodes" - | sed '/^$/d; s/^/joined /'
+  printf '%s\n' "$now" | comm -23 "$seen/nodes" - | sed '/^$/d; s/^/left /'
+  printf '%s\n' "$now" > "$seen/nodes"
+}
+
+if [ "${1:-}" != -a ]; then     # from now on: what exists is already seen
+  mails > /dev/null; sessions > /dev/null; commits > /dev/null; nodes > /dev/null
+  live=1
+fi
+while :; do
+  nodes | while read -r what node; do echo "$(date +%H:%M:%S) $node  node $what"; done
+  { sessions; mails; commits; } | sort -s -n -k1,1 | while read -r t rest; do
+    echo "$(date -d "@$t" +%H:%M:%S) $rest"
+  done
+  live=1
+  sleep 2
+done
