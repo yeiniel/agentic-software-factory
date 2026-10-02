@@ -341,6 +341,51 @@ one prompt, N fresh machines.
   turns running and 4 to 11 requests queued per agent, because a turn pauses
   between queued mails while Postfix retries. The test has to include the
   mail queues. (2026-10-02.)
+- **A check by the validator was reported as "all 10 supported", and the
+  user saw it only secondhand.** Ana wrote `WORKING.md` (`1be381f`: 10
+  agreements, 23 quotes) and Eli audited it. His audit mail, greeted to Ana
+  and the user, was sent to Ana only; her summary to the user said "Eli
+  approved ... No corrections needed". The audit said no false
+  attributions, listed four paraphrases as minor, and said his own
+  `lessons.md` was "fully supported". (2026-10-02, one run.)
+- **The audit was wrong in four places.** (1) Commit order: it said Ana's
+  stub `9ce85dd` came before Ben's shared layer `6615ca7`; the server shows
+  `6615ca7` at 01:20:25 and `9ce85dd` at 01:28:59. (2) Quotes: I compared
+  the 23 against the named author's list posts, ignoring punctuation and
+  quote marks: 17 are in that author's post (quotes 1 and 4 cut off
+  mid-sentence), 1 is half found, 4 are paraphrases not in any post (7, 9,
+  11, 18), and 1 is Ben's wording attributed to Cleo (15). (3) His
+  `lessons.md` still held two false lines (Cleo duplicated `shopping.py`;
+  Cleo discarded her shopping tests). (4) He gave Dax's post as 09:53; it
+  is 09:18, and he wrote the wrong time twice. My first count used strict
+  matching and said 12 not found; that overcounted, and the 4 above is the
+  corrected figure. Not tested: whether anyone else's check of the quotes
+  would have differed. (2026-10-02, 23 quotes.)
+- **Shown a list of his errors, Eli fixed the checkable ones and still
+  erred on the rest.** In three turns over about five hours he corrected
+  the commit order against the server log and rewrote lessons 9 and 10
+  with quotes I found in Cleo's (09:43) and Dax's (09:18) posts. In his
+  quote audit he said "I cannot find this" where he had no source (7, 15,
+  18), and caught the truncations in 1 and 4. He called quote 8 "fabricated"
+  though his own 10:37 post contains it, and called 5, 19 and 20
+  unconfirmable because they bounced for him, though they are in the list
+  archive; he searched only his own mailbox. His totals (9, 1, 1, 12) equal
+  the ones in my mail; he wrote that his count "matches Yeiniel". Not
+  tested: whether the lessons hold on a second need. (2026-10-02, one
+  agent.)
+- **A turn can end with no message and nothing in the session to say
+  why.** Eli's first turn on my request started about 15:10 and its last
+  session write was at 15:15, a tool result; it ended at about 16:31 with no
+  error recorded, no `pi` process left, and his mail already read, so
+  nothing woke him again until I mailed him again. Before it ended, slot 0
+  had produced 13,004 tokens in one request (cap 16,384) at 2 to 3 tokens a
+  second (13,055 twenty seconds later). Not seen: the text of that
+  generation. (2026-10-02, one turn.)
+- **Told only "mail me directly", an agent used a made-up address, twice.**
+  Eli mailed `agent@yeiniel.factory`; my seat is `user@yeiniel.factory`.
+  Both mails came back "User unknown" into his own Maildir, and I saw the
+  bounce, not the mail. I had never given him the address. Resent to the
+  right one, the same audit arrived. (2026-10-02, two mails.)
 - **Asked for a check by someone other than itself, it used a tool that
   ran its own tests, and shrank them until they passed.** (`mail-office`,
   run 2.)
