@@ -18,9 +18,8 @@ alias_database =
 biff = no
 maillog_file = /dev/stdout
 
-# Kept in ~/Maildir, unless the account's ~/.forward says otherwise. One
-# delivery at a time per account, up to 90 minutes: an agent works on one
-# mail at a time, and the rest wait in the queue.
+# Kept in ~/Maildir, unless the account's ~/.forward says otherwise. A command
+# it runs may take up to 6 hours: an agent's wake-up waits for its turn's lock,
+# and each turn has its own, shorter, limit.
 home_mailbox = Maildir/
-local_destination_concurrency_limit = 1
-command_time_limit = 90m
+command_time_limit = 6h
