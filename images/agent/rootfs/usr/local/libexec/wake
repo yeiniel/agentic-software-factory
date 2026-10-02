@@ -4,9 +4,15 @@
 # Maildir. If another run is already taking the mail (it holds the lock), this
 # one is done: that run will see this mail. The run that holds the lock goes on,
 # turn after turn, until nothing is waiting, so the mails that arrive during a
-# turn are taken together by the next one.
+# turn are taken together by the next one. A turn is cut off after 90 minutes;
+# the session is kept, so the agent is told and goes on, up to twice.
 cat > /dev/null     # the mail itself is already in ~/Maildir
 cd
+turn() {    # the prompt on stdin
+  timeout 90m pi -p --offline --no-context-files \
+    --append-system-prompt /usr/share/agent/AGENT.md --session-dir ~/sessions \
+    --session-id mail
+}
 exec 9> .wake.lock
 flock -n 9 || exit 0
 while :; do
@@ -30,7 +36,13 @@ while :; do
 === mail $n of $count ===
 $(cat "Maildir/cur/$name:2,S")"
   done
-  printf '%s\n' "$prompt" | timeout 90m pi -p --offline --no-context-files \
-    --append-system-prompt /usr/share/agent/AGENT.md --session-dir ~/sessions \
-    --session-id mail || exit $?
+  printf '%s\n' "$prompt" | turn
+  status=$?
+  cuts=0
+  while [ "$status" -eq 124 ] && [ "$cuts" -lt 2 ]; do
+    cuts=$((cuts + 1))
+    echo "Your last turn was cut off by the 90-minute limit. Carry on where you left off, and commit and push in small steps, so that a cut loses little." | turn
+    status=$?
+  done
+  [ "$status" -eq 0 ] || exit "$status"
 done
