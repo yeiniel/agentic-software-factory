@@ -2,5 +2,5 @@
 # Every push to main is checked, once the push is done: the pusher isn't held.
 while read -r _ new ref; do
   [ "$ref" = refs/heads/main ] || continue
-  env -i HOME="$HOME" PATH="$PATH" setsid -f /usr/local/libexec/check-push "$(pwd)" "$new" </dev/null >/dev/null 2>&1
+  env -i HOME="$HOME" PATH="$PATH" LANG=C.UTF-8 setsid -f /usr/local/libexec/check-push "$(pwd)" "$new" </dev/null >/dev/null 2>&1
 done
