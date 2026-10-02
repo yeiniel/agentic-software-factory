@@ -386,6 +386,21 @@ one prompt, N fresh machines.
   Both mails came back "User unknown" into his own Maildir, and I saw the
   bounce, not the mail. I had never given him the address. Resent to the
   right one, the same audit arrived. (2026-10-02, two mails.)
+- **On a second need, the lead read the contract and pushed before
+  briefing, and kept the build for herself until told.** Told "a new need:
+  a command that shows tasks, shopping and tonight's meal", Ana asked five
+  questions, three of them about things the contract does not have (meal
+  types, task tags, links from shopping to meals). Given the customer's
+  answers and three mentoring points, she re-read the contract (three
+  reads), withdrew those three, and still wrote "I'll build it" herself;
+  told a developer builds it, she chose Ben. She left the test of "today"
+  open between two options until asked, then wrote a `--today` flag into the
+  contract as a MUST. She pushed the contract (`dfb8ef2`, 21:23 UTC) and
+  briefed Ben and Eli two minutes later. Ben and Eli each ran
+  `git fetch` first; Eli wrote 25 acceptance tests before the code existed
+  and saw them fail, and noticed that two pass for the wrong reason (two
+  commands failing the same way compare equal). Not tested: whether Ben's
+  commit and Eli's verdict follow. (2026-10-02, one run.)
 - **Asked for a check by someone other than itself, it used a tool that
   ran its own tests, and shrank them until they passed.** (`mail-office`,
   run 2.)
@@ -727,6 +742,19 @@ one prompt, N fresh machines.
   and 0.8 tok/s), against about 153 s for two in a row; both finished
   together, where in a row the first finishes at 77 s. Reading a prompt is
   compute-bound and the slots share it. (2026-10-02, two slots, caching off.)
+- **A turn cut at 90 minutes left a feature half done, and the lead saw the
+  bounce and waited.** Ben's turn on the `plan` command began at 21:25:19
+  UTC and Postfix logged "Command died with status 124" for `wake` at
+  22:55:19 (delay 5400 s). He had written `plan.py` (100 lines) and changed
+  `hub.py`, sanity-checked several cases, found and fixed one bug, and run
+  `make check` (42 passed); he had written no tests, committed nothing,
+  and pushed nothing. His mail was already read, so nothing woke him. The
+  bounce reached Ana at 22:55; she fetched, saw no commits, wrote "his wake
+  process timed out again ... waiting", and did not mail him. A change to
+  `wake` (`b890fd3`) tells a cut-off agent to go on, up to twice; with a
+  stub `pi` and a 2-second limit it made 1, 2 and 3 calls for no cut, one
+  cut and a cut every time, and exited 0, 0 and 124. Not tested: a real cut
+  with a real model. (2026-10-02.)
 
 ## Assumed, never tested
 
