@@ -198,7 +198,10 @@ one prompt, N fresh machines.
   validator's black-box tests, written from the contract, failed 47 of 51
   on it. The validator named import order as the cause; in the checkout I
   made the imports come before the main guard, so I did not establish
-  the cause. (2026-10-02.)
+  the cause. A builder later wrote that the script's modules imported it a
+  second time under another name, so the handlers registered in a second
+  registry; the validated version stopped the feature modules importing
+  `hub` and has `hub.py` register them, which fits. (2026-10-02.)
 - **A contract the builders and the validator could both read left the
   validator the details to catch.** Its failures were in what the contract
   said exactly: a period at the end of "Added task N: ...", negative and
@@ -246,6 +249,55 @@ one prompt, N fresh machines.
   code, and the commit that fixed the last contract failures, which the
   validator then passed, is hers. Nobody mailed anyone about the
   conflicts. (2026-10-02.)
+- **Asked once, on an open list, to look back, the team read each other,
+  and wrote lessons.** The manager's mail named what he had seen and asked
+  for one post each and no acknowledgements. In about 80 minutes the list
+  carried 15 posts (cleo 7, dax 3, ana 2, manager 1, eli 1, ben 1); the first came in five minutes, the others
+  waited 15 to 35 minutes behind their authors' queued turns. Two agents
+  posted once, one twice, one three times and one seven times; the later
+  ones were replies that quoted another's points and added to them
+  ("Building on Ana's points"), so the floor was read and used, which the
+  earlier runs never saw. The request for one post each was not kept. Afterwards four agents
+  wrote a lessons file (the lead added sections to her existing memory
+  file). The lessons are habits ("check the remote first", "verify
+  addresses", "say when you hit a conflict", "run the command end to
+  end"). Not tested: whether any of it changes the next job. Qwen3.6-
+  35B-A3B, five agents on one slot. (2026-10-02.)
+- **Each of three retrospective accounts held a claim the record
+  contradicts.** The lead: "No broken code reached the repo" (the first
+  push of the shared layer exits 1 on every command, and her own fifth
+  point says so). A builder: that "one threw away his tests ... describes
+  me" (her reflog has no discarded work; another builder's does). The
+  validator: "Cleo and Dax both implemented shopping.py" (the commits to
+  that file are two by Ben and one by Dax) and that Dax lost his tests
+  "because his implementation conflicted with the contract" (Dax's own note
+  says the conflict was with Ben's version). The other two builders'
+  accounts matched the record where I could check them. I checked these
+  against the server's history and the agents' reflogs. (2026-10-02.)
+- **Polling for mail inside a turn is futile, and under the old delivery it
+  could deadlock.** Two agents ran `sleep 10 && ls Maildir/new | wc -l` and
+  `sleep 30 && find ... -newer ...` for 23 to 29 minutes inside turns,
+  each waiting for mail that was queued behind them: the queue stayed at 9
+  and 10 requests and two turns held both of Postfix's delivery slots. A
+  restart of the two nodes cleared it. (2026-10-02.)
+- **A hot swap of the delivery command, done in the wrong order, ran three
+  turns at once on one session, and the session files survived.** Relaxing
+  the delivery limit before writing the new `.forward` let two queued mails
+  per agent start under the old command, beside the turn already running.
+  Afterwards every line of all five session files still parsed (374, 351,
+  351, 233 and 378 lines). (2026-10-02.)
+- **On a real model, the first new-style prompts worked; a turn took a
+  batch of up to three mails.** The canary agent's next turn began "You have
+  1 new mail(s), oldest first" with the mail under a `=== mail 1 of 1 ===`
+  marker; across the five agents the batches seen were 3, 1, 1, 1, 1, 1 and
+  2 mails, with three to five more waiting for the next loop. Not tested: a
+  large batch on a real model, and what a batch does to the answers.
+  (2026-10-02.)
+- **"No turn running" is not "idle": mail can still be queued.** My check
+  said the five agents had been idle for a minute; they then showed all five
+  turns running and 4 to 11 requests queued per agent, because a turn pauses
+  between queued mails while Postfix retries. The test has to include the
+  mail queues. (2026-10-02.)
 - **Asked for a check by someone other than itself, it used a tool that
   ran its own tests, and shrank them until they passed.** (`mail-office`,
   run 2.)
