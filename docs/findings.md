@@ -249,20 +249,63 @@ one prompt, N fresh machines.
   code, and the commit that fixed the last contract failures, which the
   validator then passed, is hers. Nobody mailed anyone about the
   conflicts. (2026-10-02.)
-- **Asked once, on an open list, to look back, the team read each other,
-  and wrote lessons.** The manager's mail named what he had seen and asked
-  for one post each and no acknowledgements. In about 80 minutes the list
-  carried 15 posts (cleo 7, dax 3, ana 2, manager 1, eli 1, ben 1); the first came in five minutes, the others
-  waited 15 to 35 minutes behind their authors' queued turns. Two agents
-  posted once, one twice, one three times and one seven times; the later
-  ones were replies that quoted another's points and added to them
-  ("Building on Ana's points"), so the floor was read and used, which the
-  earlier runs never saw. The request for one post each was not kept. Afterwards four agents
-  wrote a lessons file (the lead added sections to her existing memory
-  file). The lessons are habits ("check the remote first", "verify
-  addresses", "say when you hit a conflict", "run the command end to
-  end"). Not tested: whether any of it changes the next job. Qwen3.6-
-  35B-A3B, five agents on one slot. (2026-10-02.)
+- **Asked once, on an open list, to look back, the team read each other
+  and wrote lessons; they did not keep to one post each.** The manager's
+  mail named what he had seen and asked for one post each and no
+  acknowledgements. In 93 minutes (10:53 to 12:46) the list carried 24
+  posts: the manager's and 23 from the agents (Cleo 9, Dax 5, Ben 4, Eli 3,
+  Ana 2), 4,899 words from the agents, 63% of them Cleo's and Dax's. The
+  first reply came in six minutes; the others waited 15 to 35 minutes behind
+  their authors' queued turns. After the first round of five individual
+  retrospectives, the later posts were replies that quoted another's points
+  and added to them ("Building on Ana's points"), so the floor was read and
+  used, which the earlier runs never saw. Afterwards each agent wrote
+  lessons into its memory (the lead added sections to her existing file).
+  The lessons are habits ("check the remote first", "verify addresses", "say
+  when you hit a conflict", "run the command end to end"). Not tested:
+  whether any of it changes the next job. Qwen3.6-35B-A3B, five agents on
+  one slot. (2026-10-02.)
+- **What the retrospective exchanged by mail and what each agent kept are
+  different sizes, and no one kept all of it.** By my reading (a coding of
+  the 24 posts and the five memory files into 16 themes), ten themes were
+  already in the first-round posts and six were born in the discussion
+  (the contract is not a design doc; testing through the command line as the
+  team's pattern; commit messages that say why; flagging someone's bug with
+  them, not fixing it silently; exact-output assertions from the first test;
+  announcing an approach before running it). The agents' lessons came to
+  1,529 words and 70 items, 31% of the words they had posted, against 25
+  "what I would do differently" items in the first-round posts. Each memory
+  holds 9 to 14 of the 16 themes (Ana 9, Ben 11, Cleo 14, Dax 11, Eli 10);
+  three themes are in all five (say conflicts out loud, test end to end,
+  verify addresses), one is in a single memory. First-round themes are in 39
+  of the 50 agent-theme pairs (78%), discussion-born themes in 16 of 30
+  (53%). (2026-10-02.)
+- **Whether the others saw a post depended on the model queue.** Of 97
+  deliveries to an agent, 83 (86%) reached the agent's prompt; Ana, Cleo and
+  Eli saw every post, Ben 13 of 20 and Dax 12 of 19. The missing ones were
+  mid-discussion (Ben's 9th to 15th posts, lost when his node was
+  restarted with mail queued; seven of Dax's). Separately, three posts to
+  Dax and Eli were shown and then the turn died on the model, "Command died
+  with status 1 ... Request timed out" (one slot, five agents), and bounced
+  to the poster, who wrote about it. (2026-10-02, from each agent's session
+  and the bounce notices.)
+- **What reached memory followed who wrote it last, and who summarized.**
+  The lead's memory was last written at 11:54, 1 hour 52 minutes before the
+  end of the discussion; she then processed 22 of the 22 posts and wrote no
+  more, so her memory holds nine themes. Cleo, who posted most and wrote a
+  closing list of six "key patterns", wrote hers at 12:50 and holds 14. Dax
+  wrote his at 12:49; its first six items are Cleo's closing six, in her
+  order. Phrases carried over word for word: "don't let others discover your
+  changes through git history" (Cleo's post, in the lead's memory) and "a
+  contract is just a wish" (the lead's post, in the validator's memory).
+  (2026-10-02.)
+- **A correction made in the discussion did not reach the memory of the
+  agent corrected.** The validator wrote that "Cleo duplicated shopping.py
+  work" and that Cleo discarded her shopping tests; Cleo corrected him in
+  the thread (the commits to that file are two by Ben and one by Dax; the
+  tests were Dax's). His session shows he processed the correction, and his
+  memory, written 48 minutes later, still holds both claims as lessons.
+  (2026-10-02.)
 - **Each of three retrospective accounts held a claim the record
   contradicts.** The lead: "No broken code reached the repo" (the first
   push of the shared layer exits 1 on every command, and her own fifth
