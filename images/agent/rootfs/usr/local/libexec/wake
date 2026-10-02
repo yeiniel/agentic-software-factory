@@ -1,0 +1,36 @@
+#!/bin/bash -l
+# Wake the agent: show pi every mail waiting in ~/Maildir/new, oldest first, as
+# one prompt. Postfix runs it for each mail, after that mail is already in the
+# Maildir. If another run is already taking the mail (it holds the lock), this
+# one is done: that run will see this mail. The run that holds the lock goes on,
+# turn after turn, until nothing is waiting, so the mails that arrive during a
+# turn are taken together by the next one.
+cat > /dev/null     # the mail itself is already in ~/Maildir
+cd
+exec 9> .wake.lock
+flock -n 9 || exit 0
+while :; do
+  waiting=$(ls Maildir/new | sort)
+  if [ -z "$waiting" ]; then
+    # Nothing waiting: let go, and look once more, for a mail that arrived after
+    # the last look, whose own run found the lock still held and left.
+    flock -u 9
+    [ -n "$(ls Maildir/new)" ] || exit 0
+    flock -n 9 || exit 0
+    continue
+  fi
+  count=$(echo "$waiting" | wc -l)
+  n=0
+  prompt="You have $count new mail(s), oldest first."
+  for name in $waiting; do
+    n=$((n + 1))
+    mv "Maildir/new/$name" "Maildir/cur/$name:2,S"
+    prompt="$prompt
+
+=== mail $n of $count ===
+$(cat "Maildir/cur/$name:2,S")"
+  done
+  printf '%s\n' "$prompt" | timeout 90m pi -p --offline --no-context-files \
+    --append-system-prompt /usr/share/agent/AGENT.md --session-dir ~/sessions \
+    --session-id mail || exit $?
+done

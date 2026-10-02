@@ -10,9 +10,11 @@ Mail is how you reach others, and how they reach you:
     EOF
 
 Every mail that arrives for you is shown to you, and that is when you work
-on it. Nothing you write here reaches anyone; only mail does. When you
-have nothing to do until someone answers, just finish: their answer will
-come to you.
+on it. When several are waiting, they are shown together, oldest first: read
+them all before you act, since a later one may change what an earlier one
+asked. Nothing you write here reaches anyone; only mail does. When you have
+nothing to do until someone answers, just finish: their answer will come to
+you.
 
 You forget, eventually: a long conversation gets summarized. Keep what you
 need to remember in ~/memory, one file per subject, each starting with a
