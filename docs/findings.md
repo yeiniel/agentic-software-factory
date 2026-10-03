@@ -401,6 +401,56 @@ one prompt, N fresh machines.
   and saw them fail, and noticed that two pass for the wrong reason (two
   commands failing the same way compare equal). Not tested: whether Ben's
   commit and Eli's verdict follow. (2026-10-02, one run.)
+- **A lead on `gemini-3.5-flash-lite` (the rest on the local model) planned
+  and delegated well and left holes in the contract.** Third need, "say whose
+  a task is, and see who has what in the morning view". Her plan (on
+  `gemini-3.8-flash`, before its quota ended) came after she read the
+  contract, `WORKING.md` and the code: four groups of design questions
+  (how an owner is typed, the list column, grouping in the plan, filtering),
+  and a split of Cleo on tasks and Ben on the plan. After the customer's
+  answers, on Flash-Lite she wrote `CONTRACT_EXTENSION_OWNERS.md` and
+  `DESIGN.md` (`6f0f9b6`, 156 lines), pushed, passed the repo's check and
+  briefed all five. The contract still held a paragraph of her own
+  reasoning ("Wait, existing tests expect ...") and left two choices open
+  ("`(none)` under their name, or `Tasks:\n  (none)`"; `--owner` or `--for`).
+  The design fixed the data shape, and Cleo and Ben built in parallel
+  without a collision. She moved on after Dax's confirmation alone, though
+  she had asked for everyone's. Eli's tests went FAIL (7 of 27) then PASS
+  (103 of 103, on `fdaa310`); Ana then pushed `6316a58` straight to `main`,
+  and Cleo (`9933239`) and Ben (`311a95a`) had made the same fix locally.
+  Not a controlled comparison: a new need, the same lead with her session
+  and memory, and Flash-Lite is not clearly stronger than the local model.
+  (2026-10-03, one run.)
+- **Customer feedback sent after delivery was dropped by the lead.** The
+  mail (two points, one of them that "Alice" and "alice" show as two people)
+  made Ana read `tasks.py`, `plan.py` and the tests; then four mails arrived
+  at once (the retrospective), she moved to them, and she never answered the
+  feedback or fixed it, though her retrospective lesson 3 ("specify casing
+  ... down to the character") is the same gap. Sent again at 22:18 UTC, she
+  replied four seconds later, with no tool call in between, that both items
+  were "addressed ... and delivered" and "live and verified", and that Eli
+  had re-run the suite and issued PASS 103/103. The server's `main` was
+  still `6316a58`; her clone held uncommitted edits to `plan.py` and
+  `tasks.py` from the interrupted attempt; Eli had run nothing since the
+  earlier PASS. Her working copy did group `Alice` and `alice` as one person
+  (84 tests passing), and left the ID column one space off the header, which
+  the reply said lined up "perfectly". (2026-10-03, one agent.)
+- **My own test of the delivered `main` (`6316a58`) found what the PASS
+  did not.** The repo's 84 tests pass and old data without an owner works.
+  The plan groups `ALICE` and `alice` as two people, though the filter treats
+  them as one; the `tasks list` rows are one space off the header; `plan
+  --for` with no name is ignored without an error. (2026-10-03.)
+- **A retrospective asked once on the list got five posts, none of them
+  about the feedback, and some claims the record contradicts.** Ben, Dax,
+  Eli, Ana and Cleo each wrote one post within ten minutes of the request
+  and no acknowledgements. Four said to validate on a feature branch before
+  `main`; Ben, Dax and Ana to fetch before reviewing; Dax and Ana to write
+  the contract to the character. Checked: Ben's account of pushing `fdaa310`
+  before validation is right; Eli's "PASS email bounced every time" is
+  wrong (see the bounce entry above); Cleo's "cut our delivery time in half"
+  has no measurement behind it and "two people fixed the trailing space" was
+  three; Ana wrote "we occasionally pushed or merged" without saying that the
+  commit after the PASS was hers. (2026-10-03.)
 - **Asked for a check by someone other than itself, it used a tool that
   ran its own tests, and shrank them until they passed.** (`mail-office`,
   run 2.)
@@ -772,6 +822,51 @@ one prompt, N fresh machines.
   seat by `podman exec`, as root) and the seat answered "no mail for root",
   so the sender never saw it; I found it in Ana's Postfix log.
   (2026-10-03.)
+- **A hosted model's free tier did not fit an agent, and its published numbers
+  were wrong for the model we needed.** The third-party sites we read said
+  1,500 requests a day for Gemini 3 Flash; Google's docs give no numbers.
+  The account's own limits page (requests per minute, tokens per minute,
+  requests per day) showed `gemini-3.8-flash` at 7 of 5, 197.69K of 250K and
+  22 of 20, and the 429 said `generate_content_free_tier_requests`, limit
+  20, `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, retry in 39,851
+  s. The same page: `gemini-3.5-flash-lite` and `3.1-flash-lite` 15, 250K
+  and 500; the other Flash models (3, 3.5, 3.6, 3.7, 2.5) 5, 250K and 20;
+  Gemma 4 26B and 31B 30, 16K and 14.4K a day; the Pro models 0. An agent
+  step re-sends the whole session (about 41,000 tokens, cached reads
+  included), so 250K tokens a minute allowed about six steps. Not tested:
+  the paid tier. (2026-10-03, one account.)
+- **A session restores the model it was last on, so a new default changed
+  nothing.** Ana's `settings.json` named Google and `gemini-3.8-flash`, and a
+  one-word test with no session answered from Gemini; her real turn went to
+  the local model (her session's replies say `llama`, the local server was
+  busy). pi's docs say resuming "restores them without changing defaults".
+  An added `model_change` entry (provider, model id) in her session file
+  made it resume on Gemini; a test on a copy of her session confirmed it.
+  Once I removed the single unanswered mail entry at its end and resent the
+  mail. (2026-10-03.)
+- **pi did not retry a Gemini quota error, and its retry settings did not
+  change that.** A 429 asking for a 41 to 49 s wait ended the turn at once
+  (`wake` exit 1); `retry.provider.maxRetries` 6 and `maxRetryDelayMs`
+  65000 in her `settings.json` made no difference (the next 429 ended a turn
+  21 s in). `wake` now continues a turn that exits with any failure, after a
+  60 s pause, up to three times (`54c9b12`); with a stub `pi` it made 1, 2,
+  2, 3 and 4 calls for no failure, one failure, one cut, a failure then a
+  cut, and failures every time. On the Flash-Lite run (below) Ana had 105
+  replies and 34 errors by 22:18 UTC; the 27 I classified were all the
+  per-minute token cap. (2026-10-03.)
+- **A continuation started by hand from the wrong directory made a second
+  session.** `podman exec ... pi --session-id mail` without `cd` to the home
+  printed "No project session found with id 'mail'; creating a new session",
+  and Ana woke with no history and read her old session files. I moved the
+  stray file out. (2026-10-03, one slip.)
+- **A mail that was delivered and then met a failed `wake` came back to its
+  sender as "Undelivered".** Eli sent Ana six mails on 2026-10-03 and
+  Postfix reported all six `status=sent`; Ana received all six, including
+  both PASS verdicts. Four "Undelivered Mail Returned to Sender" notices
+  (`Command died with status 1: wake`) came back to Eli, and in his
+  retrospective he wrote that his PASS "bounced every time"; Ben wrote the
+  same of a mail to Ana. The same signal also let Ana learn that Ben's turn
+  had died (status 124), so I left `wake` as it is. (2026-10-03.)
 
 ## Assumed, never tested
 
