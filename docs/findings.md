@@ -755,6 +755,23 @@ one prompt, N fresh machines.
   stub `pi` and a 2-second limit it made 1, 2 and 3 calls for no cut, one
   cut and a cut every time, and exited 0, 0 and 124. Not tested: a real cut
   with a real model. (2026-10-02.)
+- **After the machine was started again, no agent could reach the model
+  server for about 15 minutes, and the mails failed with "Request timed
+  out".** The model server and the nodes were started at 09:12 UTC. A mail
+  to Ana at 09:14:56 and the same mail again at 09:21:57 each started a
+  turn that died 57 s later ("Command died with status 1 ... Request timed
+  out"); her session holds the mail as its last entry and, after the second,
+  four empty error replies 10 to 19 s apart. From her container, port 8080
+  on `host.containers.internal` (169.254.1.2) timed out, while the host's
+  LAN address (192.168.1.128) answered and the bridge gateway refused; a
+  one-word prompt through `pi` timed out in 57 s. After `bin/down` and
+  `bin/up` the same name connected and the same prompt answered in 10 s.
+  Not known: why the name stopped working (the nodes had been started a
+  minute after the model server, shortly after the boot); seen once. The
+  failure notice went to `root@yeiniel.factory` (the mail was sent from the
+  seat by `podman exec`, as root) and the seat answered "no mail for root",
+  so the sender never saw it; I found it in Ana's Postfix log.
+  (2026-10-03.)
 
 ## Assumed, never tested
 
