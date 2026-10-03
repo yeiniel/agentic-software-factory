@@ -1,0 +1,27 @@
+{
+  "providers": {
+    "local": {
+      "baseUrl": "http://host.containers.internal:PORT/v1",
+      "api": "openai-completions",
+      "apiKey": "none",
+      "models": [
+        {
+          "id": "MODEL-ID",
+          "name": "MODEL NAME",
+          "input": [
+            "text"
+          ],
+          "reasoning": false,
+          "contextWindow": 32768,
+          "maxTokens": 8192,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          }
+        }
+      ]
+    }
+  }
+}

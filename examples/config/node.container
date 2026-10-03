@@ -1,0 +1,26 @@
+# Node @NAME@.factory (@KIND@). Made by bin/onboard from config/node.container.
+[Unit]
+Description=Factory node @NAME@ (@KIND@)
+
+[Container]
+Image=localhost/@IMAGE@
+ContainerName=asf-@NAME@
+HostName=@NAME@.factory
+Network=asf
+NetworkAlias=@NAME@.factory
+Volume=asf-@NAME@-home.volume:/home/@ACCOUNT@
+UserNS=keep-id:uid=1000,gid=1000
+User=root
+RunInit=true
+
+[Service]
+# Stopping a node ends it with SIGTERM: that is not a failure.
+SuccessExitStatus=143
+
+[Install]
+WantedBy=default.target
+
+[Quadlet]
+# Nodes use only podman's own network: no waiting for the host's network
+# to be "online".
+DefaultDependencies=false

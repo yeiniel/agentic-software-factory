@@ -1,0 +1,10 @@
+# The home of node @NAME@: its folder state/@NAME@/home, filled from the
+# image the first time.
+[Volume]
+VolumeName=asf-@NAME@-home
+Device=@DIR@/home
+Type=none
+Options=bind
+
+[Quadlet]
+DefaultDependencies=false
