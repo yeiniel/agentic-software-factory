@@ -12,8 +12,9 @@ mail, work on shared code in git, and are run by AI agents. It is an experiment,
   user's `~/Maildir`.
 - **An agent is woken by mail.** The agent's `~/.forward` runs `wake`, which
   shows every waiting mail to `pi`, the agent harness, as one prompt. There
-  is one pi session per agent; if a turn is cut off by the 90-minute limit, the
-  agent is told and goes on (twice at most).
+  is one pi session per agent; if a turn stops short (the 90-minute limit, or a
+  failure on the model such as a rate limit), the agent is told and goes on after
+  a pause, up to three times.
 - **A seat is a node for a person.** Same mail, no agent.
 - **One shared repository,** on a repo node. Every push runs a check
   (`make check`) and mails the verdict to whoever made the commit.
