@@ -509,6 +509,34 @@ Findings are grouped by the question each experiment was set up to answer. Part 
   three; Ana wrote "we occasionally pushed or merged" without saying that the
   commit after the PASS was hers. (2026-10-03.)
 
+- **A fixed consolidation turn after each batch of mail, with a skill that
+  says how, kept one agent's memory right over five scripted mails.** One
+  fresh agent per run, Qwen3.6-35B-A3B, five mails from a local account
+  `boss`: a house rule; a procedure for a rejected push; a lunch invitation; an
+  update that replaces the house rule; a lesson, with a claim about a colleague
+  in it. After each mail `wake` asked the agent, in the same session, to
+  consolidate `~/.pi/agent/AGENTS.md` (shown on every turn; budget 8,192 bytes)
+  and its skills. Run 1 (the skill was silently not loaded, see Part III): the
+  work turns wrote no memory. The consolidation turns added the rule, added the
+  procedure as a line of the always-on file, changed nothing for the lunch ("a
+  one-time event, not a persistent rule"), replaced the old rule's line with
+  the update, and added the lesson without the claim about the colleague; 542
+  bytes at the end. The agent searched the disk for the skill, wrote that it
+  "isn't installed", and consolidated without it. Run 2 (skill loaded): the
+  agent read the skill in the first work turn and edited its memory in the work
+  turns of mails 1, 2, 4 and 5; its consolidation turns each read the file and
+  the skills directory and wrote that nothing was left to change; the same
+  three rules at the end (501 bytes); the lunch ignored. Of the four mails that
+  asked for a one-word reply, run 1 mailed none (it said "Noted." in its turn,
+  which reaches no one) and run 2 mailed all four. No skill was written in
+  either run: the procedure went into the always-on file, which had room. Not
+  tested: a budget that forces a choice; whether a topic skill is read when it
+  is needed; noisy or conflicting mails; a claim with no record behind it; long
+  sessions or compaction; one session per mail; more than one run per
+  condition, so the difference between the runs may not be the skill. (2026-10-04;
+  the record is in `~/Projects/local/software-factory-data/probes/memory-consolidation/`,
+  outside the repository.)
+
 ## 7. Tools and wording
 
 *Question: What must be a tool and what can stay wording?*
@@ -1038,6 +1066,59 @@ What the machine, the mail host, the repository node and the model server taught
   now sets `0`; the turn's 90-minute limit bounds a request that never ends.
   Not tested: a real queue on `llama-server`, and whether it keeps working on
   a request whose client has gone. (2026-10-04, pi 0.87.1, one run each.)
+
+- **A skill whose description has an unquoted `: ` is skipped without a
+  word.** A `SKILL.md` with `description: Update what you remember after a
+  piece of work: add ...` got no entry in the system prompt's
+  `<available_skills>` and no error in print mode; the same file with the
+  description in double quotes was listed, with its name, description and
+  location. Before the quotes, none of these listed it: settings `skills`
+  naming the directory, the skill's directory or its file; `--skill` naming
+  either; a copy in the agent directory's `skills/`. A first check of mine
+  looked for the skill's name in the prompt, which the agent's instructions
+  also contain, and passed wrongly; the `<name>` entry of the listing is what
+  shows it loaded. (2026-10-04, pi 0.87.1, a recording fake model server.)
+
+- **What `pi -p` loads from an agent's home, as `wake` runs it (the home is the
+  working directory).** Against a fake model server that records each request,
+  with `wake`'s flags and valid skill descriptions: skills in
+  `~/.pi/agent/skills/` and in `~/.agents/skills/` were listed in the system
+  prompt with name, description and location; a skill in `~/.pi/skills/` (a
+  project folder, the working directory being the home) was not, and was with
+  `--approve`. `~/.pi/agent/AGENTS.md` was not in the prompt with
+  `--no-context-files` and was without it. A user extension in
+  `~/.pi/agent/extensions/` whose `before_agent_start` handler returns the
+  system prompt with text added had that text in the prompt, in print mode,
+  with no trust decision. Not tested: whether the model reads a listed skill
+  when it should (the consolidation runs above are the only case); the
+  extensions' compaction and settle hooks. (2026-10-04, pi 0.87.1.)
+
+- **Containers on a bridge network could not reach the model server by
+  `host.containers.internal`; the shared `pasta` had been started three seconds
+  before the host had an address.** The machine was started at 13:12:16 and the
+  nodes at about 13:13:17. TCP to port 8080 from a running node (`asf-ana`),
+  from a new container on `asf` and from one on a second bridge: the name
+  (169.254.1.2 in every container's `/etc/hosts`) timed out, the host's LAN
+  address (192.168.1.128) connected, the bridge gateway refused. From a new
+  container on podman's default network: the name connected and the LAN address
+  was refused. `llama-server` listened on 0.0.0.0:8080 and answered on
+  localhost. All of a user's bridge networks share one network namespace and
+  one `pasta` process; its start time was 13:13:17. NetworkManager connected
+  the wifi and got the lease (192.168.1.128) at 13:13:20. Inside that namespace
+  `tap0` has 169.254.2.1/16 and the default route is via 169.254.2.2; a
+  container on the default network, with its own `pasta` started later, has the
+  host's real default route (192.168.1.1, on the wifi interface). pasta's
+  manual: `--config-net` sets up addresses and routes "as configured or sourced
+  from the host", and `--map-guest-addr` (169.254.1.2 is passed) makes the
+  address equal to the host's global address by default. The same signature
+  as 2026-10-03: nodes started about a minute after boot, the name timed out,
+  the LAN address answered, and after `bin/down` and `bin/up` the name
+  connected. The node unit has `DefaultDependencies=false`, with a comment that
+  nodes need no wait for the host's network. Nothing was changed to find this.
+  Not tested: that recreating the namespace (stopping every container on a
+  bridge network) restores the name; that starting the nodes after the host
+  has an address prevents it. (2026-10-04, podman 6.1.1, passt 2026_07_28,
+  NetworkManager.)
 
 # Assumed, never tested
 
