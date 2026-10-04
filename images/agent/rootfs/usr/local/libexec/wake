@@ -17,6 +17,12 @@
 # with what is there, delete what is wrong or no longer needed. The step is
 # ours, so that it happens every time; what is worth keeping is the agent's
 # judgment (the consolidate-memory skill says how).
+# Postfix keeps a delivered command's output only up to a few KB and then closes
+# the pipe, so a later write fails (pi dies with EPIPE). Nothing here writes to
+# it for long: pi's answer is in its session, its errors go to the node's log,
+# and when the last turn has failed, one line goes to Postfix, for the bounce.
+trap '' PIPE
+exec 3>&2 >/dev/null 2>&1
 cat > /dev/null     # the mail itself is already in ~/Maildir
 cd
 log() { /usr/sbin/postlog -t wake "$*"; }    # /usr/sbin: not on an account's PATH
@@ -24,7 +30,7 @@ turn() {    # the prompt on stdin; $1 says what it is; --continue stays in the b
   log "start $1"
   timeout 90m pi -p --offline "${@:2}" \
     --append-system-prompt /usr/share/agent/AGENT.md --session-dir ~/sessions \
-    2> >(tee /dev/fd/2 | /usr/sbin/postlog -t wake)
+    2> >(/usr/sbin/postlog -t wake)
   local status=$?
   wait $!     # pi's errors are logged before the line that ends its turn
   log "end status $status"
@@ -63,7 +69,7 @@ $(cat "Maildir/cur/$name:2,S")"
     echo "Your last turn $why. Carry on where you left off, and commit and push in small steps, so that a stop loses little." | turn "continuation $stops" --continue
     status=$?
   done
-  [ "$status" -eq 0 ] || exit "$status"
+  if [ "$status" -ne 0 ]; then echo "wake: the last turn stopped with status $status; see the node's log" >&3 || true; exit "$status"; fi
   # Not retried if it stops short: the next batch gets its own.
   echo "That was the last of the mail shown to you. Now consolidate what you remember. Read the consolidate-memory skill and follow it: ask what the work above showed that is worth keeping, and add it, merge it with what you have, or delete what it shows to be wrong or no longer needed. If there is nothing, change nothing. Your always-on memory, ~/.pi/agent/AGENTS.md, is $(cat .pi/agent/AGENTS.md 2>/dev/null | wc -c) of 8192 bytes. Your skills, in ~/.pi/agent/skills: $(ls .pi/agent/skills 2>/dev/null | tr '\n' ' ')" | turn "consolidation" --continue
 done
