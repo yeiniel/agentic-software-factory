@@ -1,3 +1,4 @@
 {
-  "httpIdleTimeoutMs": 0
+  "httpIdleTimeoutMs": 0,
+  "skills": ["/usr/share/agent/skills"]
 }

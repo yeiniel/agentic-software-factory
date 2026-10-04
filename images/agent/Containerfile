@@ -3,7 +3,9 @@
 # ~/Maildir. The model server is the node's own: ~/.pi/agent/models.json.
 # pi waits for the model as long as it takes (~/.pi/agent/settings.json: no
 # HTTP idle timeout): a request in the model server's queue is slow, not
-# broken, and the turn's own time limit bounds one that never ends.
+# broken, and the turn's own time limit bounds one that never ends. What the
+# agent remembers is ~/.pi/agent/AGENTS.md (shown every turn) and its skills
+# (~/.pi/agent/skills, and the consolidate-memory skill in /usr/share/agent).
 # Configuration is in rootfs/, at its place in the image; what the account's
 # home starts with is in home/.
 # Build: podman build -t asf-agent images/agent/   (after asf-mail)
