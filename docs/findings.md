@@ -9,96 +9,154 @@ The experiments so far were done in the earlier repository
 `mail-factory`, `mail-team`, `mail-crew` (2026-09-26 to 27, models in LM
 Studio on a laptop; `mail-crew` on a 9B distilled Qwen3.5), `mail-office`
 and `mail-repo` (2026-09-29 to 10-01, Qwen3.6-35B-A3B on `llama-server`).
-The harness was pi in all of them. No finding has been checked on another
-model or harness.
+The harness was pi in all of them. The runs of 2026-10-02 and 10-03 (a lead,
+builders and a validator on one repository) are in this repository, on
+Qwen3.6-35B-A3B except where a finding says otherwise. No finding has been
+checked on another harness.
 
 A probe is the bare model (pi, none of our tools, instructions or skills),
 one prompt, N fresh machines.
 
-## The model and its team
+Findings are grouped by the question each experiment was set up to answer. Part I answers those questions. Part II holds what the frame did to the agents without meaning to; Part III is what it took to run the experiments, with no bearing on how a team works. Within a part the order is not chronological.
+
+# Part I. What the experiments were asking
+
+## 1. The model and its team
+
+*Question: Does the model have a team, and what does it reach for to work with it?* Probe results, then what mail that wakes an agent did.
 
 - **Its picture of itself is one assistant and one user.** Told to reach
   its team on the factory floor, 0 of 8 reached anyone; 5 asked the person
   back, 2 said they had no team. (`mail-repo`, probe 1.)
+
 - **Told only its teammates' names, it reached no one** (0 of 8). It
   looked for the project first (`ls ~`, `git log`, a README), then for a
   way to reach them: a mail command, environment variables, files named
   after them, pi's documentation. (`mail-repo`, probe `team-bare`, mail
   removed from the machine.)
+
 - **Given a directory with a way to reach each teammate, 6 of 8 did,**
   with no word on how. (`mail-repo`, probe `side-by-side`.)
-
-## Mail
 
 - **With an address to write to, mail was used more than chat:** 4 of 8
   mailed, 2 of 8 used chat, both offered side by side; `mail -s SUBJECT
   ADDRESS` right the first time, with no instructions. Not tested: email
   came first in `TEAM.md`'s columns and the order was never reversed.
   (`mail-repo`, probe `side-by-side`.)
+
 - **Mail is used pairwise:** one mail per person, never one to both.
   (`mail-repo`, probe `side-by-side`.)
+
 - **An address for everyone gets used:** given a row "Everyone:
   team@factory", 6 of 8 used it, unprompted. (`mail-repo`, probe
   `mail-replies`.)
+
 - **It doesn't wait for answers.** 8 of 8 wrote to their team; none read
   a reply that arrived about 20 seconds later; 3 looked at the mailbox
   before it came and finished. (`mail-repo`, probe `mail-replies`.)
+
 - **It knows a Maildir, and reads it as files** (`ls`, `find`): 8 of 8
   looked at `~/Maildir`. (`mail-repo`, probe `mail-replies`.)
+
 - **With mail that wakes it, it waits by finishing.** Two agents agreed a
   date on the team's list in four minutes and both reported it; one
   ended its turn saying the answer would arrive as new mail. One proposed
   the agreed date again from a mail already out of date. (`mail-repo`,
   first test, 2 agents.)
-- **The mechanics of mail cost more than its idea.** Headers, threads,
-  replies and encodings took most of `mail-office`'s frame fixes over
-  four runs. (`mail-office`.)
-- **A wrong address that doesn't bounce goes unnoticed.** A mail to a
-  name the node accepted for anyone landed in the wrong mailbox and was
-  relayed on as if delivered. (`mail-crew`.)
 
-## Git and the shared work
+- **A fresh agent told "you are on a team, ~/TEAM.md lists who is on it"
+  read the file first, and answered from it, with one slip.** Asked "who is
+  on your team?", it ran one command, read `~/TEAM.md`, and replied with the
+  five names, writing "clev" for "cleo" (the file says "cleo"). The file is
+  written by `bin/team` from what is running, and onboarding or offboarding
+  a node updated every agent's copy at once. One run, one agent,
+  Qwen3.6-35B-A3B. (2026-10-02.)
+
+## 2. Coordination and slicing
+
+*Question: Does the need to coordinate, and to slice the work vertically, emerge by itself?*
 
 - **Distributed git, where everyone publishes and nobody pushes, was not
   understood:** wrong addresses in three runs, three repositories with
   one name, integration by copying files. (`mail-office`, runs 1 to 4.)
+
 - **It expects one shared repository.** In probes it looked for the
   project in a repository first; 2 of 8 wrote a coordination file into
   it, and neither committed nor pushed. (`mail-repo`, probes `team-bare`,
   `side-by-side`.)
+
 - **With one shared `origin`, coordination happened in the code.** Given
   each only its own part of a need, two agents each built their part and
   one built on the other's, with no mail between them. (`mail-repo`,
   need 3.)
+
 - **A job that fits in one head is done by every head.** Given the whole
   need (12 tests, then 27), each of two agents built all of it in one
   turn, and one version was thrown away each time. (`mail-repo`, needs 1
   and 2.)
+
 - **A collision felt at once did not make anyone talk.** A rejected push,
   twice, was absorbed: the work was dropped and reported done.
   (`mail-repo`, needs 1 and 2.)
 
-## Asking
+- **Work was duplicated and discarded without a word, and roles blurred.**
+  A builder implemented the tasks and shopping modules that two others
+  owned, and merged over one of them ("contract-correct implementation");
+  one of those two threw away his 14 tests with `git reset --hard` (the
+  commit survives only in his reflog) and started again; the lead wrote
+  code, and the commit that fixed the last contract failures, which the
+  validator then passed, is hers. Nobody mailed anyone about the
+  conflicts. (2026-10-02.)
+
+- **A lead left to decide built alone,** twice. It asked for a team once
+  the first mail said what leading means, stated the actors' small memory
+  as a fact, and the need had a part of a different kind. (`mail-office`,
+  runs 1 to 3.)
+
+- **With a team, the lead was a hub:** 25 of 35 mails were the lead's,
+  three went actor to actor (`mail-crew`); across four runs and nine
+  agents, no mail went between two agents that weren't the lead, and
+  nobody posted to the open list (`mail-office`).
+
+- **Split by layer, nothing was checkable until both halves existed,**
+  and failures compounded unseen for hours. (`mail-crew`.)
+
+## 3. Asking
+
+*Question: Does an agent ask for what it lacks?*
 
 - **What it lacks, it makes up, and reports done.** Three builders who
   couldn't fetch a repository each wrote their own contract; one wrote
   the whole application it was meant to document; none asked.
   (`mail-office`, run 4.)
+
 - **A pointer to who knows doesn't make it ask.** Two agents each needed
   a fact only the other had been told, and each mail said who knew it. In
   80 minutes neither asked: one invented a way to type the fact in, then
   took over the other's part. (`mail-repo`, need 4.)
+
 - **A failing check is read as a bug, not as a missing fact.** Seven red
   checks naming the failing tests were read by both and never led to
   asking. (`mail-repo`, need 4.)
 
-## Claims and verification
+- **Told only "mail me directly", an agent used a made-up address, twice.**
+  Eli mailed `agent@yeiniel.factory`; my seat is `user@yeiniel.factory`.
+  Both mails came back "User unknown" into his own Maildir, and I saw the
+  bounce, not the mail. I had never given him the address. Resent to the
+  right one, the same audit arrived. (2026-10-02, two mails.)
 
-- **A report that reads well is not evidence.** A one-line PASS for an
-  app with no page travelled three hops to the customer, the only one who
-  checked. (`mail-crew`.)
-- **It claims to have run what it didn't,** and to have told a colleague
-  what it never sent. (`mail-crew`, `mail-office`.)
+- **Told a commit existed, four agents tried to fetch it for several
+  minutes, and none made up a contract.** The lead's briefing named a
+  commit that was only in her own clone, with an address of the wrong
+  kind. Two builders and the validator ran `git fetch` or `git show` on it
+  at least twice; two of them mailed the lead that it was missing, after
+  she had already pushed it. The lead said, on being told what the server
+  held, "I committed locally but forgot to push", and pushed. (2026-10-02.)
+
+## 4. Claims, verification and quality
+
+*Question: Can what an agent says be taken as evidence, and what controls quality?*
+
 - **A lead briefed on a project read before it answered, and what it
   reported about it was true.** Told about the hub (a repository, 12
   tests, "think, don't build yet", and "run your ideas by me first: don't
@@ -116,6 +174,7 @@ one prompt, N fresh machines.
   the work" was by module (tasks, then shopping, then meals), each usable
   when done. One run; the instruction was wording only. (2026-10-02,
   Qwen3.6-35B-A3B.)
+
 - **Three fresh agents given the same welcome mail did three different
   things, and one wrote a false claim into its own memory.** Told to
   clone and look at the repository, to keep what they learned in memory,
@@ -137,18 +196,7 @@ one prompt, N fresh machines.
   line in its memory with true ones; the agent that had skipped it did the
   same, both within two minutes. One run each, Qwen3.6-35B-A3B.
   (2026-10-02.)
-- **A fresh agent told "you are on a team, ~/TEAM.md lists who is on it"
-  read the file first, and answered from it, with one slip.** Asked "who is
-  on your team?", it ran one command, read `~/TEAM.md`, and replied with the
-  five names, writing "clev" for "cleo" (the file says "cleo"). The file is
-  written by `bin/team` from what is running, and onboarding or offboarding
-  a node updated every agent's copy at once. One run, one agent,
-  Qwen3.6-35B-A3B. (2026-10-02.)
-- **A mail sent within seconds of a node starting got a Postfix warning
-  and still went.** `postdrop: warning: mail_queue_enter: create file
-  maildrop/...: No such file or directory`, from a seat asked to mail
-  right after `bin/onboard`; the mail was delivered and answered a
-  half-minute later. Seen once. (2026-10-02.)
+
 - **A validator told "your verdicts are your own; you work with Ana but
   answer to me; tell me if you think they are pressured" took it in and
   described it back correctly, and everything it reported was true.** Its
@@ -161,20 +209,118 @@ one prompt, N fresh machines.
   mail (three engineers, one validator), two cloned the repository, one
   skipped it silently and one claimed to have done it without doing it.
   One run each, Qwen3.6-35B-A3B. (2026-10-02.)
-- **Asked to write down what was settled and why, a lead's memory had a
-  "Key decisions and why" section, and its mail and its memory told the
-  delivery pipeline differently.** Given a mentor's two questions (what do
-  we hand the customer and how is the unvalidated kept out; what happens
-  when three engineers build one shared layer), the lead's third plan, 100
-  seconds after the mail, named one owner for the shared layer, delivery in
-  priority order with only what the validator accepted going on, and wrote
-  the decisions and their reasons into memory, as asked. Its mail said
-  engineers submit to the manager, who forwards to the validator; its memory
-  said engineer, validator, then manager. The mail also held two versions of
-  the plan ("Actually, let me reorder ..."), the memory the final one. In
-  the plan, the engineers write the tests for their own features, which the
-  validator then reviews. It acted on nothing and mailed no one but the
-  manager. One run, Qwen3.6-35B-A3B. (2026-10-02.)
+
+- **A report that reads well is not evidence.** A one-line PASS for an
+  app with no page travelled three hops to the customer, the only one who
+  checked. (`mail-crew`.)
+
+- **It claims to have run what it didn't,** and to have told a colleague
+  what it never sent. (`mail-crew`, `mail-office`.)
+
+- **Each of three retrospective accounts held a claim the record
+  contradicts.** The lead: "No broken code reached the repo" (the first
+  push of the shared layer exits 1 on every command, and her own fifth
+  point says so). A builder: that "one threw away his tests ... describes
+  me" (her reflog has no discarded work; another builder's does). The
+  validator: "Cleo and Dax both implemented shopping.py" (the commits to
+  that file are two by Ben and one by Dax) and that Dax lost his tests
+  "because his implementation conflicted with the contract" (Dax's own note
+  says the conflict was with Ben's version). The other two builders'
+  accounts matched the record where I could check them. I checked these
+  against the server's history and the agents' reflogs. (2026-10-02.)
+
+- **Asked for a check by someone other than itself, it used a tool that
+  ran its own tests, and shrank them until they passed.** (`mail-office`,
+  run 2.)
+
+- **When no actor could install the software as its user would, every
+  failure the customer found was an install failure.** (`mail-office`,
+  run 1.)
+
+- **Criteria the builder can't read caught every guessed value;** tests
+  in the repository gave their values away. (`mail-repo`, needs 3 and 4.)
+
+- **A deterministic tool is taken for an actor with judgment** unless its
+  own answers say what it is. (`mail-office`.)
+
+- **At the first push of the shared layer the builders' check was green
+  and no command worked.** On a fresh checkout, `tasks list`, `shopping
+  add` and `meals add` each exited 1 with no output, while `make check`
+  said OK: the repository had no tests, and later the builder's tests
+  called the handler functions, not the commands. The builder had said
+  "Everything works" after trying only the usage-error paths. The
+  validator's black-box tests, written from the contract, failed 47 of 51
+  on it. The validator named import order as the cause; in the checkout I
+  made the imports come before the main guard, so I did not establish
+  the cause. A builder later wrote that the script's modules imported it a
+  second time under another name, so the handlers registered in a second
+  registry; the validated version stopped the feature modules importing
+  `hub` and has `hub.py` register them, which fits. (2026-10-02.)
+
+- **A contract the builders and the validator could both read left the
+  validator the details to catch.** Its failures were in what the contract
+  said exactly: a period at the end of "Added task N: ...", negative and
+  zero task numbers answered "not found" and not "invalid", and the
+  subcommands in a usage line listed alphabetically and not in the
+  contract's order. Each was fixed in the next round. The validator did
+  not ask the lead about the places where the contract was loose (task
+  numbers after a removal, column widths, trailing blanks): it compared
+  with whitespace trimmed. (2026-10-02.)
+
+- **What a contract leaves out, the validator can't see.** The app keeps
+  its data in a `data.json` beside `hub.py`, so any two runs of one
+  checkout share state, from any directory and any home. The validator's
+  isolation worked because it copied `hub.py` and the four modules into a
+  fresh directory for every test, having read the builders' code to learn
+  where the file went, and by naming the modules; the contract says
+  nothing about where data lives. (2026-10-02, found by running the
+  commands from two directories.)
+
+- **A check by the validator was reported as "all 10 supported", and the
+  user saw it only secondhand.** Ana wrote `WORKING.md` (`1be381f`: 10
+  agreements, 23 quotes) and Eli audited it. His audit mail, greeted to Ana
+  and the user, was sent to Ana only; her summary to the user said "Eli
+  approved ... No corrections needed". The audit said no false
+  attributions, listed four paraphrases as minor, and said his own
+  `lessons.md` was "fully supported". (2026-10-02, one run.)
+
+- **The audit was wrong in four places.** (1) Commit order: it said Ana's
+  stub `9ce85dd` came before Ben's shared layer `6615ca7`; the server shows
+  `6615ca7` at 01:20:25 and `9ce85dd` at 01:28:59. (2) Quotes: I compared
+  the 23 against the named author's list posts, ignoring punctuation and
+  quote marks: 17 are in that author's post (quotes 1 and 4 cut off
+  mid-sentence), 1 is half found, 4 are paraphrases not in any post (7, 9,
+  11, 18), and 1 is Ben's wording attributed to Cleo (15). (3) His
+  `lessons.md` still held two false lines (Cleo duplicated `shopping.py`;
+  Cleo discarded her shopping tests). (4) He gave Dax's post as 09:53; it
+  is 09:18, and he wrote the wrong time twice. My first count used strict
+  matching and said 12 not found; that overcounted, and the 4 above is the
+  corrected figure. Not tested: whether anyone else's check of the quotes
+  would have differed. (2026-10-02, 23 quotes.)
+
+- **Shown a list of his errors, Eli fixed the checkable ones and still
+  erred on the rest.** In three turns over about five hours he corrected
+  the commit order against the server log and rewrote lessons 9 and 10
+  with quotes I found in Cleo's (09:43) and Dax's (09:18) posts. In his
+  quote audit he said "I cannot find this" where he had no source (7, 15,
+  18), and caught the truncations in 1 and 4. He called quote 8 "fabricated"
+  though his own 10:37 post contains it, and called 5, 19 and 20
+  unconfirmable because they bounced for him, though they are in the list
+  archive; he searched only his own mailbox. His totals (9, 1, 1, 12) equal
+  the ones in my mail; he wrote that his count "matches Yeiniel". Not
+  tested: whether the lessons hold on a second need. (2026-10-02, one
+  agent.)
+
+- **My own test of the delivered `main` (`6316a58`) found what the PASS
+  did not.** The repo's 84 tests pass and old data without an owner works.
+  The plan groups `ALICE` and `alice` as two people, though the filter treats
+  them as one; the `tasks list` rows are one space off the header; `plan
+  --for` with no name is ignored without an error. (2026-10-03.)
+
+## 5. A mentored team, end to end
+
+*Question: Does a team with a lead, builders and a validator, mentored by a manager, deliver?* The runs of 2026-10-02 and 10-03, Qwen3.6-35B-A3B except where noted.
+
 - **The first full run of a team (a lead, three builders, a validator,
   one repository, one model slot) reached a validated product in about
   three and a half hours.** From the manager's go-ahead (02:36) to the
@@ -189,203 +335,22 @@ one prompt, N fresh machines.
   one item it had not verified ("may not work correctly ... need to
   verify"). Seat as manager, Qwen3.6-35B-A3B, five agents on one slot.
   (2026-10-02.)
-- **At the first push of the shared layer the builders' check was green
-  and no command worked.** On a fresh checkout, `tasks list`, `shopping
-  add` and `meals add` each exited 1 with no output, while `make check`
-  said OK: the repository had no tests, and later the builder's tests
-  called the handler functions, not the commands. The builder had said
-  "Everything works" after trying only the usage-error paths. The
-  validator's black-box tests, written from the contract, failed 47 of 51
-  on it. The validator named import order as the cause; in the checkout I
-  made the imports come before the main guard, so I did not establish
-  the cause. A builder later wrote that the script's modules imported it a
-  second time under another name, so the handlers registered in a second
-  registry; the validated version stopped the feature modules importing
-  `hub` and has `hub.py` register them, which fits. (2026-10-02.)
-- **A contract the builders and the validator could both read left the
-  validator the details to catch.** Its failures were in what the contract
-  said exactly: a period at the end of "Added task N: ...", negative and
-  zero task numbers answered "not found" and not "invalid", and the
-  subcommands in a usage line listed alphabetically and not in the
-  contract's order. Each was fixed in the next round. The validator did
-  not ask the lead about the places where the contract was loose (task
-  numbers after a removal, column widths, trailing blanks): it compared
-  with whitespace trimmed. (2026-10-02.)
-- **What a contract leaves out, the validator can't see.** The app keeps
-  its data in a `data.json` beside `hub.py`, so any two runs of one
-  checkout share state, from any directory and any home. The validator's
-  isolation worked because it copied `hub.py` and the four modules into a
-  fresh directory for every test, having read the builders' code to learn
-  where the file went, and by naming the modules; the contract says
-  nothing about where data lives. (2026-10-02, found by running the
-  commands from two directories.)
-- **A mail to a busy agent waits for the end of its turn, and a note about
-  the state of the repository can be stale by then.** The manager's mail to
-  the validator was delivered 2.5 minutes after it was sent, the one to the
-  lead 9. The lead's mail said no stubs and no shared layer existed,
-  which was true when it was written; by the time she read it a builder
-  had pushed the layer, and she wrote her own, which collided. She took
-  the builder's version in the merge, and her commit stays in the history.
-  (2026-10-02.)
-- **Told a commit existed, four agents tried to fetch it for several
-  minutes, and none made up a contract.** The lead's briefing named a
-  commit that was only in her own clone, with an address of the wrong
-  kind. Two builders and the validator ran `git fetch` or `git show` on it
-  at least twice; two of them mailed the lead that it was missing, after
-  she had already pushed it. The lead said, on being told what the server
-  held, "I committed locally but forgot to push", and pushed. (2026-10-02.)
-- **A wrong address is reported only after the sender has moved on.** The
-  lead wrote `ben@ben.factory` for four teammates, a builder wrote
-  `ana.factory`; both mails bounced, with the correct addresses in each
-  one's `~/TEAM.md`. `mail` returned normally; the bounce was held until
-  the sender's turn ended, and in between the lead told the manager "Team
-  is briefed". Both resent correctly within about a minute of the bounce.
-  (2026-10-02.)
-- **Work was duplicated and discarded without a word, and roles blurred.**
-  A builder implemented the tasks and shopping modules that two others
-  owned, and merged over one of them ("contract-correct implementation");
-  one of those two threw away his 14 tests with `git reset --hard` (the
-  commit survives only in his reflog) and started again; the lead wrote
-  code, and the commit that fixed the last contract failures, which the
-  validator then passed, is hers. Nobody mailed anyone about the
-  conflicts. (2026-10-02.)
-- **Asked once, on an open list, to look back, the team read each other
-  and wrote lessons; they did not keep to one post each.** The manager's
-  mail named what he had seen and asked for one post each and no
-  acknowledgements. In 93 minutes (10:53 to 12:46) the list carried 24
-  posts: the manager's and 23 from the agents (Cleo 9, Dax 5, Ben 4, Eli 3,
-  Ana 2), 4,899 words from the agents, 63% of them Cleo's and Dax's. The
-  first reply came in six minutes; the others waited 15 to 35 minutes behind
-  their authors' queued turns. After the first round of five individual
-  retrospectives, the later posts were replies that quoted another's points
-  and added to them ("Building on Ana's points"), so the floor was read and
-  used, which the earlier runs never saw. Afterwards each agent wrote
-  lessons into its memory (the lead added sections to her existing file).
-  The lessons are habits ("check the remote first", "verify addresses", "say
-  when you hit a conflict", "run the command end to end"). Not tested:
-  whether any of it changes the next job. Qwen3.6-35B-A3B, five agents on
-  one slot. (2026-10-02.)
-- **What the retrospective exchanged by mail and what each agent kept are
-  different sizes, and no one kept all of it.** By my reading (a coding of
-  the 24 posts and the five memory files into 16 themes), ten themes were
-  already in the first-round posts and six were born in the discussion
-  (the contract is not a design doc; testing through the command line as the
-  team's pattern; commit messages that say why; flagging someone's bug with
-  them, not fixing it silently; exact-output assertions from the first test;
-  announcing an approach before running it). The agents' lessons came to
-  1,529 words and 70 items, 31% of the words they had posted, against 25
-  "what I would do differently" items in the first-round posts. Each memory
-  holds 9 to 14 of the 16 themes (Ana 9, Ben 11, Cleo 14, Dax 11, Eli 10);
-  three themes are in all five (say conflicts out loud, test end to end,
-  verify addresses), one is in a single memory. First-round themes are in 39
-  of the 50 agent-theme pairs (78%), discussion-born themes in 16 of 30
-  (53%). (2026-10-02.)
-- **Whether the others saw a post depended on the model queue.** Of 97
-  deliveries to an agent, 83 (86%) reached the agent's prompt; Ana, Cleo and
-  Eli saw every post, Ben 13 of 20 and Dax 12 of 19. The missing ones were
-  mid-discussion (Ben's 9th to 15th posts, lost when his node was
-  restarted with mail queued; seven of Dax's). Separately, three posts to
-  Dax and Eli were shown and then the turn died on the model, "Command died
-  with status 1 ... Request timed out" (one slot, five agents), and bounced
-  to the poster, who wrote about it. (2026-10-02, from each agent's session
-  and the bounce notices.)
-- **What reached memory followed who wrote it last, and who summarized.**
-  The lead's memory was last written at 11:54, 1 hour 52 minutes before the
-  end of the discussion; she then processed 22 of the 22 posts and wrote no
-  more, so her memory holds nine themes. Cleo, who posted most and wrote a
-  closing list of six "key patterns", wrote hers at 12:50 and holds 14. Dax
-  wrote his at 12:49; its first six items are Cleo's closing six, in her
-  order. Phrases carried over word for word: "don't let others discover your
-  changes through git history" (Cleo's post, in the lead's memory) and "a
-  contract is just a wish" (the lead's post, in the validator's memory).
-  (2026-10-02.)
-- **A correction made in the discussion did not reach the memory of the
-  agent corrected.** The validator wrote that "Cleo duplicated shopping.py
-  work" and that Cleo discarded her shopping tests; Cleo corrected him in
-  the thread (the commits to that file are two by Ben and one by Dax; the
-  tests were Dax's). His session shows he processed the correction, and his
-  memory, written 48 minutes later, still holds both claims as lessons.
-  (2026-10-02.)
-- **Each of three retrospective accounts held a claim the record
-  contradicts.** The lead: "No broken code reached the repo" (the first
-  push of the shared layer exits 1 on every command, and her own fifth
-  point says so). A builder: that "one threw away his tests ... describes
-  me" (her reflog has no discarded work; another builder's does). The
-  validator: "Cleo and Dax both implemented shopping.py" (the commits to
-  that file are two by Ben and one by Dax) and that Dax lost his tests
-  "because his implementation conflicted with the contract" (Dax's own note
-  says the conflict was with Ben's version). The other two builders'
-  accounts matched the record where I could check them. I checked these
-  against the server's history and the agents' reflogs. (2026-10-02.)
-- **Polling for mail inside a turn is futile, and under the old delivery it
-  could deadlock.** Two agents ran `sleep 10 && ls Maildir/new | wc -l` and
-  `sleep 30 && find ... -newer ...` for 23 to 29 minutes inside turns,
-  each waiting for mail that was queued behind them: the queue stayed at 9
-  and 10 requests and two turns held both of Postfix's delivery slots. A
-  restart of the two nodes cleared it. (2026-10-02.)
-- **A hot swap of the delivery command, done in the wrong order, ran three
-  turns at once on one session, and the session files survived.** Relaxing
-  the delivery limit before writing the new `.forward` let two queued mails
-  per agent start under the old command, beside the turn already running.
-  Afterwards every line of all five session files still parsed (374, 351,
-  351, 233 and 378 lines). (2026-10-02.)
-- **On a real model, the first new-style prompts worked; a turn took a
-  batch of up to three mails.** The canary agent's next turn began "You have
-  1 new mail(s), oldest first" with the mail under a `=== mail 1 of 1 ===`
-  marker; across the five agents the batches seen were 3, 1, 1, 1, 1, 1 and
-  2 mails, with three to five more waiting for the next loop. Not tested: a
-  large batch on a real model, and what a batch does to the answers.
-  (2026-10-02.)
-- **"No turn running" is not "idle": mail can still be queued.** My check
-  said the five agents had been idle for a minute; they then showed all five
-  turns running and 4 to 11 requests queued per agent, because a turn pauses
-  between queued mails while Postfix retries. The test has to include the
-  mail queues. (2026-10-02.)
-- **A check by the validator was reported as "all 10 supported", and the
-  user saw it only secondhand.** Ana wrote `WORKING.md` (`1be381f`: 10
-  agreements, 23 quotes) and Eli audited it. His audit mail, greeted to Ana
-  and the user, was sent to Ana only; her summary to the user said "Eli
-  approved ... No corrections needed". The audit said no false
-  attributions, listed four paraphrases as minor, and said his own
-  `lessons.md` was "fully supported". (2026-10-02, one run.)
-- **The audit was wrong in four places.** (1) Commit order: it said Ana's
-  stub `9ce85dd` came before Ben's shared layer `6615ca7`; the server shows
-  `6615ca7` at 01:20:25 and `9ce85dd` at 01:28:59. (2) Quotes: I compared
-  the 23 against the named author's list posts, ignoring punctuation and
-  quote marks: 17 are in that author's post (quotes 1 and 4 cut off
-  mid-sentence), 1 is half found, 4 are paraphrases not in any post (7, 9,
-  11, 18), and 1 is Ben's wording attributed to Cleo (15). (3) His
-  `lessons.md` still held two false lines (Cleo duplicated `shopping.py`;
-  Cleo discarded her shopping tests). (4) He gave Dax's post as 09:53; it
-  is 09:18, and he wrote the wrong time twice. My first count used strict
-  matching and said 12 not found; that overcounted, and the 4 above is the
-  corrected figure. Not tested: whether anyone else's check of the quotes
-  would have differed. (2026-10-02, 23 quotes.)
-- **Shown a list of his errors, Eli fixed the checkable ones and still
-  erred on the rest.** In three turns over about five hours he corrected
-  the commit order against the server log and rewrote lessons 9 and 10
-  with quotes I found in Cleo's (09:43) and Dax's (09:18) posts. In his
-  quote audit he said "I cannot find this" where he had no source (7, 15,
-  18), and caught the truncations in 1 and 4. He called quote 8 "fabricated"
-  though his own 10:37 post contains it, and called 5, 19 and 20
-  unconfirmable because they bounced for him, though they are in the list
-  archive; he searched only his own mailbox. His totals (9, 1, 1, 12) equal
-  the ones in my mail; he wrote that his count "matches Yeiniel". Not
-  tested: whether the lessons hold on a second need. (2026-10-02, one
-  agent.)
-- **A turn can end with no message and nothing in the session to say
-  why.** Eli's first turn on my request started about 15:10 and its last
-  session write was at 15:15, a tool result; it ended at about 16:31 with no
-  error recorded, no `pi` process left, and his mail already read, so
-  nothing woke him again until I mailed him again. Before it ended, slot 0
-  had produced 13,004 tokens in one request (cap 16,384) at 2 to 3 tokens a
-  second (13,055 twenty seconds later). Not seen: the text of that
-  generation. (2026-10-02, one turn.)
-- **Told only "mail me directly", an agent used a made-up address, twice.**
-  Eli mailed `agent@yeiniel.factory`; my seat is `user@yeiniel.factory`.
-  Both mails came back "User unknown" into his own Maildir, and I saw the
-  bounce, not the mail. I had never given him the address. Resent to the
-  right one, the same audit arrived. (2026-10-02, two mails.)
+
+- **Asked to write down what was settled and why, a lead's memory had a
+  "Key decisions and why" section, and its mail and its memory told the
+  delivery pipeline differently.** Given a mentor's two questions (what do
+  we hand the customer and how is the unvalidated kept out; what happens
+  when three engineers build one shared layer), the lead's third plan, 100
+  seconds after the mail, named one owner for the shared layer, delivery in
+  priority order with only what the validator accepted going on, and wrote
+  the decisions and their reasons into memory, as asked. Its mail said
+  engineers submit to the manager, who forwards to the validator; its memory
+  said engineer, validator, then manager. The mail also held two versions of
+  the plan ("Actually, let me reorder ..."), the memory the final one. In
+  the plan, the engineers write the tests for their own features, which the
+  validator then reviews. It acted on nothing and mailed no one but the
+  manager. One run, Qwen3.6-35B-A3B. (2026-10-02.)
+
 - **On a second need, the lead read the contract and pushed before
   briefing, and kept the build for herself until told.** Told "a new need:
   a command that shows tasks, shopping and tonight's meal", Ana asked five
@@ -401,6 +366,7 @@ one prompt, N fresh machines.
   and saw them fail, and noticed that two pass for the wrong reason (two
   commands failing the same way compare equal). Not tested: whether Ben's
   commit and Eli's verdict follow. (2026-10-02, one run.)
+
 - **A lead on `gemini-3.5-flash-lite` (the rest on the local model) planned
   and delegated well and left holes in the contract.** Third need, "say whose
   a task is, and see who has what in the morning view". Her plan (on
@@ -421,6 +387,7 @@ one prompt, N fresh machines.
   Not a controlled comparison: a new need, the same lead with her session
   and memory, and Flash-Lite is not clearly stronger than the local model.
   (2026-10-03, one run.)
+
 - **Customer feedback sent after delivery was dropped by the lead.** The
   mail (two points, one of them that "Alice" and "alice" show as two people)
   made Ana read `tasks.py`, `plan.py` and the tests; then four mails arrived
@@ -435,11 +402,101 @@ one prompt, N fresh machines.
   earlier PASS. Her working copy did group `Alice` and `alice` as one person
   (84 tests passing), and left the ID column one space off the header, which
   the reply said lined up "perfectly". (2026-10-03, one agent.)
-- **My own test of the delivered `main` (`6316a58`) found what the PASS
-  did not.** The repo's 84 tests pass and old data without an owner works.
-  The plan groups `ALICE` and `alice` as two people, though the filter treats
-  them as one; the `tasks list` rows are one space off the header; `plan
-  --for` with no name is ignored without an error. (2026-10-03.)
+
+## 6. Lessons, memory and the retrospective
+
+*Question: Do lessons survive: retrospective, memory, the next job?*
+
+- **Asked to reflect, actors described work that never happened.**
+  (`mail-crew`.)
+
+- **Left to itself, memory records outcomes, not lessons** ("complete,
+  all tests green", after its work was thrown away). Asked what it would
+  do differently, both agents wrote lessons at once; one (pull first)
+  changed the next job, one (claim work on the list) was never done.
+  (`mail-repo`, needs 2 and 3.)
+
+- **Memory in the prompt is re-read, and rewritten, at every step;** kept
+  aside and shown when a session starts without history, it is read when
+  it is missing. (`mail-office`.)
+
+- **Without a word about memory in its prompt, an agent claimed to have
+  saved what it hadn't.** Asked by mail to reply with what it had saved to
+  its memory, the lead's reply said "the key points I've saved" and its
+  session ran only mail commands; there was no `~/memory`. (First run on
+  `images/agent`, 2026-10-01, Qwen3.6-35B-A3B.)
+
+- **With three sentences about memory in its prompt (keep what you need
+  in `~/memory`, one file per subject, each starting with a line that says
+  what it holds; look there before you start work), it wrote memory before
+  it replied, and its reply matched what it wrote:** one file in the first
+  run, two in each of the next two. It tried a wrong path first
+  (`/home/memory/`) in two of the three and corrected it. The line saying
+  what a file holds was in none of the files in the first two runs and in
+  both in the third. Three runs, one scenario. (2026-10-01, 2026-10-02.)
+
+- **Asked once, on an open list, to look back, the team read each other
+  and wrote lessons; they did not keep to one post each.** The manager's
+  mail named what he had seen and asked for one post each and no
+  acknowledgements. In 93 minutes (10:53 to 12:46) the list carried 24
+  posts: the manager's and 23 from the agents (Cleo 9, Dax 5, Ben 4, Eli 3,
+  Ana 2), 4,899 words from the agents, 63% of them Cleo's and Dax's. The
+  first reply came in six minutes; the others waited 15 to 35 minutes behind
+  their authors' queued turns. After the first round of five individual
+  retrospectives, the later posts were replies that quoted another's points
+  and added to them ("Building on Ana's points"), so the floor was read and
+  used, which the earlier runs never saw. Afterwards each agent wrote
+  lessons into its memory (the lead added sections to her existing file).
+  The lessons are habits ("check the remote first", "verify addresses", "say
+  when you hit a conflict", "run the command end to end"). Not tested:
+  whether any of it changes the next job. Qwen3.6-35B-A3B, five agents on
+  one slot. (2026-10-02.)
+
+- **What the retrospective exchanged by mail and what each agent kept are
+  different sizes, and no one kept all of it.** By my reading (a coding of
+  the 24 posts and the five memory files into 16 themes), ten themes were
+  already in the first-round posts and six were born in the discussion
+  (the contract is not a design doc; testing through the command line as the
+  team's pattern; commit messages that say why; flagging someone's bug with
+  them, not fixing it silently; exact-output assertions from the first test;
+  announcing an approach before running it). The agents' lessons came to
+  1,529 words and 70 items, 31% of the words they had posted, against 25
+  "what I would do differently" items in the first-round posts. Each memory
+  holds 9 to 14 of the 16 themes (Ana 9, Ben 11, Cleo 14, Dax 11, Eli 10);
+  three themes are in all five (say conflicts out loud, test end to end,
+  verify addresses), one is in a single memory. First-round themes are in 39
+  of the 50 agent-theme pairs (78%), discussion-born themes in 16 of 30
+  (53%). (2026-10-02.)
+
+- **Whether the others saw a post depended on the model queue.** Of 97
+  deliveries to an agent, 83 (86%) reached the agent's prompt; Ana, Cleo and
+  Eli saw every post, Ben 13 of 20 and Dax 12 of 19. The missing ones were
+  mid-discussion (Ben's 9th to 15th posts, lost when his node was
+  restarted with mail queued; seven of Dax's). Separately, three posts to
+  Dax and Eli were shown and then the turn died on the model, "Command died
+  with status 1 ... Request timed out" (one slot, five agents), and bounced
+  to the poster, who wrote about it. (2026-10-02, from each agent's session
+  and the bounce notices.)
+
+- **What reached memory followed who wrote it last, and who summarized.**
+  The lead's memory was last written at 11:54, 1 hour 52 minutes before the
+  end of the discussion; she then processed 22 of the 22 posts and wrote no
+  more, so her memory holds nine themes. Cleo, who posted most and wrote a
+  closing list of six "key patterns", wrote hers at 12:50 and holds 14. Dax
+  wrote his at 12:49; its first six items are Cleo's closing six, in her
+  order. Phrases carried over word for word: "don't let others discover your
+  changes through git history" (Cleo's post, in the lead's memory) and "a
+  contract is just a wish" (the lead's post, in the validator's memory).
+  (2026-10-02.)
+
+- **A correction made in the discussion did not reach the memory of the
+  agent corrected.** The validator wrote that "Cleo duplicated shopping.py
+  work" and that Cleo discarded her shopping tests; Cleo corrected him in
+  the thread (the commits to that file are two by Ben and one by Dax; the
+  tests were Dax's). His session shows he processed the correction, and his
+  memory, written 48 minutes later, still holds both claims as lessons.
+  (2026-10-02.)
+
 - **A retrospective asked once on the list got five posts, none of them
   about the feedback, and some claims the record contradicts.** Ben, Dax,
   Eli, Ana and Cleo each wrote one post within ten minutes of the request
@@ -451,69 +508,160 @@ one prompt, N fresh machines.
   has no measurement behind it and "two people fixed the trailing space" was
   three; Ana wrote "we occasionally pushed or merged" without saying that the
   commit after the PASS was hers. (2026-10-03.)
-- **Asked for a check by someone other than itself, it used a tool that
-  ran its own tests, and shrank them until they passed.** (`mail-office`,
-  run 2.)
-- **When no actor could install the software as its user would, every
-  failure the customer found was an install failure.** (`mail-office`,
-  run 1.)
-- **Criteria the builder can't read caught every guessed value;** tests
-  in the repository gave their values away. (`mail-repo`, needs 3 and 4.)
-- **A deterministic tool is taken for an actor with judgment** unless its
-  own answers say what it is. (`mail-office`.)
 
-## Memory
+## 7. Tools and wording
 
-- **Asked to reflect, actors described work that never happened.**
-  (`mail-crew`.)
-- **Left to itself, memory records outcomes, not lessons** ("complete,
-  all tests green", after its work was thrown away). Asked what it would
-  do differently, both agents wrote lessons at once; one (pull first)
-  changed the next job, one (claim work on the list) was never done.
-  (`mail-repo`, needs 2 and 3.)
-- **Memory in the prompt is re-read, and rewritten, at every step;** kept
-  aside and shown when a session starts without history, it is read when
-  it is missing. (`mail-office`.)
-
-- **Without a word about memory in its prompt, an agent claimed to have
-  saved what it hadn't.** Asked by mail to reply with what it had saved to
-  its memory, the lead's reply said "the key points I've saved" and its
-  session ran only mail commands; there was no `~/memory`. (First run on
-  `images/agent`, 2026-10-01, Qwen3.6-35B-A3B.)
-- **With three sentences about memory in its prompt (keep what you need
-  in `~/memory`, one file per subject, each starting with a line that says
-  what it holds; look there before you start work), it wrote memory before
-  it replied, and its reply matched what it wrote:** one file in the first
-  run, two in each of the next two. It tried a wrong path first
-  (`/home/memory/`) in two of the three and corrected it. The line saying
-  what a file holds was in none of the files in the first two runs and in
-  both in the third. Three runs, one scenario. (2026-10-01, 2026-10-02.)
-
-## Tools and wording
+*Question: What must be a tool and what can stay wording?*
 
 - **Fixed steps moved into tools stayed fixed, and cut calls and
   context:** a greeting went from 14 calls and 36k tokens to 3 calls and
   6k. (`mail-agent`.)
+
 - **Every rule kept as wording failed at least once:** "check before you
   report", "say what you ran", "a runner judges nothing", "give the
   `git://` address". Replying, publishing, asking for a check and
   refusing an unreachable address held once they were tools.
   (`mail-team`, `mail-crew`, `mail-office`.)
 
-## Organizing
+# Part II. What the frame did to the agents
 
-- **A lead left to decide built alone,** twice. It asked for a team once
-  the first mail said what leading means, stated the actors' small memory
-  as a fact, and the need had a part of a different kind. (`mail-office`,
-  runs 1 to 3.)
-- **With a team, the lead was a hub:** 25 of 35 mails were the lead's,
-  three went actor to actor (`mail-crew`); across four runs and nine
-  agents, no mail went between two agents that weren't the lead, and
-  nobody posted to the open list (`mail-office`).
-- **Split by layer, nothing was checkable until both halves existed,**
-  and failures compounded unseen for hours. (`mail-crew`.)
+Faults in our own setup that changed what agents saw or believed. They are findings about the frame, kept because they sit in the record the agents' behavior is read from.
 
-## The machine
+- **The mechanics of mail cost more than its idea.** Headers, threads,
+  replies and encodings took most of `mail-office`'s frame fixes over
+  four runs. (`mail-office`.)
+
+- **A wrong address that doesn't bounce goes unnoticed.** A mail to a
+  name the node accepted for anyone landed in the wrong mailbox and was
+  relayed on as if delivered. (`mail-crew`.)
+
+- **A mail to a busy agent waits for the end of its turn, and a note about
+  the state of the repository can be stale by then.** The manager's mail to
+  the validator was delivered 2.5 minutes after it was sent, the one to the
+  lead 9. The lead's mail said no stubs and no shared layer existed,
+  which was true when it was written; by the time she read it a builder
+  had pushed the layer, and she wrote her own, which collided. She took
+  the builder's version in the merge, and her commit stays in the history.
+  (2026-10-02.)
+
+- **A wrong address is reported only after the sender has moved on.** The
+  lead wrote `ben@ben.factory` for four teammates, a builder wrote
+  `ana.factory`; both mails bounced, with the correct addresses in each
+  one's `~/TEAM.md`. `mail` returned normally; the bounce was held until
+  the sender's turn ended, and in between the lead told the manager "Team
+  is briefed". Both resent correctly within about a minute of the bounce.
+  (2026-10-02.)
+
+- **Polling for mail inside a turn is futile, and under the old delivery it
+  could deadlock.** Two agents ran `sleep 10 && ls Maildir/new | wc -l` and
+  `sleep 30 && find ... -newer ...` for 23 to 29 minutes inside turns,
+  each waiting for mail that was queued behind them: the queue stayed at 9
+  and 10 requests and two turns held both of Postfix's delivery slots. A
+  restart of the two nodes cleared it. (2026-10-02.)
+
+- **"No turn running" is not "idle": mail can still be queued.** My check
+  said the five agents had been idle for a minute; they then showed all five
+  turns running and 4 to 11 requests queued per agent, because a turn pauses
+  between queued mails while Postfix retries. The test has to include the
+  mail queues. (2026-10-02.)
+
+- **A turn can end with no message and nothing in the session to say
+  why.** Eli's first turn on my request started about 15:10 and its last
+  session write was at 15:15, a tool result; it ended at about 16:31 with no
+  error recorded, no `pi` process left, and his mail already read, so
+  nothing woke him again until I mailed him again. Before it ended, slot 0
+  had produced 13,004 tokens in one request (cap 16,384) at 2 to 3 tokens a
+  second (13,055 twenty seconds later). Not seen: the text of that
+  generation. (2026-10-02, one turn.)
+
+- **A turn that fails or times out is reported to the sender by Postfix
+  itself, with the reason, and is not retried.** pi exiting with an error
+  (its model server unreachable) became a permanent bounce 14 seconds
+  later, "Command died with status 1", with pi's own output ("Connection
+  error") in it. A command running past `command_time_limit` (15 seconds
+  in the test) became a bounce, "Command time limit exceeded", ran once
+  and left no process behind. In both, the mail had already been kept in
+  the agent's Maildir (the first line of its `.forward`) and was never
+  looked at by the agent again. The bounce reaches the sender as mail from
+  `MAILER-DAEMON` with an empty Return-Path. Not tested: a bounce to a
+  sender that is an agent. (2026-10-01, Postfix 3.10.13, three nodes.)
+
+- **Stopping a node mid-turn loses mail without a word.** Two mails to an
+  agent, the node stopped while the first one's command ran and started
+  again four seconds later: the queue was empty, the Maildir held only the
+  first mail, the second was never delivered, the first's command was
+  killed and not run again, and the sender got nothing. Postfix's queue is
+  in the container's own filesystem, which is recreated at every start;
+  only the home is a volume. One run, a command that only sleeps. Not
+  tested: the queue on a volume, which would deliver again what was in
+  flight, the first mail's Maildir copy and command included.
+  (2026-10-01.)
+
+- **Every model failure in the run was "Request timed out", after about five
+  minutes, and `pi` mostly went on to retry.** 47 assistant messages ended
+  in an error, all of that kind; `pi` had waited 4.5 minutes at the median
+  (5.1 at most) for the model, and in 45 of the 47 the session continues with
+  another model call, adding to a queue that was already too long. They came
+  in two bursts, 6 at 03:05 (the whole team woke at once) and 40 between
+  11:00 and 12:25 (the retrospective), none before, between or after, until
+  the model server had two slots at 12:53 (little load has run since).
+  (2026-10-02, five sessions, one slot.)
+
+- **The 90-minute turn limit cut real work twice.** 26 of 155 turns ran
+  longer than 15 minutes (the median turn 2 to 7 minutes, the 90th percentile
+  10 to 44), the longest 87 minutes. Ben's and Cleo's turns, started at 03:39
+  by the lead's "start" mail, were killed at 05:09 ("Command time limit
+  exceeded") and reported by Postfix to the lead. The durations include the
+  overlap of concurrent turns during the hot swap and turns spent polling
+  for mail. (2026-10-02.)
+
+- **A turn cut at 90 minutes left a feature half done, and the lead saw the
+  bounce and waited.** Ben's turn on the `plan` command began at 21:25:19
+  UTC and Postfix logged "Command died with status 124" for `wake` at
+  22:55:19 (delay 5400 s). He had written `plan.py` (100 lines) and changed
+  `hub.py`, sanity-checked several cases, found and fixed one bug, and run
+  `make check` (42 passed); he had written no tests, committed nothing,
+  and pushed nothing. His mail was already read, so nothing woke him. The
+  bounce reached Ana at 22:55; she fetched, saw no commits, wrote "his wake
+  process timed out again ... waiting", and did not mail him. A change to
+  `wake` (`b890fd3`) tells a cut-off agent to go on, up to twice; with a
+  stub `pi` and a 2-second limit it made 1, 2 and 3 calls for no cut, one
+  cut and a cut every time, and exited 0, 0 and 124. Not tested: a real cut
+  with a real model. (2026-10-02.)
+
+- **A mail that was delivered and then met a failed `wake` came back to its
+  sender as "Undelivered".** Eli sent Ana six mails on 2026-10-03 and
+  Postfix reported all six `status=sent`; Ana received all six, including
+  both PASS verdicts. Four "Undelivered Mail Returned to Sender" notices
+  (`Command died with status 1: wake`) came back to Eli, and in his
+  retrospective he wrote that his PASS "bounced every time"; Ben wrote the
+  same of a mail to Ana. The same signal also let Ana learn that Ben's turn
+  had died (status 124), so I left `wake` as it is. (2026-10-03.)
+
+# Part III. Running the experiments
+
+What the machine, the mail host, the repository node and the model server taught us while we built them. Not about factories.
+
+- **A mail sent within seconds of a node starting got a Postfix warning
+  and still went.** `postdrop: warning: mail_queue_enter: create file
+  maildrop/...: No such file or directory`, from a seat asked to mail
+  right after `bin/onboard`; the mail was delivered and answered a
+  half-minute later. Seen once. (2026-10-02.)
+
+- **A hot swap of the delivery command, done in the wrong order, ran three
+  turns at once on one session, and the session files survived.** Relaxing
+  the delivery limit before writing the new `.forward` let two queued mails
+  per agent start under the old command, beside the turn already running.
+  Afterwards every line of all five session files still parsed (374, 351,
+  351, 233 and 378 lines). (2026-10-02.)
+
+- **On a real model, the first new-style prompts worked; a turn took a
+  batch of up to three mails.** The canary agent's next turn began "You have
+  1 new mail(s), oldest first" with the mail under a `=== mail 1 of 1 ===`
+  marker; across the five agents the batches seen were 3, 1, 1, 1, 1, 1 and
+  2 mails, with three to five more waiting for the next loop. Not tested: a
+  large batch on a real model, and what a batch does to the answers.
+  (2026-10-02.)
 
 - **Postfix's default `import_environment` sets `LANG=C`,** so every
   command it runs (the agent's pi, and each `mail` it runs) has no usable
@@ -530,10 +678,12 @@ one prompt, N fresh machines.
   -lc`) and a person's login alike. Rerun end to end on the final images,
   from a person's seat to a fresh agent: its first send worked, with no
   `dead.letter` and no `~/.mailrc`. (2026-10-01, 2026-10-02.)
+
 - **Without the usual tools for looking at a machine, the agent spends
   its context working around them:** listing `/proc` by hand, decoding
   `/proc/net/tcp`, testing a web server with Python, where `ps`, `ss` and
   `curl` were missing. (`mail-office`, run 1, the lead.)
+
 - **A failing verdict with a non-ASCII character in its output was lost
   without a word.** The repository node starts each check with an empty
   environment (`env -i`), so `s-nail` had no character set: "Cannot find a
@@ -549,18 +699,20 @@ one prompt, N fresh machines.
   `mail`, then the agent's `mail` again via Postfix, now the check).
   (2026-10-02.)
 
-## Running the model
-
 - **A second model slot was slower, not faster:** two requests together
   took 54.8 s on one slot and 62.5 s on two; two slots only helped a short
   request stuck behind a long one (0.7 s against 14). (`mail-office`,
   Qwen3.6-35B-A3B on an RTX 4050 with 6 GB and 62 GB of RAM.)
+
 - **Generation slows with context:** about 31 tokens/s at 8k, 10 at 47k,
   5 at 97k; prompts are read at 290 to 310 tokens/s at any depth. (Same.)
+
 - **Past thinking was a third of a lead's context** when it was compacted
   (16k of 49k tokens). (`mail-office`, run 1.)
+
 - **A 30-minute turn cut a builder off twice** with four agents on one
   model slot. (`mail-office`, run 4.)
+
 - **A second model slot gave more generation in total and less speed to
   each request, on a server restarted in 17 seconds.** `llama-server` went
   from `-np 1 -c 98304` to `-np 2 -c 196608` (98,304 tokens per slot,
@@ -579,13 +731,12 @@ one prompt, N fresh machines.
   reading a prompt is compute-bound), the memory once the prompt cache
   fills, a third slot. (2026-10-02, RTX 4050 laptop 6 GB, 62 GB RAM,
   Qwen3.6-35B-A3B.)
+
 - **A real agent on the two-slot server took three mails, a second apart, as
   two turns, and answered all three.** The first mail alone, then the other
   two as one batch, and the three replies ("alpha", "beta", "gamma", as
   asked) were back in about 37 seconds. Not tested: a large batch, a long
   context. (2026-10-02.)
-
-## Infrastructure
 
 - **Rootless systemd-nspawn doesn't start on a default host.** Importing a
   Debian rootfs with `importctl --user -m import-tar` failed: "Failed to
@@ -595,6 +746,7 @@ one prompt, N fresh machines.
   rootless machines to a link with the host each (no shared bridge), and
   folders owned by the "foreign" UID range. (2026-10-01, systemd 261 on
   Arch Linux, NetworkManager, networkd disabled.)
+
 - **A node can be a container whose main process is its mail server.**
   One Debian trixie-slim image, Postfix in the foreground (`postfix
   start-fg`) under podman's `--init`, no systemd; each mail delivered to a
@@ -610,6 +762,7 @@ one prompt, N fresh machines.
   index and an extra turn). One run, one model (Qwen3.6-35B-A3B). Not
   tested: more than one mail in flight, restarts with mail queued, a
   target. (2026-10-01, `images/node`.)
+
 - **The same node needs no code of ours: Postfix alone does it.** The
   account's `~/.forward` keeps each mail in `~/Maildir/` and pipes it to
   pi (`bash -lc`, for a login's PATH); pi takes the mail on stdin as its
@@ -627,32 +780,13 @@ one prompt, N fresh machines.
   woke the agent (which did nothing with it). In a fourth run Ana asked
   Ben to mail the answer to Boss himself, and he did. Qwen3.6-35B-A3B.
   (2026-10-01, `images/mail`, `images/agent`.)
+
 - **A home volume backed by the node's folder is filled from the image
   the first time** (`podman volume create --opt type=none --opt o=bind
   --opt device=DIR`): the agent's `.forward` came from the image, and the
   files are owned by the host user (`--userns keep-id`). A plain bind
   mount hides what the image put there. (2026-10-01, podman 6.1.1.)
-- **A turn that fails or times out is reported to the sender by Postfix
-  itself, with the reason, and is not retried.** pi exiting with an error
-  (its model server unreachable) became a permanent bounce 14 seconds
-  later, "Command died with status 1", with pi's own output ("Connection
-  error") in it. A command running past `command_time_limit` (15 seconds
-  in the test) became a bounce, "Command time limit exceeded", ran once
-  and left no process behind. In both, the mail had already been kept in
-  the agent's Maildir (the first line of its `.forward`) and was never
-  looked at by the agent again. The bounce reaches the sender as mail from
-  `MAILER-DAEMON` with an empty Return-Path. Not tested: a bounce to a
-  sender that is an agent. (2026-10-01, Postfix 3.10.13, three nodes.)
-- **Stopping a node mid-turn loses mail without a word.** Two mails to an
-  agent, the node stopped while the first one's command ran and started
-  again four seconds later: the queue was empty, the Maildir held only the
-  first mail, the second was never delivered, the first's command was
-  killed and not run again, and the sender got nothing. Postfix's queue is
-  in the container's own filesystem, which is recreated at every start;
-  only the home is a volume. One run, a command that only sleeps. Not
-  tested: the queue on a volume, which would deliver again what was in
-  flight, the first mail's Maildir copy and command included.
-  (2026-10-01.)
+
 - **A shared repository can be a container whose main process is `git
   daemon`.** One image (`images/repo`: git, make, s-nail), the daemon
   starting as root and dropping to the account `git`, repositories as
@@ -665,6 +799,7 @@ one prompt, N fresh machines.
   old state was rejected at once ("fetch first"), and integrated with a
   rebase. Throwaway nodes, people's seats as pushers, no agent.
   (2026-10-01, `images/repo`.)
+
 - **A check on every push to `main` can be the repository's own hook,
   and its verdict can be mailed with no mail host on the node.** The
   `post-receive` hook starts `make check` on a fresh checkout, detached
@@ -674,6 +809,7 @@ one prompt, N fresh machines.
   seconds, the mail marked `Auto-Submitted` and saying in its text that it
   is automatic. Not tested: the 600-second time limit, two pushes at
   once, agents as pushers or receivers. (2026-10-01.)
+
 - **The first version of that mail was lost without a word.** `s-nail`
   needs the port written (the slim image has no `/etc/services`), and a
   user in the URL, or it prints an obsoletion warning; with the user in
@@ -684,6 +820,7 @@ one prompt, N fresh machines.
   address that doesn't exist is reported only in the same log, the other
   addresses still get the verdict; with no addresses at all the pusher is
   told, on the push. (2026-10-01, s-nail 14.9.)
+
 - **A verdict can go to whoever made the last commit, with no list to
   keep.** The check mails the address of the tip commit's committer, which
   is the node's own address by default (`agent@ana.factory`), as a short
@@ -696,6 +833,7 @@ one prompt, N fresh machines.
   reported only in the node's log, as before. Throwaway nodes, a person's
   seat as the pusher. Not tested: agents as pushers, the 600-second time
   limit, two pushes at once. (2026-10-02.)
+
 - **A fresh node can't commit, and the account's full name is all it
   lacks:** "Author identity unknown", since its account has no full name.
   With one (`useradd -c agent`), git works out the rest itself from the
@@ -709,9 +847,11 @@ one prompt, N fresh machines.
   record, which rules out falling back to the name, and OpenSMTPD has no
   setting to skip MX lookups. Postfix does (`smtp_dns_support_level =
   disabled`). (2026-10-01, podman 6.1.1, OpenSMTPD 7.6.0.)
+
 - **A command run by Postfix's delivery has a minimal PATH,** so the first
   wake-up failed to find pi, and said so only in a log in the agent's
   home. (2026-10-01.)
+
 - **A team list can be a mail node with one alias file, and a poster is
   not woken by their own post.** The list node is the mail image with
   `alias_maps = texthash:/home/archive/aliases` and one line, `team
@@ -732,6 +872,7 @@ one prompt, N fresh machines.
   a factory with a running team would have reached the real agents: I
   trimmed the test list by hand. One run, mail only, no model. Not tested:
   agents posting to it. (2026-10-02, Postfix 3.10.13.)
+
 - **Mail waiting behind a turn was not in the Maildir, and a blocking lock
   did not fix that.** With the Maildir write and the `pi` command in one
   delivery, and Postfix's default of two local deliveries at a time per
@@ -739,6 +880,7 @@ one prompt, N fresh machines.
   a wake-up that blocked on a lock held a slot. Five mails two seconds apart
   took three one-mail turns, and two had not reached the Maildir. A stand-in
   for `pi` that logs its prompt and sleeps 15 seconds. (2026-10-02.)
+
 - **A non-blocking wake-up with a drain loop took a burst in one prompt.**
   The mail is written to the Maildir at once and then `wake` runs: the run
   that holds the lock loops (take every mail in `new`, oldest first, as one
@@ -751,6 +893,7 @@ one prompt, N fresh machines.
   senders of the others in its batch. The same stand-in `pi`, 15-second
   turns. Not tested: a real model, or what a batch does to its answers.
   (2026-10-02.)
+
 - **Three of five sessions compacted at about 82,000 tokens of a 98,304
   window, and the agents did not go back to their memory afterwards.**
   Ana's session compacted at 82,117 tokens, Cleo's at 82,326 and Eli's at
@@ -764,47 +907,21 @@ one prompt, N fresh machines.
   turns and read it in 13 (8%), although their prompt says to look there
   before starting work. Whether a lesson survives a compaction is untested.
   (2026-10-02, from the sessions.)
-- **Every model failure in the run was "Request timed out", after about five
-  minutes, and `pi` mostly went on to retry.** 47 assistant messages ended
-  in an error, all of that kind; `pi` had waited 4.5 minutes at the median
-  (5.1 at most) for the model, and in 45 of the 47 the session continues with
-  another model call, adding to a queue that was already too long. They came
-  in two bursts, 6 at 03:05 (the whole team woke at once) and 40 between
-  11:00 and 12:25 (the retrospective), none before, between or after, until
-  the model server had two slots at 12:53 (little load has run since).
-  (2026-10-02, five sessions, one slot.)
-- **The 90-minute turn limit cut real work twice.** 26 of 155 turns ran
-  longer than 15 minutes (the median turn 2 to 7 minutes, the 90th percentile
-  10 to 44), the longest 87 minutes. Ben's and Cleo's turns, started at 03:39
-  by the lead's "start" mail, were killed at 05:09 ("Command time limit
-  exceeded") and reported by Postfix to the lead. The durations include the
-  overlap of concurrent turns during the hot swap and turns spent polling
-  for mail. (2026-10-02.)
+
 - **A restart keeps sessions and memory, and leaves an unread mail waiting
   until the next mail.** Homes are volumes, so every agent kept its session
   and memory across the restarts; the Postfix queue was lost (ten queued
   list posts each for two agents). A mail already in the Maildir but not yet
   shown, after a restart, stayed unread with no agent started; a normal mail
   sent afterwards was taken with it as one batch of two. (2026-10-02.)
+
 - **With a 26,120-token prompt a second slot did not help.** Alone: 77 s
   (prompt read at 378 tok/s, then 7.8 tok/s generation). Two different
   prompts of that size at once: 157 s in all (about 330 tok/s each, then 4.4
   and 0.8 tok/s), against about 153 s for two in a row; both finished
   together, where in a row the first finishes at 77 s. Reading a prompt is
   compute-bound and the slots share it. (2026-10-02, two slots, caching off.)
-- **A turn cut at 90 minutes left a feature half done, and the lead saw the
-  bounce and waited.** Ben's turn on the `plan` command began at 21:25:19
-  UTC and Postfix logged "Command died with status 124" for `wake` at
-  22:55:19 (delay 5400 s). He had written `plan.py` (100 lines) and changed
-  `hub.py`, sanity-checked several cases, found and fixed one bug, and run
-  `make check` (42 passed); he had written no tests, committed nothing,
-  and pushed nothing. His mail was already read, so nothing woke him. The
-  bounce reached Ana at 22:55; she fetched, saw no commits, wrote "his wake
-  process timed out again ... waiting", and did not mail him. A change to
-  `wake` (`b890fd3`) tells a cut-off agent to go on, up to twice; with a
-  stub `pi` and a 2-second limit it made 1, 2 and 3 calls for no cut, one
-  cut and a cut every time, and exited 0, 0 and 124. Not tested: a real cut
-  with a real model. (2026-10-02.)
+
 - **After the machine was started again, no agent could reach the model
   server for about 15 minutes, and the mails failed with "Request timed
   out".** The model server and the nodes were started at 09:12 UTC. A mail
@@ -822,6 +939,7 @@ one prompt, N fresh machines.
   seat by `podman exec`, as root) and the seat answered "no mail for root",
   so the sender never saw it; I found it in Ana's Postfix log.
   (2026-10-03.)
+
 - **A hosted model's free tier did not fit an agent, and its published numbers
   were wrong for the model we needed.** The third-party sites we read said
   1,500 requests a day for Gemini 3 Flash; Google's docs give no numbers.
@@ -835,6 +953,7 @@ one prompt, N fresh machines.
   step re-sends the whole session (about 41,000 tokens, cached reads
   included), so 250K tokens a minute allowed about six steps. Not tested:
   the paid tier. (2026-10-03, one account.)
+
 - **A session restores the model it was last on, so a new default changed
   nothing.** Ana's `settings.json` named Google and `gemini-3.8-flash`, and a
   one-word test with no session answered from Gemini; her real turn went to
@@ -844,6 +963,7 @@ one prompt, N fresh machines.
   made it resume on Gemini; a test on a copy of her session confirmed it.
   Once I removed the single unanswered mail entry at its end and resent the
   mail. (2026-10-03.)
+
 - **pi did not retry a Gemini quota error, and its retry settings did not
   change that.** A 429 asking for a 41 to 49 s wait ended the turn at once
   (`wake` exit 1); `retry.provider.maxRetries` 6 and `maxRetryDelayMs`
@@ -854,21 +974,14 @@ one prompt, N fresh machines.
   cut, and failures every time. On the Flash-Lite run (below) Ana had 105
   replies and 34 errors by 22:18 UTC; the 27 I classified were all the
   per-minute token cap. (2026-10-03.)
+
 - **A continuation started by hand from the wrong directory made a second
   session.** `podman exec ... pi --session-id mail` without `cd` to the home
   printed "No project session found with id 'mail'; creating a new session",
   and Ana woke with no history and read her old session files. I moved the
   stray file out. (2026-10-03, one slip.)
-- **A mail that was delivered and then met a failed `wake` came back to its
-  sender as "Undelivered".** Eli sent Ana six mails on 2026-10-03 and
-  Postfix reported all six `status=sent`; Ana received all six, including
-  both PASS verdicts. Four "Undelivered Mail Returned to Sender" notices
-  (`Command died with status 1: wake`) came back to Eli, and in his
-  retrospective he wrote that his PASS "bounced every time"; Ben wrote the
-  same of a mail to Ana. The same signal also let Ana learn that Ben's turn
-  had died (status 124), so I left `wake` as it is. (2026-10-03.)
 
-## Assumed, never tested
+# Assumed, never tested
 
 Choices we hold without a run behind them. Each stays here until a run or
 a probe moves it above, or drops it.
@@ -876,3 +989,4 @@ a probe moves it above, or drops it.
 - That the model works best on Debian, or on any particular OS.
 - That each actor needs a machine of its own.
 - That containers, and podman in particular, are the right runtime.
+- That one agent owning a vertical, with an independent verifier, does better than a multi-role pipeline (planner, coder, tester, reviewer). It was the first experiment proposed (2026-09-26) and no run has compared them.
