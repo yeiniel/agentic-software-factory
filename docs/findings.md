@@ -317,6 +317,20 @@ Findings are grouped by the question each experiment was set up to answer. Part 
   them as one; the `tasks list` rows are one space off the header; `plan
   --for` with no name is ignored without an error. (2026-10-03.)
 
+- **Told to reply with where she had got to, the lead answered in her turn and
+  sent no mail, and her memory then said her plan awaited approval.** The
+  hub brief reached Ana (session of one batch per mail, consolidation turn
+  after it). Her work turn cloned the repository, read it and wrote a plan of
+  3,081 bytes as the turn's answer; the session holds no `mail` command. The
+  manager had received only her reply to the earlier hello. In the
+  consolidation turn she replaced "team not onboarded" with "The hub project
+  ...: Assigned to me; waiting for approval of my quality/delivery plan before
+  building". Her instructions say that nothing written in a turn reaches
+  anyone, only mail does. In the first run (one long session) the same brief
+  got a mailed reply. Eli, to his welcome mail, and Ana, to the hello, did
+  mail. One agent, one batch. (2026-10-04, the start of the replay, which was
+  stopped and restarted because of the entry in Part III below.)
+
 ## 5. A mentored team, end to end
 
 *Question: Does a team with a lead, builders and a validator, mentored by a manager, deliver?* The runs of 2026-10-02 and 10-03, Qwen3.6-35B-A3B except where noted.
@@ -1124,6 +1138,26 @@ What the machine, the mail host, the repository node and the model server taught
   `asf-ana` answered "ok" in 9 s. Not tested: that starting the nodes after the
   host has an address prevents it at boot. (2026-10-04, podman 6.1.1, passt
   2026_07_28, NetworkManager.)
+
+- **A command run by Postfix can write only a few KB in total; after that its
+  next write fails.** Ana's `wake` loop (one process for two batches, ten
+  minutes, `pi -p` writing each turn's answer to its stdout, which was
+  Postfix's pipe, and its errors there too) ended its fourth turn with `end
+  status 1` and a Node `Error: write EPIPE` at pi's stdout write, after her three
+  earlier turns had written 503, 547 and 3,081 bytes; Eli's two turns wrote 1,310
+  bytes in all and did not fail. In a throwaway container, a command delivered
+  through `.forward` that wrote 500-byte chunks a second apart: 8 writes (4,008
+  bytes) succeeded and the 9th failed; with 3,000-byte chunks the first
+  succeeded and the second failed. A stand-in pi writing 3,000 bytes per turn,
+  mails delivered by Postfix: turn 1 ended 0 and every later turn ended 1.
+  After `wake` sent pi's stdout and its own stderr to `/dev/null`, pi's stderr
+  only to `postlog`, and wrote one line to Postfix's pipe when the last turn
+  had failed: 8 turns for 10 mails (about 60 KB of pi output) all ended 0,
+  and a loop failing every time still came back as "Command died with status
+  124" with that line. Not tested: the limit itself (the two runs above
+  disagree); whether the first run's turns that ended with no message and
+  nothing in the session had this cause. (2026-10-04, Postfix 3.10.13, pi
+  0.87.1.)
 
 # Assumed, never tested
 
