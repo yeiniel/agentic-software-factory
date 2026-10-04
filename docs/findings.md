@@ -1115,10 +1115,15 @@ What the machine, the mail host, the repository node and the model server taught
   the LAN address answered, and after `bin/down` and `bin/up` the name
   connected. The node unit has `DefaultDependencies=false`, with a comment that
   nodes need no wait for the host's network. Nothing was changed to find this.
-  Not tested: that recreating the namespace (stopping every container on a
-  bridge network) restores the name; that starting the nodes after the host
-  has an address prevents it. (2026-10-04, podman 6.1.1, passt 2026_07_28,
-  NetworkManager.)
+  Recreating the namespace restored it: with no agent mid-turn and the mail
+  queues empty, `bin/down` ended `pasta` (the last container on a bridge
+  network stopped) and `bin/up` started a new one at 15:48:22. Inside the
+  namespace the default route was now via 192.168.1.1 on `wlp0s20f3`; the
+  name connected from `asf-ana` and from a new container on `asf`; the LAN
+  address was now refused, as from the default network; and a `pi` call from
+  `asf-ana` answered "ok" in 9 s. Not tested: that starting the nodes after the
+  host has an address prevents it at boot. (2026-10-04, podman 6.1.1, passt
+  2026_07_28, NetworkManager.)
 
 # Assumed, never tested
 
