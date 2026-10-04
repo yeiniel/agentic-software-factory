@@ -35,6 +35,10 @@ our frame. Done, each recorded in `findings.md` Part III (2026-10-04):
 - pi waits for the model as long as it takes: a request in the model
   server's queue is slow, not broken.
 
+Open, to fix before a run: the nodes reach the model server by
+`host.containers.internal`, which timed out from every bridge network after
+the machine was started (`findings.md` Part III, 2026-10-04). Seen twice.
+
 Left as they are, on purpose or for lack of a way to know yet:
 
 - A mail delivered to an agent whose turn then fails comes back to its
