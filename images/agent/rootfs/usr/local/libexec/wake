@@ -6,8 +6,9 @@
 # turn after turn, until nothing is waiting, so the mails that arrive during a
 # turn are taken together by the next one. A turn that stops short (cut off
 # after 90 minutes, or failed on the model: a rate limit, a timed-out request)
-# is not lost: the session is kept, so after a pause the agent is told and goes
-# on, up to three times. Every turn is logged with Postfix's own log (the
+# is not lost: the batch's session is kept, so after a pause the agent is told
+# and goes on, up to three times. Every batch is its own session: the agent
+# starts it knowing only what it keeps in memory. Every turn is logged with Postfix's own log (the
 # node's), when it starts (with what it was shown) and when it ends (with its
 # exit status), and so are pi's errors: a turn that ends without a word still
 # leaves a time and a status.
@@ -19,11 +20,11 @@
 cat > /dev/null     # the mail itself is already in ~/Maildir
 cd
 log() { /usr/sbin/postlog -t wake "$*"; }    # /usr/sbin: not on an account's PATH
-turn() {    # the prompt on stdin; $1 says what it is
+turn() {    # the prompt on stdin; $1 says what it is; --continue stays in the batch's session
   log "start $1"
-  timeout 90m pi -p --offline \
+  timeout 90m pi -p --offline "${@:2}" \
     --append-system-prompt /usr/share/agent/AGENT.md --session-dir ~/sessions \
-    --session-id mail 2> >(tee /dev/fd/2 | /usr/sbin/postlog -t wake)
+    2> >(tee /dev/fd/2 | /usr/sbin/postlog -t wake)
   local status=$?
   wait $!     # pi's errors are logged before the line that ends its turn
   log "end status $status"
@@ -59,10 +60,10 @@ $(cat "Maildir/cur/$name:2,S")"
     stops=$((stops + 1))
     if [ "$status" -eq 124 ]; then why="was cut off by the 90-minute limit"
     else why="stopped on a failure (status $status, for example a model rate limit or a request that timed out)"; sleep 60; fi
-    echo "Your last turn $why. Carry on where you left off, and commit and push in small steps, so that a stop loses little." | turn "continuation $stops"
+    echo "Your last turn $why. Carry on where you left off, and commit and push in small steps, so that a stop loses little." | turn "continuation $stops" --continue
     status=$?
   done
   [ "$status" -eq 0 ] || exit "$status"
   # Not retried if it stops short: the next batch gets its own.
-  echo "That was the last of the mail shown to you. Now consolidate what you remember. Read the consolidate-memory skill and follow it: ask what the work above showed that is worth keeping, and add it, merge it with what you have, or delete what it shows to be wrong or no longer needed. If there is nothing, change nothing. Your always-on memory, ~/.pi/agent/AGENTS.md, is $(cat .pi/agent/AGENTS.md 2>/dev/null | wc -c) of 8192 bytes. Your skills, in ~/.pi/agent/skills: $(ls .pi/agent/skills 2>/dev/null | tr '\n' ' ')" | turn "consolidation"
+  echo "That was the last of the mail shown to you. Now consolidate what you remember. Read the consolidate-memory skill and follow it: ask what the work above showed that is worth keeping, and add it, merge it with what you have, or delete what it shows to be wrong or no longer needed. If there is nothing, change nothing. Your always-on memory, ~/.pi/agent/AGENTS.md, is $(cat .pi/agent/AGENTS.md 2>/dev/null | wc -c) of 8192 bytes. Your skills, in ~/.pi/agent/skills: $(ls .pi/agent/skills 2>/dev/null | tr '\n' ' ')" | turn "consolidation" --continue
 done
