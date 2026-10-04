@@ -93,6 +93,35 @@ reload. Depends on 2.
 
 **Read from the record.** The baseline measures, against 2's.
 
+### The replay (2026-10-04)
+
+The first run of the hub (2026-10-01 to 10-03) is replayed from empty: a lead
+and a validator first, builders only when the lead asks, at most two (if she
+asks for more, she is told there is no one else), and the manager's mails of
+that run in the same order, with the same needs. The difference that matters:
+every batch of mail is a conversation of its own, and what an agent carries
+from one to the next is what it wrote in `~/.pi/agent/AGENTS.md` and its
+skills. The first run's record is `~/Projects/local/software-factory-data/factory-run-1/`.
+
+For each of the three needs, from the repository, the mail, the list and the
+sessions, never from what anyone says:
+
+- Verdict rounds before Eli's PASS, and whether `main` is still the passed
+  commit when it is handed over.
+- Work built twice or thrown away; conflicts nobody mentioned.
+- Claims the record contradicts (pushed, ran, told someone).
+- Mails to addresses that bounced; questions asked of the manager against
+  things invented.
+- What each agent carries: its memory at the end of each need, what a lesson
+  from one need changed in the next, what it was told once and no longer acts
+  on.
+- Context: the largest prompt of a turn, compactions, how long a batch takes.
+
+Not controlled, and known: two builders where there were three; me as
+manager where it was the user; the consolidation turn, the address check and
+the other frame changes of 2026-10-04; one run each, so a difference is a
+sign, not a measurement.
+
 ## 4. Collective learning
 
 **Question.** What does collective learning look like for agents? In good
