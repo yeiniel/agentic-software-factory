@@ -37,7 +37,9 @@ our frame. Done, each recorded in `findings.md` Part III (2026-10-04):
 
 Open, to fix before a run: the nodes reach the model server by
 `host.containers.internal`, which timed out from every bridge network after
-the machine was started (`findings.md` Part III, 2026-10-04). Seen twice.
+the machine was started (`findings.md` Part III, 2026-10-04). Seen twice; the
+cause is a `pasta` started before the host had an address, and recreating it
+fixes it. What is left is stopping it from happening at boot.
 
 Left as they are, on purpose or for lack of a way to know yet:
 
