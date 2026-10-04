@@ -1025,6 +1025,20 @@ What the machine, the mail host, the repository node and the model server taught
   but does not answer, many recipients at once. (2026-10-04, Postfix 3.10.13,
   s-nail 14.9.)
 
+- **pi's "Request timed out" is its HTTP idle timeout, 5 minutes by default,
+  and pi retries before it fails.** pi's `httpIdleTimeoutMs` setting (default
+  300000; `0` disables it) cuts a request that receives nothing for that long;
+  print mode (`pi -p`, as `wake` runs it) applies it. Against a fake model
+  server that accepts a connection and never answers: with 10 s, the server
+  saw six connections, about 10 s apart, and pi ended with "Request timed
+  out." (exit 1) after 55 s; with `0`, one connection, still waiting at 75 s,
+  when the test stopped it. The run of 2026-10-02 fits: requests waiting
+  behind other agents' turns failed after 4.5 minutes at the median (5.1 at
+  most), and pi sent most of them again, into the same queue. The agent image
+  now sets `0`; the turn's 90-minute limit bounds a request that never ends.
+  Not tested: a real queue on `llama-server`, and whether it keeps working on
+  a request whose client has gone. (2026-10-04, pi 0.87.1, one run each.)
+
 # Assumed, never tested
 
 Choices we hold without a run behind them. Each stays here until a run or
