@@ -981,6 +981,50 @@ What the machine, the mail host, the repository node and the model server taught
   and Ana woke with no history and read her old session files. I moved the
   stray file out. (2026-10-03, one slip.)
 
+- **An account's command can write to the node's log, once `postlog` has the
+  permissions Postfix lists for it.** With `maillog_file = /dev/stdout`,
+  `postlog` run by root reached the container's output (and the journal);
+  run by the account `agent` it printed to its own output and nothing reached
+  the log. Postfix's `postfix-files` lists `postlog` as set-group-id
+  `postdrop` (2755); Debian's package installs it 755. With 2755, the
+  agent's line reached the log. `/usr/sbin` is not on an account's PATH, so
+  the first version of `wake`, calling `postlog` by name, logged nothing and
+  said nothing (its error went to Postfix, which keeps a command's output only
+  for a bounce). By full path, through a real Postfix delivery with a stand-in
+  `pi`: a turn on two mails logged "start 2 mail(s)", the stand-in's
+  "Connection error.", "end status 1", a continuation 60 s later and "end
+  status 0"; a cut turn logged "end status 124" and a continuation at once.
+  `bin/watch` read those lines from the journal, each once. Not tested: a
+  real model, a real 90-minute cut. (2026-10-04, throwaway nodes, Postfix
+  3.10.13.)
+
+- **A wrong address can fail while `mail` sends it, with the reason, by
+  Postfix configuration alone.** `mail` (s-nail) set to send over SMTP to
+  the node's own Postfix (`MAILRC` pointing to a file that sets `mta`; s-nail
+  ignores `mta` in the environment, and `NAIL_EXTRA_RC` works but prints an
+  obsoletion warning on every send), and the node checking each recipient
+  with the host it goes to before accepting (`reject_unverified_recipient`,
+  reject code 550, a failed check remembered one minute). From a seat's
+  account on throwaway nodes, each once: a right address and a team list were
+  delivered (the poster's own list copy dropped, as before); a wrong user
+  failed with `550 ... unknown user: "ana"`; a wrong host, a nested name and a
+  stopped node with `550 ... unable to look up host ...: Name or service not
+  known`; an address outside the domain with "mail only within factory";
+  root with "no mail for root"; a mail to one right and one wrong address
+  was not sent at all, with the wrong one's reason. `mail` exited 4 on each
+  failure, left no `dead.letter`, and nothing stayed queued. The first send
+  to an address took about 6 s (the check); the next, none. Three faults on
+  the way, each found by the test: `unverified_recipient_tempfail_action`
+  refuses `DUNNO` and `permit`, which `postfix check` passes and the SMTP
+  server refuses to start on (every send then failed with "Unexpected EOF");
+  `localhost` resolved to `::1`, outside `mynetworks` (127.0.0.0/8 only), so
+  every mail the node's user sent was taken for a list's copy of their own
+  post and silently discarded while `mail` exited 0; with failed checks not
+  remembered at all, every wrong address answered only "Address verification
+  in progress". Not tested: an agent's turn (pi) sending, a node that is up
+  but does not answer, many recipients at once. (2026-10-04, Postfix 3.10.13,
+  s-nail 14.9.)
+
 # Assumed, never tested
 
 Choices we hold without a run behind them. Each stays here until a run or
@@ -990,3 +1034,6 @@ a probe moves it above, or drops it.
 - That each actor needs a machine of its own.
 - That containers, and podman in particular, are the right runtime.
 - That one agent owning a vertical, with an independent verifier, does better than a multi-role pipeline (planner, coder, tester, reviewer). It was the first experiment proposed (2026-09-26) and no run has compared them.
+- That coordination and vertical slicing emerge in a team that learns well
+  from its own failures, as in human teams, because the models are trained
+  on human behaviour.
