@@ -11,12 +11,17 @@
 # node's), when it starts (with what it was shown) and when it ends (with its
 # exit status), and so are pi's errors: a turn that ends without a word still
 # leaves a time and a status.
+# When a batch has been taken, the agent is asked once more, in the same
+# session, to consolidate what it remembers: add what the turn showed, merge it
+# with what is there, delete what is wrong or no longer needed. The step is
+# ours, so that it happens every time; what is worth keeping is the agent's
+# judgment (the consolidate-memory skill says how).
 cat > /dev/null     # the mail itself is already in ~/Maildir
 cd
 log() { /usr/sbin/postlog -t wake "$*"; }    # /usr/sbin: not on an account's PATH
 turn() {    # the prompt on stdin; $1 says what it is
   log "start $1"
-  timeout 90m pi -p --offline --no-context-files \
+  timeout 90m pi -p --offline \
     --append-system-prompt /usr/share/agent/AGENT.md --session-dir ~/sessions \
     --session-id mail 2> >(tee /dev/fd/2 | /usr/sbin/postlog -t wake)
   local status=$?
@@ -58,4 +63,6 @@ $(cat "Maildir/cur/$name:2,S")"
     status=$?
   done
   [ "$status" -eq 0 ] || exit "$status"
+  # Not retried if it stops short: the next batch gets its own.
+  echo "That was the last of the mail shown to you. Now consolidate what you remember. Read the consolidate-memory skill and follow it: ask what the work above showed that is worth keeping, and add it, merge it with what you have, or delete what it shows to be wrong or no longer needed. If there is nothing, change nothing. Your always-on memory, ~/.pi/agent/AGENTS.md, is $(cat .pi/agent/AGENTS.md 2>/dev/null | wc -c) of 8192 bytes. Your skills, in ~/.pi/agent/skills: $(ls .pi/agent/skills 2>/dev/null | tr '\n' ' ')" | turn "consolidation"
 done
