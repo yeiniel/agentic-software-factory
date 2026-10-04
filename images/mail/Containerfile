@@ -15,6 +15,10 @@ RUN apt-get update \
 RUN update-alternatives --install /usr/bin/mailx mailx /usr/bin/s-nail 50 \
       --slave /usr/bin/mail mail /usr/bin/s-nail
 
+# postlog as Postfix installs it (postfix-files: set-group-id postdrop), which
+# the package leaves out: so an account's commands can log with the node's log.
+RUN chgrp postdrop /usr/sbin/postlog && chmod 2755 /usr/sbin/postlog
+
 COPY rootfs/ /
 
 EXPOSE 25
