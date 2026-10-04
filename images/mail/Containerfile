@@ -10,8 +10,8 @@ RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postfix s-nail \
  && rm -rf /var/lib/apt/lists/*
 
-# s-nail is `mail` (its package doesn't register itself); its inbox and the
-# character set it needs are set for logins (/etc/profile.d).
+# s-nail is `mail` (its package doesn't register itself); its inbox, the
+# character set it needs and how it sends are set for logins (/etc/profile.d).
 RUN update-alternatives --install /usr/bin/mailx mailx /usr/bin/s-nail 50 \
       --slave /usr/bin/mail mail /usr/bin/s-nail
 

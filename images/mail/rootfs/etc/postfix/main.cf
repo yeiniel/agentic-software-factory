@@ -5,14 +5,23 @@ compatibility_level = 3.9
 myorigin = $myhostname
 mydestination = $myhostname
 inet_interfaces = all
-mynetworks = 127.0.0.0/8
+mynetworks = 127.0.0.0/8 [::1]/128
 relay_domains = $mydomain
 default_transport = error:mail only within $mydomain
 smtp_dns_support_level = disabled
-smtpd_recipient_restrictions = check_recipient_access inline:{ {root@ = REJECT no mail for root} }
+# A recipient is checked with the host it goes to before the mail is accepted,
+# so a wrong address fails while it is being sent (`mail` submits here over
+# SMTP), with the reason; a check that gets no answer fails it for now. A
+# failed check is remembered for a minute only, so an address that appears
+# later (a node onboarded) works.
+smtpd_recipient_restrictions = check_recipient_access inline:{ {root@ = REJECT no mail for root} }, reject_unverified_recipient
+address_verify_negative_expire_time = 1m
+address_verify_negative_refresh_time = 1m
+unverified_recipient_reject_code = 550
 # Mail from this host arriving over the network is a list's copy of what its
 # own user posted: drop it, so a post isn't answered by waking its author.
-smtpd_sender_restrictions = check_sender_access inline:{ {$myhostname = DISCARD a copy of its own post} }
+# What this host's users send comes from its own network, and goes on.
+smtpd_sender_restrictions = permit_mynetworks, check_sender_access inline:{ {$myhostname = DISCARD a copy of its own post} }
 alias_maps =
 alias_database =
 biff = no

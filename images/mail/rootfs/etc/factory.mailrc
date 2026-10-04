@@ -1,0 +1,6 @@
+# How `mail` sends here: over SMTP to this host's Postfix, which checks each
+# recipient with the host it goes to before it accepts, so a wrong address
+# fails while it is sent, with the reason. A message that fails isn't kept in
+# ~/dead.letter. Then the account's own ~/.mailrc, if it has one.
+set v15-compat smtp-auth=none mta=smtp://localhost:25 nosave
+source_if ~/.mailrc
