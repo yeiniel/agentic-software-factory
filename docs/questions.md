@@ -26,22 +26,28 @@ below take them in that order.
 
 Before any learning run, the faults in `findings.md` Part II are fixed or
 controlled, so that what an agent learns comes from its work and not from
-our frame:
+our frame. Done, each recorded in `findings.md` Part III (2026-10-04):
+
+- A turn leaves its start, its end and pi's errors in the node's log, and
+  `bin/watch` shows them: a turn that ends without a word leaves a time and
+  a status.
+- A wrong address fails while `mail` sends it, with the reason.
+- pi waits for the model as long as it takes: a request in the model
+  server's queue is slow, not broken.
+
+Left as they are, on purpose or for lack of a way to know yet:
 
 - A mail delivered to an agent whose turn then fails comes back to its
-  sender as "Undelivered"; two agents believed their PASS never arrived.
-  The same notice is how a lead learned that a builder's turn died. To
-  decide.
-- A turn cut by the time limit leaves the work half done and nothing wakes
-  the agent again. `wake` now goes on after a cut, up to twice; untested with
-  a real model.
-- A wrong address bounces only after the sender's turn ends, after it has
-  reported the mail sent.
-- Mail queued behind a turn arrives stale; mail queued on a node is lost when
-  it restarts.
-- With five agents on one model slot, turns die on "Request timed out" when
-  the whole team wakes at once.
-- A turn can end with no message and nothing to say why.
+  sender as "Undelivered". The same notice is how a lead learned that a
+  builder's turn died. If the baseline shows agents misled by it, the turn
+  log says why, and we decide then.
+- A turn cut by the 90-minute limit: `wake` goes on after a cut, up to
+  twice; never tried with a real model.
+- Mail queued behind a turn arrives stale; that is how an inbox works.
+
+One rule instead of a tool: the frame does not change while a run is going.
+In the retrospective of 2026-10-02 two nodes were restarted with mail
+queued, and the posts in it were never seen.
 
 ## 1. A baseline series
 
