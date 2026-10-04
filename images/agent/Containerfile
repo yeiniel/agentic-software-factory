@@ -1,6 +1,9 @@
 # An agent: a mail host whose account `agent` hands each mail to pi, one at
 # a time, all in one conversation (~/sessions); each mail is also kept in
 # ~/Maildir. The model server is the node's own: ~/.pi/agent/models.json.
+# pi waits for the model as long as it takes (~/.pi/agent/settings.json: no
+# HTTP idle timeout): a request in the model server's queue is slow, not
+# broken, and the turn's own time limit bounds one that never ends.
 # Configuration is in rootfs/, at its place in the image; what the account's
 # home starts with is in home/.
 # Build: podman build -t asf-agent images/agent/   (after asf-mail)
