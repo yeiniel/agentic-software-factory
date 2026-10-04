@@ -1,8 +1,9 @@
 #!/bin/sh
 # Usage: bin/watch [-a]
-# One live stream of the whole factory, read from state/ (never written): every
-# mail as it lands (sender -> node: subject), what each agent says and does
-# (pi's sessions: its text, its tool calls, failed results), every commit
+# One live stream of the whole factory, read from state/ and the nodes' log
+# (never written): every mail as it lands (sender -> node: subject), what each
+# agent says and does (pi's sessions: its text, its tool calls, failed
+# results), each agent turn starting and ending, with pi's errors, every commit
 # pushed to a repository, and nodes joining or leaving. From now on; -a first
 # replays everything.
 set -u
@@ -50,6 +51,17 @@ sessions() { # new session entries, as "EPOCH TEXT"
   done
 }
 
+turns() { # agents' turns starting and ending, and pi's errors: wake's lines in
+  # the nodes' log (the journal), as "EPOCH TEXT"
+  journalctl --user -u 'asf-*' -o json -q --cursor-file "$seen/journal" -g ' wake\[' |
+  jq -r '
+    (.__REALTIME_TIMESTAMP | tonumber / 1000000 | floor) as $t |
+    .MESSAGE | if type == "array" then implode else . end |
+    capture("^\\S+ +\\S+ \\S+ (?<node>\\S+) wake\\[[0-9]+\\]: (?<text>.*)$") |
+    if (.text | test("^(start|end) ")) then "\($t) \(.node)  turn \(.text | sub(": .*$"; ""))"
+    else "\($t) \(.node)  ! \(.text)" end' 2>/dev/null
+}
+
 commits() { # new commits on main in the shared repositories, as "EPOCH TEXT"
   for r in state/*/home/*.git; do
     [ -d "$r" ] || continue
@@ -71,12 +83,12 @@ nodes() { # nodes joining or leaving
 }
 
 if [ "${1:-}" != -a ]; then     # from now on: what exists is already seen
-  mails > /dev/null; sessions > /dev/null; commits > /dev/null; nodes > /dev/null
+  mails > /dev/null; sessions > /dev/null; turns > /dev/null; commits > /dev/null; nodes > /dev/null
   live=1
 fi
 while :; do
   nodes | while read -r what node; do echo "$(date +%H:%M:%S) $node  node $what"; done
-  { sessions; mails; commits; } | sort -s -n -k1,1 | while read -r t rest; do
+  { sessions; turns; mails; commits; } | sort -s -n -k1,1 | while read -r t rest; do
     echo "$(date -d "@$t" +%H:%M:%S) $rest"
   done
   live=1
