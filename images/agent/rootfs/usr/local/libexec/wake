@@ -7,13 +7,22 @@
 # turn are taken together by the next one. A turn that stops short (cut off
 # after 90 minutes, or failed on the model: a rate limit, a timed-out request)
 # is not lost: the session is kept, so after a pause the agent is told and goes
-# on, up to three times.
+# on, up to three times. Every turn is logged with Postfix's own log (the
+# node's), when it starts (with what it was shown) and when it ends (with its
+# exit status), and so are pi's errors: a turn that ends without a word still
+# leaves a time and a status.
 cat > /dev/null     # the mail itself is already in ~/Maildir
 cd
-turn() {    # the prompt on stdin
+log() { /usr/sbin/postlog -t wake "$*"; }    # /usr/sbin: not on an account's PATH
+turn() {    # the prompt on stdin; $1 says what it is
+  log "start $1"
   timeout 90m pi -p --offline --no-context-files \
     --append-system-prompt /usr/share/agent/AGENT.md --session-dir ~/sessions \
-    --session-id mail
+    --session-id mail 2> >(tee /dev/fd/2 | /usr/sbin/postlog -t wake)
+  local status=$?
+  wait $!     # pi's errors are logged before the line that ends its turn
+  log "end status $status"
+  return "$status"
 }
 exec 9> .wake.lock
 flock -n 9 || exit 0
@@ -38,14 +47,14 @@ while :; do
 === mail $n of $count ===
 $(cat "Maildir/cur/$name:2,S")"
   done
-  printf '%s\n' "$prompt" | turn
+  printf '%s\n' "$prompt" | turn "$count mail(s): $(echo $waiting)"
   status=$?
   stops=0
   while [ "$status" -ne 0 ] && [ "$stops" -lt 3 ]; do
     stops=$((stops + 1))
     if [ "$status" -eq 124 ]; then why="was cut off by the 90-minute limit"
     else why="stopped on a failure (status $status, for example a model rate limit or a request that timed out)"; sleep 60; fi
-    echo "Your last turn $why. Carry on where you left off, and commit and push in small steps, so that a stop loses little." | turn
+    echo "Your last turn $why. Carry on where you left off, and commit and push in small steps, so that a stop loses little." | turn "continuation $stops"
     status=$?
   done
   [ "$status" -eq 0 ] || exit "$status"
