@@ -1,0 +1,13 @@
+#!/bin/sh
+# Usage: bin/follow [TASK_ID_PREFIX]
+# Follow a Task's records as one line per event (the newest Task if none is given).
+set -eu
+dir=${XDG_DATA_HOME:-$HOME/.local/share}/asf/records/task
+file=$(ls -t "$dir"/*/"${1:-}"*.jsonl | head -1)
+echo "following $file" >&2
+tail -n +1 -F "$file" | python3 -c '
+import sys, json, time
+for line in sys.stdin:
+    r = json.loads(line); e = r["event"]
+    rest = {k: v for k, v in e.items() if k not in ("kind", "type", "output", "run")}
+    print(time.strftime("%H:%M:%S", time.localtime(r["time"])), "run", r["run"], e["kind"], json.dumps(rest)[:240], flush=True)'
