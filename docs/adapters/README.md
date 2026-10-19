@@ -35,7 +35,7 @@ shape of a green verdict only; forcing a red one is implementation-specific.
 ## Repo Host
 
 - `main-head --repo R` → `{"commit"}`
-- `create-branch --repo R --name N --base C` → `{"commit"}`
+- `create-branch --repo R --name N --base C` → `{"commit"}`; an existing branch is reset to `C`, but `main` is refused
 - `checkout --repo R (--branch B | --commit C) --dest DIR` → `{"commit"}`: a single-branch clone, no remote
 - `record --repo R --branch N --from DIR` → `{"commit","changed"}`: commits the directory's changes onto the branch
 - `fast-forward-main --repo R --branch N --expect-main C` → `{"advanced": bool, "head"}`; must not

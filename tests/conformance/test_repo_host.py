@@ -6,9 +6,9 @@ import pytest
 
 
 # These tests write branches and advance `main`: point ADAPTER_REPO_HOST at a disposable repository.
-@pytest.fixture
-def host(adapter):
-    return adapter("repo-host")
+@pytest.fixture(params=["scripted", "git"])
+def host(adapter, request):
+    return adapter("repo-host", impl=request.param)
 
 
 @pytest.fixture
@@ -115,3 +115,8 @@ def test_fast_forward_refuses_when_main_is_not_the_expected_commit(host, repo, t
 
 def test_unknown_operation_fails(host):
     host.fails("no-such-op")
+
+
+def test_main_cannot_be_overwritten_by_create_branch(host, repo):
+    head = host.ok("main-head", repo=repo)["commit"]
+    host.fails("create-branch", repo=repo, name="main", base=head)

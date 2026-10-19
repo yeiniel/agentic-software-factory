@@ -14,6 +14,9 @@ from pathlib import Path
 
 import pytest
 
+sys.path.insert(0, str(Path(__file__).parent.parent / "standins"))
+import gitrepohost  # noqa: E402  (test infrastructure: seeds the real-git Repo Host)
+
 STANDIN = Path(__file__).parent.parent / "standins" / "standin.py"
 
 FIXTURE = {
@@ -54,7 +57,14 @@ class Target:
 
 @pytest.fixture
 def adapter(tmp_path):
-    def make(port):
+    def make(port, impl="scripted"):
+        if impl == "git":
+            if os.environ.get("ADAPTER_REPO_HOST"):
+                pytest.skip("ADAPTER_REPO_HOST targets another implementation")
+            root = tmp_path / "git"
+            gitrepohost.seed_repo(root, FIXTURE["repo"], {"README": "base"})
+            return Target([sys.executable, str(Path(gitrepohost.__file__))],
+                          {**os.environ, "FACTORY_TEST_GIT_ROOT": str(root)}, dict(FIXTURE))
         var = "ADAPTER_" + port.upper().replace("-", "_")
         fixture = {**FIXTURE, **json.loads(os.environ.get(var + "_FIXTURE", "{}"))}
         if os.environ.get(var):

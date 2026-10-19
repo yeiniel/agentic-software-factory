@@ -7,11 +7,14 @@ calls.jsonl and state lives in state.json. Test infrastructure only.
 import fcntl
 import json
 import os
+import subprocess
 import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
 
+HERE = Path(__file__).parent
+sys.path.insert(0, str(HERE))
 FIX = Path(os.environ["FIXTURE_DIR"])
 SCENARIO = json.loads((FIX / "scenario.json").read_text())
 
@@ -119,6 +122,8 @@ def do_repo_host(op, args, body):
         if op == "main-head":
             return {"commit": state["main"]}
         if op == "create-branch":
+            if args["name"] == "main":
+                reject("main is only advanced by fast-forward-main")
             state["branches"][args["name"]] = args["base"]
             return {"commit": args["base"]}
         if op == "checkout":
@@ -182,6 +187,42 @@ def run_integrator(args):
     with locked() as state:
         n = bump(state, "integrator") - 1
     plan = (SCENARIO.get("integrator", []) + [{}] * (n + 1))[n]
+    if SCENARIO.get("integrator_impl") == "real":
+        verdict, output = run_real_integrator(ctx)
+    else:
+        verdict, output = scripted_verdict(plan, ctx)
+    if (n + 1) in SCENARIO.get("main_moves_after_integrator", []):
+        human_push()
+    return {"exit_status": 0 if verdict["result"] == "green" else 1, "timed_out": False,
+            "output": output, "verdict": verdict}
+
+
+def run_real_integrator(ctx):
+    done = subprocess.run(["sh", str(HERE / "integrator.sh"), str(ctx)], capture_output=True, text=True)
+    if done.returncode:
+        reject(f"integrator could not run: {done.stderr}")
+    v = ctx / "verdict"
+    read = lambda name: (v / name).read_text()
+    verdict = {"result": read("result").strip()}
+    if verdict["result"] == "red":
+        verdict["failed_check"] = read("failed_check")
+        verdict["spec_output"] = read("spec_output")
+    return verdict, read("output")
+
+
+def human_push():
+    if SCENARIO.get("integrator_impl") == "real":
+        import gitrepohost
+        gitrepohost.commit_files(Path(os.environ["FACTORY_TEST_GIT_ROOT"]) / "r.git",
+                                 {"human.txt": "pushed by a human"}, "Human push")
+        return
+    with locked() as state:
+        files = dict(state["commits"][state["main"]])
+        files["human.txt"] = "pushed by a human"
+        state["main"] = new_commit(state, files)
+
+
+def scripted_verdict(plan, ctx):
     verdict = {"result": plan.get("result", "green")}
     output = plan.get("output", "suite green")
     if verdict["result"] == "red":
@@ -195,13 +236,7 @@ def run_integrator(args):
             tree = read_tree(ctx / role)
             merged.update({k: v for k, v in tree.items() if base.get(k) != v})
         write_tree(ctx / "result", merged)
-    if (n + 1) in SCENARIO.get("main_moves_after_integrator", []):
-        with locked() as state:
-            files = dict(state["commits"][state["main"]])
-            files["human.txt"] = "pushed by a human"
-            state["main"] = new_commit(state, files)
-    return {"exit_status": 0 if verdict["result"] == "green" else 1, "timed_out": False,
-            "output": output, "verdict": verdict}
+    return verdict, output
 
 
 def do_records(op, args, body):
