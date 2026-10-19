@@ -1,13 +1,75 @@
-#!/bin/sh
-# Usage: bin/follow [TASK_ID_PREFIX]
-# Follow a Task's records as one line per event (the newest Task if none is given).
-set -eu
-dir=${XDG_DATA_HOME:-$HOME/.local/share}/asf/records/task
-file=$(ls -t "$dir"/*/"${1:-}"*.jsonl | head -1)
-echo "following $file" >&2
-tail -n +1 -F "$file" | python3 -c '
-import sys, json, time
-for line in sys.stdin:
-    r = json.loads(line); e = r["event"]
+#!/usr/bin/env python3
+"""Usage: bin/follow [TASK_ID_PREFIX]
+
+Follow a Task (the newest if none is given): the Factory's records and, as they happen, what each
+Agent says and does, read from the Pi session transcripts. Ctrl-C to stop.
+"""
+import calendar
+import glob
+import json
+import os
+import sys
+import time
+
+data = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")), "asf")
+prefix = sys.argv[1] if len(sys.argv) > 1 else ""
+records = max(glob.glob(f"{data}/records/task/*/{prefix}*.jsonl"), key=os.path.getmtime)
+repo, task = os.path.basename(os.path.dirname(records)), os.path.basename(records)[:-len(".jsonl")]
+sessions = f"{data}/runner/sessions/{repo}-{task}"
+print(f"following {task}", file=sys.stderr)
+offsets = {}
+
+
+def clip(text, n=200):
+    text = " ".join(str(text).split())
+    return text if len(text) <= n else text[:n] + "..."
+
+
+def clock(stamp):
+    return time.strftime("%H:%M:%S", time.localtime(stamp))
+
+
+def record(line):
+    r = json.loads(line)
+    e = r["event"]
     rest = {k: v for k, v in e.items() if k not in ("kind", "type", "output", "run")}
-    print(time.strftime("%H:%M:%S", time.localtime(r["time"])), "run", r["run"], e["kind"], json.dumps(rest)[:240], flush=True)'
+    return f"{clock(r['time'])} FACTORY run {r['run']} {e['kind']} {clip(json.dumps(rest), 240)}"
+
+
+def session(role, line):
+    e = json.loads(line)
+    if e.get("type") != "message":
+        return None
+    m = e["message"]
+    stamp = calendar.timegm(time.strptime(e["timestamp"][:19], "%Y-%m-%dT%H:%M:%S"))
+    out = []
+    for part in m["content"] if isinstance(m["content"], list) else [{"type": "text", "text": m["content"]}]:
+        if part["type"] == "text" and m["role"] == "assistant":
+            out.append(f"says: {clip(part['text'])}")
+        elif part["type"] == "text" and m["role"] == "toolResult":
+            out.append(f"<- {m.get('toolName')}: {clip(part['text'], 120)}")
+        elif part["type"] == "toolCall":
+            out.append(f"-> {part['name']}: {clip(json.dumps(part['arguments']), 200)}")
+    return [f"{clock(stamp)} {role.upper()} {o}" for o in out]
+
+
+def new_lines(path):
+    with open(path) as f:
+        f.seek(offsets.get(path, 0))
+        text = f.read()
+    complete = text[:text.rfind("\n") + 1]  # a line still being written is read next time
+    offsets[path] = offsets.get(path, 0) + len(complete.encode())
+    return complete.splitlines()
+
+
+while True:
+    try:
+        for line in new_lines(records):
+            print(record(line), flush=True)
+        for path in sorted(glob.glob(f"{sessions}/*/*.jsonl")):
+            for line in new_lines(path):
+                for text in session(os.path.basename(os.path.dirname(path)), line) or []:
+                    print(text, flush=True)
+        time.sleep(1)
+    except KeyboardInterrupt:
+        break
