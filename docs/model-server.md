@@ -57,8 +57,8 @@ below).
   divergence for Qwen3 at q8_0 is very low (near-lossless).
 - `--fit on`: let llama.cpp maximise GPU layer offloading automatically.
 - `-fa on`: flash attention.
-- `-c 294912 -np 3`: 98,304 tokens per slot, three slots — one per
-  concurrent agent role.
+- `-c 196608 -np 2`: 98,304 tokens per slot, two slots — one per
+  concurrent Agent (the Implementor and the Acceptance Writer; one Run at a time).
 
 ## Benchmarks (2026-10-11, 150-token completion, near-empty context)
 
