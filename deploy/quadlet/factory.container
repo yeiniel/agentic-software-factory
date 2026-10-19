@@ -15,6 +15,8 @@ Environment=RECORDS_DIR=/var/lib/asf/records
 Environment=CONTAINER_HOST=unix:///run/podman.sock
 Environment=RUNNER_ROOT=%h/.local/share/asf/runner
 Environment=RUNNER_AGENT_NETWORK=asf-agents
+# The host's default seccomp profile; the client's own default path does not exist there.
+Environment=ASF_BUILD_SECCOMP_PROFILE=/usr/share/containers/seccomp.json
 Volume=asf-cache.volume:/var/cache/asf
 Volume=%h/.local/share/asf/records:/var/lib/asf/records
 # The same path inside and outside: Podman resolves the Runner's mounts on the host.
