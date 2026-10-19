@@ -63,8 +63,21 @@ def bump(state, key):
     return state["counters"][key]
 
 
+OPS = {"event-source": {"listen"}, "task-store": {"get-prompt", "set-status"},
+       "repo-host": {"main-head", "create-branch", "checkout", "record", "fast-forward-main"},
+       "environment-builder": {"build"},
+       "runner": {"provision-context", "run-agent", "run-integrator"}, "records": {"append"}}
+
+
+def reject(message):
+    print(message, file=sys.stderr)
+    sys.exit(2)
+
+
 def main():
     port, op, *rest = sys.argv[1:]
+    if op not in OPS.get(port, ()):
+        reject(f"unknown operation {op}")
     args = parse(rest)
     raw = "" if port == "event-source" else sys.stdin.read()
     body = json.loads(raw) if raw.strip() else None
@@ -93,6 +106,8 @@ def do_task_store(op, args, body):
     if op == "get-prompt":
         return {"prompt": SCENARIO["tasks"][args["task"]]}
     if op == "set-status":
+        if args["status"] not in ("todo", "running", "done", "blocked"):
+            reject(f"unknown status {args['status']}")
         with locked() as state:
             state["status"].setdefault(args["task"], []).append(args["status"])
             state["status_body"].setdefault(args["task"], []).append(body)
@@ -125,11 +140,15 @@ def do_repo_host(op, args, body):
 
 
 def do_environment_builder(op, args, body):
+    if args["purpose"] not in ("agent", "integrator"):
+        reject(f"unknown purpose {args['purpose']}")
     return {"image": f"img-{args['purpose']}-{args['commit']}"}
 
 
 def do_runner(op, args, body):
     if op == "provision-context":
+        if args["kind"] not in ("implementor", "acceptance-writer", "integrator"):
+            reject(f"unknown kind {args['kind']}")
         ctx = FIX / "contexts" / f"{args['task']}-{args['run']}-{args['kind']}-{args.get('attempt', 0)}"
         ctx.mkdir(parents=True, exist_ok=True)
         (ctx / "context.json").write_text(json.dumps(body))

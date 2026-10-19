@@ -12,6 +12,15 @@ verdicts, Agent failures, timeouts reported by the Runner) are returned as data.
 
 `repo` is passed to Repo Host and Environment Builder; `task` and `run` identify a Run.
 
+## Conformance
+
+`tests/conformance/` holds one suite per port. It runs against the scripted stand-ins by default; to test
+another implementation set `ADAPTER_<PORT>` (e.g. `ADAPTER_REPO_HOST='cmd args'`) and, if its identifiers
+differ, `ADAPTER_<PORT>_FIXTURE` (JSON overriding the defaults in `tests/conformance/conftest.py`).
+The Repo Host suite mutates its repository, so use a disposable one. A real Event Source needs
+`ADAPTER_EVENT_SOURCE_TRIGGER`, a shell command that makes it emit an event. The Runner suite checks the
+shape of a green verdict only; forcing a red one is implementation-specific.
+
 ## Event Source
 
 - `listen`: long-running; prints one JSON event per line: `{"type":"task","task":T,"repo":R}` or
