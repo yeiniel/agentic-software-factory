@@ -1,0 +1,3 @@
+# Tasks are git-native issues on a self-hosted git server
+
+For this experiment a Task is a git-native issue (`refs/issues/*`, from remenoscodes/git-native-issue) stored in the target repository itself, which lives on a git server the Factory runs, not on GitHub. Issues travel with the code over plain push and fetch, need no hosting API, and the Factory learns of new ones from the server's own push hooks. We chose this over GitHub Issues to avoid depending on a hosted platform and to keep everything runnable on one machine. The Task Store and the Repo Host stay abstractions in the Factory, so either can be swapped (a different issue format, or GitHub) without touching the core.

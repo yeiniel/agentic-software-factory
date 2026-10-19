@@ -1,0 +1,3 @@
+# The Factory core has no direct effects; everything goes through adapters
+
+The core holds only business logic and the fixed graph of Activities in a Run. Every effect (receiving events, reading and updating Tasks, git, building Environments, running Agents and the Integrator, writing records) goes through an adapter, an external executable with a documented contract (arguments in, JSON out). We chose this over the core calling git and Podman itself so that deployment-specific concerns stay in swappable adapters, tests can use scripted stand-in adapters, and the core can later be ported to another language without redoing them. The cost is a process boundary on every effect.

@@ -1,0 +1,3 @@
+# The acceptance suite is `make test`
+
+A target repository exposes its entire acceptance suite as `make test`, a language-agnostic entry point. The exit code is the only green/red signal; stdout and stderr are the informational output, handed back verbatim as Feedback on a retry. The Integrator checks a new spec is valid by running `make test` on the base plus the Acceptance Writer's branch and requiring a non-zero exit, and decides done by running it on the integrated result. We chose this over a Factory-defined report format (such as JUnit XML) so the Factory contains no language-specific logic; the cost is that a failing run cannot be classified algorithmically, so blame routing stays coarse (see `docs/design.md`).

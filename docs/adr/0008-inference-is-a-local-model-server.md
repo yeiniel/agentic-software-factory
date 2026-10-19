@@ -1,0 +1,3 @@
+# Inference is a local model server
+
+For this experiment every Agent talks to a `llama-server` (llama.cpp) running on the host and reached from the Environment over the container network; there is no hosted model provider and no API key. We chose this over hosted models for zero marginal cost and because code never leaves the machine, accepting weaker models, slow generation and a hard cap on concurrent Agents (the server has a fixed number of context slots). The model and server settings are configuration, not part of this decision; `docs/model-server.md` records the hardware, the models tried and the settings in use.

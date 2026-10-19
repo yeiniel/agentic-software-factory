@@ -8,11 +8,11 @@ A system that drives AI agents to carry out a Task over an existing repository, 
 The system as a whole: it takes Tasks, launches Agents, integrates their work and decides whether a Task is done.
 
 **Task**:
-The lowest-level unit of work: a prompt describing a change, plus the repository it applies to. Agents receive it as a plain prompt and never fetch it from a task store.
+The lowest-level unit of work: a prompt describing a change to an existing repository. It lives in the Task Store, and Agents receive it as a plain prompt without ever reading the Task Store.
 _Avoid_: Ticket, story, work item, issue
 
 **Agent**:
-An instance of the Pi agent runtime that receives a prompt inside an Environment, with its working directory set to a clone of the repository. It only edits files; it never branches, commits or pushes.
+An instance of the Pi agent runtime that works inside an Environment on a Run Context. It only edits files; it never branches, commits or pushes.
 
 **Implementor**:
 The Agent role that changes the repository to fulfil a Task. The Factory records its result on its own branch.
@@ -20,15 +20,24 @@ The Agent role that changes the repository to fulfil a Task. The Factory records
 **Acceptance Writer**:
 The Agent role that writes the acceptance tests for a Task. The Factory records its result on its own branch.
 
+**Run Context**:
+Everything provisioned for one Agent in one Run: the prompt, the project source on the role's branch (including whatever the project itself brings for agents), and the resumed Pi session state. Skills are not provisioned per Run; they come with the Environment.
+
+**Task Store**:
+Where Tasks live and where their status is written back. An abstraction that Agents never see.
+
+**Repo Host**:
+Where a repository lives and where pushes to it are received. An abstraction, and the source of the events (such as a push) the Factory reacts to.
+
 **Environment**:
-The isolated place where a single Agent runs. The isolation technology (container, VM) is undecided.
+The isolated container where a single Agent, or the Integrator, runs, built from the target repository's own container definition and booted with a Run Context and all dependencies already in place.
 
 **Integrator**:
-The automated, non-agent process that combines the Implementor's and Acceptance Writer's branches, runs the acceptance suite, and merges to `main` only when it passes.
+The deterministic, non-agent process that runs in an Environment on a Run Context holding the Implementor's and Acceptance Writer's branches. It checks the new specs, combines the branches and runs the acceptance suite, and returns a verdict plus the combined branch; the Factory alone decides what reaches `main`.
 _Avoid_: Merger, CI
 
 **Acceptance Report**:
-The acceptance suite's run output, made informative on failure by a good spec framework plus the Acceptance Writer's skill on how to write specs.
+The stdout and stderr of `make test`, made informative on failure by a good spec framework plus the Acceptance Writer's skill on how to write specs. The exit code is the green/red signal.
 
 **Feedback**:
 What the Integrator hands back to a retriggered Agent after a failed Run: the spec run output, conflicts, or both, plus a reminder to check against the Task when it is unclear whether the implementation or the test is at fault. It never discloses the other Agent's branch.
@@ -36,8 +45,14 @@ What the Integrator hands back to a retriggered Agent after a failed Run: the sp
 **Blocked**:
 The status of a Task that reached its Run cap (2 Runs by default) without a Deliverable and now waits for a human.
 
+**Activity**:
+One step in a Run's fixed graph: build the Environment, run the Agents, validate, integrate, publish.
+
+**Adapter**:
+A swappable external executable through which the Factory performs an effect: events, Task Store, Repo Host, Environment building, running an Agent or the Integrator, and records.
+
 **Run**:
-One attempt to complete a Task: the Agents are launched and the Integrator is applied to their results.
+One attempt to complete a Task: each Agent is launched in its own Environment with its own Run Context, and the Integrator is applied to their results.
 
 **Deliverable**:
 The outcome that makes a Task done: the acceptance test suite passes on `main`.
