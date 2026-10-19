@@ -1,0 +1,14 @@
+#!/bin/sh
+# deploy/install: render the Quadlet units for this checkout into ~/.config/containers/systemd and
+# reload systemd. Start with `systemctl --user start factory git-server`.
+set -eu
+repo=$(cd "$(dirname "$0")/.." && pwd)
+units=${XDG_CONFIG_HOME:-$HOME/.config}/containers/systemd
+mkdir -p "$units" "$HOME/.config/asf"
+for f in "$repo"/deploy/quadlet/*; do
+    sed "s|@REPO@|$repo|g" "$f" > "$units/$(basename "$f")"
+done
+[ -e "$HOME/.config/asf/factory.env" ] || cp "$repo/deploy/factory.env.example" "$HOME/.config/asf/factory.env"
+systemctl --user daemon-reload
+systemctl --user enable --now podman.socket
+echo "installed to $units; edit ~/.config/asf/factory.env, then: systemctl --user start factory git-server"

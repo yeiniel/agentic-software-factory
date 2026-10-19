@@ -1,0 +1,32 @@
+[Unit]
+Description=Agentic Software Factory
+Requires=podman.socket
+After=podman.socket asf-agents-network.service
+Requires=asf-agents-network.service
+
+[Container]
+ContainerName=factory
+Image=factory.build
+Network=asf-net.network
+EnvironmentFile=%h/.config/asf/factory.env
+Environment=REPO_HOST_URL=git://git-server
+Environment=ADAPTER_CACHE=/var/cache/asf
+Environment=RECORDS_DIR=/var/lib/asf/records
+Environment=CONTAINER_HOST=unix:///run/podman.sock
+Environment=RUNNER_ROOT=%h/.local/share/asf/runner
+Environment=RUNNER_AGENT_NETWORK=asf-agents
+Volume=asf-cache.volume:/var/cache/asf
+Volume=%h/.local/share/asf/records:/var/lib/asf/records
+# The same path inside and outside: Podman resolves the Runner's mounts on the host.
+Volume=%h/.local/share/asf/runner:%h/.local/share/asf/runner
+# The host's Podman socket goes into the Factory only (ADR 0010).
+Volume=%t/podman/podman.sock:/run/podman.sock
+SecurityLabelDisable=true
+
+[Service]
+Restart=on-failure
+ExecStartPre=/usr/bin/mkdir -p %h/.local/share/asf/records %h/.local/share/asf/runner
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

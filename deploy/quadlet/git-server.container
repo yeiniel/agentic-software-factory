@@ -1,0 +1,18 @@
+[Unit]
+Description=Repo Host: git server for the Factory
+After=factory.service
+
+[Container]
+ContainerName=git-server
+Image=git-server.build
+Network=asf-net.network
+Volume=asf-git.volume:/srv/git
+# The human owner pushes from the host; nothing else is published.
+PublishPort=127.0.0.1:9418:9418
+Environment=EVENT_SOURCE_URL=http://factory:8765
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

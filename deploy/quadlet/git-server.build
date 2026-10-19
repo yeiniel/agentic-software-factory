@@ -1,0 +1,4 @@
+[Build]
+ImageTag=localhost/asf-git-server
+File=@REPO@/git-server/Containerfile
+SetWorkingDirectory=@REPO@/git-server

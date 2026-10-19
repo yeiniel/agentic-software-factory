@@ -1,0 +1,4 @@
+[Build]
+ImageTag=localhost/asf-factory
+File=@REPO@/deploy/factory.Containerfile
+SetWorkingDirectory=@REPO@

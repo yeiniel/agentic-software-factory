@@ -31,6 +31,36 @@ The concrete Adapters for one machine (spec `specs/0002-deployment-adapters.md`)
 - `PODMAN`: the podman executable.
 - Agent and Integrator time limits are the Factory's `agent_timeout` and `integrator_timeout`.
 
+## Running it
+
+Quadlet units in `deploy/quadlet/` (spec `specs/0003-deploy-the-factory.md`):
+
+| Unit | What |
+|---|---|
+| `git-server` | the git server image; port 9418 on `127.0.0.1` for you to push; volume `asf-git` |
+| `factory` | `deploy/factory.Containerfile`; the host's Podman socket, Run Contexts and Records under `~/.local/share/asf/`; volume `asf-cache` |
+| `asf-net`, `asf-agents` | networks: Factory and git server; Agents |
+
+```
+deploy/install                       # render the units for this checkout, enable podman.socket
+$EDITOR ~/.config/asf/factory.env    # model endpoint, name, context window
+bin/model                            # start llama-server on the host (port 8080, all addresses)
+systemctl --user start factory git-server
+journalctl --user -u factory -f
+```
+
+Set up a target repo (it needs a `Containerfile` and `make test`), then push a Task:
+
+```
+podman exec git-server create-repo /srv/git myrepo
+git -C ~/path/to/myrepo push git://localhost:9418/myrepo.git main
+git clone git://localhost:9418/myrepo.git && cd myrepo
+git issue create ...; git push origin 'refs/issues/*'
+```
+
+After changing the Factory, Adapters or layers, `systemctl --user restart factory` rebuilds the image.
+Records are in `~/.local/share/asf/records/`.
+
 ## Target repo requirements
 
 A `Containerfile` at the root whose image has `git` and `make`, and `make test` as the acceptance suite (ADR 0007).
@@ -44,6 +74,8 @@ The agent layer needs a base with `apk`, `apt-get` or `dnf` (to install Node and
 
 - Rewriting is refused everywhere except `refs/heads/factory/*`, because the Factory resets its working
   branches and re-records the integrated branch after `main` moves (the contract allows both).
+- Agents reach the model server through `host.containers.internal`; that route, and `llama-server` listening on
+  all addresses, have not been checked from inside an Agent container.
 - A Task whose issue is updated by a human is not re-triggered; only new issues are events.
 - The Pi skills and configuration are content judged by the experiment. A real Pi against the real model server
   was smoke-tested only as far as starting, writing a session and resuming it (`--continue`) against an

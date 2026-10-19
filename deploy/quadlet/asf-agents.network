@@ -1,0 +1,3 @@
+# Where Agents run: it reaches the model server on the host, and nothing of ours is attached to it.
+[Network]
+NetworkName=asf-agents
