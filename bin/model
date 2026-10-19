@@ -6,7 +6,7 @@
 set -eu
 if [ "${1:-}" = stop ]; then systemctl --user stop llama-server.service && echo "down: llama-server"; exit; fi
 systemd-run --user --unit=llama-server /usr/bin/llama-server \
-  -m "$HOME/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf" \
-  -a qwen3.6-35b-a3b -c 294912 -np 3 -t 10 --fit on -fa on --jinja \
+  -m "$HOME/.lmstudio/models/unsloth/Qwen3-Coder-Next-GGUF/Qwen3-Coder-Next-UD-IQ4_NL.gguf" \
+  -a qwen3-coder-next -c 294912 -np 3 -t 10 --fit on -fa on --jinja \
   --cache-type-k q8_0 --cache-type-v q8_0 \
   --cache-ram 24576 --host 0.0.0.0 --port 8080 && echo "up: llama-server"
