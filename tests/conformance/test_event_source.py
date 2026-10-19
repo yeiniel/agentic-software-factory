@@ -13,8 +13,9 @@ def first_events(source, count=1, wait=15):
     lines = queue.Queue()
     threading.Thread(target=lambda: [lines.put(line) for line in process.stdout] or lines.put(None),
                      daemon=True).start()
-    if os.environ.get("ADAPTER_EVENT_SOURCE_TRIGGER"):  # a real source needs something to report
-        subprocess.run(os.environ["ADAPTER_EVENT_SOURCE_TRIGGER"], shell=True, check=True)
+    trigger = getattr(source, "trigger", None) or os.environ.get("ADAPTER_EVENT_SOURCE_TRIGGER")
+    if trigger:  # a real source needs something to report
+        subprocess.run(trigger, shell=True, check=True)
     events, deadline = [], time.time() + wait
     try:
         while len(events) < count and (left := deadline - time.time()) > 0:

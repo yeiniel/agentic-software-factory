@@ -1,0 +1,19 @@
+#!/bin/sh
+# create-repo ROOT NAME [SEED_DIR]: create ROOT/NAME.git and, if given, commit SEED_DIR's files as `main`.
+set -eu
+root=$1 name=$2 seed=${3:-}
+bare=$root/$name.git
+[ ! -e "$bare" ] || { echo "$bare already exists" >&2; exit 1; }
+git init -q --bare -b main "$bare"
+git -C "$bare" config core.hooksPath "${HOOKS_DIR:-/opt/hooks}"
+git -C "$bare" config daemon.receivepack true
+touch "$bare/git-daemon-export-ok"
+if [ -n "$seed" ]; then
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    cp -R "$seed"/. "$work"
+    git -C "$work" init -q -b main
+    git -C "$work" add -A
+    git -C "$work" -c user.name=Factory -c user.email=factory@example.invalid commit -q -m "Seed"
+    git -C "$work" push -q "$bare" main
+fi

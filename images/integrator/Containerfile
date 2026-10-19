@@ -1,0 +1,5 @@
+# The Integrator layer on top of the repo's own image (built as BASE): a POSIX script, no Pi.
+ARG BASE
+FROM ${BASE}
+COPY integrator.sh entrypoint.sh /opt/asf/
+ENTRYPOINT ["sh", "/opt/asf/entrypoint.sh"]

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent / "standins"))
 import gitrepohost  # noqa: E402  (test infrastructure)
 
 STANDIN = Path(__file__).parent / "standins" / "standin.py"
+ADAPTERS = Path(__file__).parent.parent / "adapters"
 PORTS = ["event-source", "task-store", "repo-host", "environment-builder", "runner", "records"]
 
 
@@ -65,7 +66,7 @@ def run_factory(tmp_path):
         if real_git is not None:  # real git Repo Host and the real Integrator script
             root = tmp_path / "git"
             gitrepohost.seed_repo(root, "r", real_git)
-            config["adapters"]["repo-host"] = [sys.executable, str(STANDIN.parent / "gitrepohost.py")]
+            config["adapters"]["repo-host"] = [sys.executable, str(ADAPTERS / "repo-host")]
             scenario["integrator_impl"] = "real"
             (tmp_path / "scenario.json").write_text(json.dumps(scenario))
         (tmp_path / "config.json").write_text(json.dumps(config))
@@ -73,7 +74,8 @@ def run_factory(tmp_path):
         process = subprocess.run(
             command + ["--config", str(tmp_path / "config.json")],
             env={**os.environ, "FIXTURE_DIR": str(tmp_path),
-                 "FACTORY_TEST_GIT_ROOT": str(tmp_path / "git")},
+                 "FACTORY_TEST_GIT_ROOT": str(tmp_path / "git"),
+                 "REPO_HOST_URL": str(tmp_path / "git"), "ADAPTER_CACHE": str(tmp_path / "cache")},
             capture_output=True, text=True, timeout=timeout)
         return Outcome(tmp_path, process)
     return run

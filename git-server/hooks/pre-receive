@@ -1,0 +1,16 @@
+#!/bin/sh
+# Refs are never deleted, and never rewritten, except the Factory's own working branches.
+zero=0000000000000000000000000000000000000000
+status=0
+while read -r old new ref; do
+    if [ "$new" = "$zero" ]; then
+        echo "refusing to delete $ref" >&2
+        status=1
+    elif [ "$old" != "$zero" ] && ! git merge-base --is-ancestor "$old" "$new"; then
+        case $ref in
+            refs/heads/factory/*) ;;
+            *) echo "refusing to rewrite $ref" >&2; status=1 ;;
+        esac
+    fi
+done
+exit $status

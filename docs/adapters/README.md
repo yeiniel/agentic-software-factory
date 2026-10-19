@@ -12,9 +12,13 @@ verdicts, Agent failures, timeouts reported by the Runner) are returned as data.
 
 `repo` is passed to Repo Host and Environment Builder; `task` and `run` identify a Run.
 
+## Implementations
+
+The real Adapters are in `adapters/` and are wired up in `../deployment.md`. Task ids are `<repo>/<issue id>`.
+
 ## Conformance
 
-`tests/conformance/` holds one suite per port. It runs against the scripted stand-ins by default; to test
+`tests/conformance/` holds one suite per port. It runs against the scripted stand-ins and the real Adapters (Podman ones skip without Podman); to test
 another implementation set `ADAPTER_<PORT>` (e.g. `ADAPTER_REPO_HOST='cmd args'`) and, if its identifiers
 differ, `ADAPTER_<PORT>_FIXTURE` (JSON overriding the defaults in `tests/conformance/conftest.py`).
 The Repo Host suite mutates its repository, so use a disposable one. A real Event Source needs

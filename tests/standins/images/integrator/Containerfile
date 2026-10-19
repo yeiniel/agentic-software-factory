@@ -1,0 +1,4 @@
+ARG BASE
+FROM ${BASE}
+COPY entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["sh", "/entrypoint.sh"]

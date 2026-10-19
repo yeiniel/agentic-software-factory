@@ -6,9 +6,9 @@ import pytest
 
 
 # These tests write branches and advance `main`: point ADAPTER_REPO_HOST at a disposable repository.
-@pytest.fixture(params=["scripted", "git"])
-def host(adapter, request):
-    return adapter("repo-host", impl=request.param)
+@pytest.fixture
+def host(adapter):
+    return adapter("repo-host")
 
 
 @pytest.fixture

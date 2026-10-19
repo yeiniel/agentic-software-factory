@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Runner Adapter: runs Agents and the Integrator as Podman containers through the host's socket.
+
+Run Contexts live under $RUNNER_ROOT (the same path on the host and in the Factory container, since
+mounts are resolved by the host). Pi session state is kept per Task and role under $RUNNER_ROOT/sessions.
+
+  An Agent: Context at /ctx, session state at /ctx/session, on $RUNNER_AGENT_NETWORK (which must reach
+  the model server), configured by ASF_MODEL_ENDPOINT, ASF_MODEL_NAME and ASF_MODEL_CONTEXT_WINDOW.
+  No git credentials are passed. The Integrator: Context at /ctx, no network.
+"""
+import os
+import shutil
+import subprocess
+import time
+from pathlib import Path
+
+import _common
+from _common import Failure, podman, require_env, slug
+
+KINDS = ("implementor", "acceptance-writer", "integrator")
+MODEL_ENV = ("ASF_MODEL_ENDPOINT", "ASF_MODEL_NAME", "ASF_MODEL_CONTEXT_WINDOW")
+
+
+def root():
+    return Path(os.environ.get("RUNNER_ROOT") or Path.home() / ".local/share/asf/runner").resolve()
+
+
+def session_dir(task, role):
+    return root() / "sessions" / slug(task) / role
+
+
+def provision_context(a):
+    kind = a["kind"]
+    if kind not in KINDS:
+        raise Failure(f"unknown kind {kind!r}")
+    name = f"{a['run']}-{kind}" + (f"-{a.get('attempt', 0)}" if kind == "integrator" else "")
+    ctx = root() / "contexts" / slug(a["task"]) / name
+    shutil.rmtree(ctx, ignore_errors=True)  # a Task started over gets a fresh Context
+    ctx.mkdir(parents=True, exist_ok=True)
+    if kind != "integrator":
+        body = _common.read_body() or {}
+        (ctx / "prompt.md").write_text(body["prompt"])
+        (ctx / "session").mkdir()
+        session_dir(a["task"], kind).mkdir(parents=True, exist_ok=True)
+    return {"context": str(ctx)}
+
+
+def run_container(name, args, timeout):
+    """Run a container to completion or kill it at the deadline; returns (status, output, timed_out)."""
+    process = subprocess.Popen([os.environ.get("PODMAN", "podman"), "run", "--rm", "--name", name,
+                                "--security-opt", "label=disable", *args],
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        output, _ = process.communicate(timeout=timeout)
+        return process.returncode, output, False
+    except subprocess.TimeoutExpired:
+        podman("rm", "-f", "-t", "0", name, check=False)
+        output, _ = process.communicate()
+        return None, output or "", True
+
+
+def container_name(*parts):
+    return f"asf-{slug('-'.join(parts))}-{os.getpid()}"
+
+
+def run_agent(a):
+    ctx, role = Path(a["context"]), a["role"]
+    if role not in KINDS[:2]:
+        raise Failure(f"unknown role {role!r}")
+    sessions = session_dir(a["task"], role)
+    sessions.mkdir(parents=True, exist_ok=True)
+    started = time.time()
+    env = [x for name in MODEL_ENV for x in ("-e", f"{name}={require_env(name)}")]
+    network = ["--network", os.environ["RUNNER_AGENT_NETWORK"]] if os.environ.get("RUNNER_AGENT_NETWORK") else []
+    status, output, timed_out = run_container(
+        container_name(a["task"], role),
+        [*network, "-v", f"{ctx}:/ctx", "-v", f"{sessions}:/ctx/session", *env, a["image"]],
+        float(a["timeout"]))
+    transcripts = sorted((p for p in sessions.rglob("*.jsonl") if p.stat().st_mtime >= started),
+                         key=lambda p: p.stat().st_mtime)  # this Run's, not an earlier one's
+    return {"exit_status": status, "timed_out": timed_out, "output": output,
+            "transcript": str(transcripts[-1]) if transcripts else ""}
+
+
+def run_integrator(a):
+    ctx = Path(a["context"])
+    status, output, timed_out = run_container(container_name(ctx.parent.name, ctx.name),
+                                              ["--network", "none", "-v", f"{ctx}:/ctx", a["image"]],
+                                              float(a["timeout"]))
+    if timed_out:
+        return {"exit_status": None, "timed_out": True, "output": output, "verdict": None}
+    verdict_dir = ctx / "verdict"
+    if not (verdict_dir / "result").is_file():
+        raise Failure(f"the Integrator left no verdict (exit {status}): {output[-2000:]}")
+    read = lambda name: (verdict_dir / name).read_text()
+    verdict = {"result": read("result").strip()}
+    if verdict["result"] == "red":
+        verdict["failed_check"] = read("failed_check").strip()
+        verdict["spec_output"] = read("spec_output")
+    return {"exit_status": status, "timed_out": False, "output": read("output"), "verdict": verdict}
+
+
+if __name__ == "__main__":
+    _common.main({"provision-context": provision_context, "run-agent": run_agent,
+                  "run-integrator": run_integrator})

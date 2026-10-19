@@ -1,0 +1,11 @@
+# The Repo Host: a git daemon anyone on the Factory's network may push to, with hooks that
+# refuse deletes and rewrites and tell the Event Source about each push.
+FROM docker.io/library/alpine
+RUN apk add --no-cache git git-daemon curl
+COPY hooks /opt/hooks
+COPY create-repo /usr/local/bin/create-repo
+RUN mkdir -p /srv/git && git config --system safe.directory '*'
+ENV EVENT_SOURCE_URL=http://factory:8765
+EXPOSE 9418
+VOLUME /srv/git
+CMD ["git", "daemon", "--base-path=/srv/git", "--export-all", "--enable=receive-pack", "--reuseaddr", "--verbose"]

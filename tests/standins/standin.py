@@ -198,7 +198,7 @@ def run_integrator(args):
 
 
 def run_real_integrator(ctx):
-    done = subprocess.run(["sh", str(HERE / "integrator.sh"), str(ctx)], capture_output=True, text=True)
+    done = subprocess.run(["sh", str(HERE.parent.parent / "images" / "integrator" / "integrator.sh"), str(ctx)], capture_output=True, text=True)
     if done.returncode:
         reject(f"integrator could not run: {done.stderr}")
     v = ctx / "verdict"

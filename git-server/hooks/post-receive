@@ -1,0 +1,6 @@
+#!/bin/sh
+# Tell the Event Source about each push: the "old new ref" lines, plus the repository's name.
+repo=$(basename "$PWD" .git)
+curl -fsS -m 5 -X POST --data-binary @- "${EVENT_SOURCE_URL:?}/push?repo=$repo" > /dev/null \
+    || echo "post-receive: could not reach the Event Source" >&2
+exit 0
