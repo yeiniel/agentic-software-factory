@@ -57,8 +57,29 @@ below).
   divergence for Qwen3 at q8_0 is very low (near-lossless).
 - `--fit on`: let llama.cpp maximise GPU layer offloading automatically.
 - `-fa on`: flash attention.
-- `-c 196608 -np 2`: 98,304 tokens per slot, two slots — one per
+- `-c 98304 -np 2`: 49,152 tokens per slot, two slots — one per
   concurrent Agent (the Implementor and the Acceptance Writer; one Run at a time).
+  Pi's context window (`ASF_MODEL_CONTEXT_WINDOW`) must match the per-slot size.
+- `-fitt 256`: `--fit` keeps 256 MiB of VRAM free instead of 1024, so more layers fit on the GPU.
+- `-ub 1024`: physical batch size; speeds up prompt processing without hurting generation (2048 did).
+
+### Tuning measurements (Qwen3-Coder-Next, 2026-10-20)
+
+One 3,568-token prompt, 128-token reply, greedy, two slots; "2 at once" is the total of two
+simultaneous requests. Single measurements; differences under about 7% are noise (the baseline
+repeated at 12.4 against 12.6 tok/s).
+
+| Flags (besides the base ones) | Prompt tok/s | Gen tok/s, 1 request | Gen tok/s, 2 at once | VRAM |
+|---|---|---|---|---|
+| base: `-c 196608` | 182 | 12.5 | 15 | 4.55 GB |
+| `-c 98304` | 189 | 16.7 | 19 to 21 | 4.7 GB |
+| `-c 98304 -fitt 256` | 193 | 18.3 | 22 | 5.5 GB |
+| `-c 98304 -fitt 256 -ub 1024` (current) | 284 | 18.1 | 21 | 5.4 GB |
+| base + `-ub 2048` | 412 | 8.1 | 9 | 4.6 GB |
+| base + `-lm none` (no mmap) | 201 | 11.0 | 15 | 4.6 GB |
+| base + `-tb 14` | 181 | 12.5 | 16 | 4.6 GB |
+
+Not tried: longer contexts (generation slows as the context grows), other models.
 
 ## Benchmarks (2026-10-11, 150-token completion, near-empty context)
 
