@@ -20,6 +20,7 @@ A folder. The Runner creates nothing in it except its own state.
 <context>/
   cwd/            the working directory; holds Containerfile at its root
   prompt          agentic only: the composed prompt (role instruction, Task, Feedback)
+  system-prompt   agentic only: the role's rules that always apply, appended to the Agent's system prompt
   skills/         agentic only: the role's skills, outside cwd
   run             deterministic only: the executable to run, with cwd as its working directory
   out/            deterministic only: where `run` leaves its results

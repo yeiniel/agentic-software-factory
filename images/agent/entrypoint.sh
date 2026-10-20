@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run Pi on the Run Context mounted at /ctx: prompt in /ctx/prompt, skills in /ctx/skills, working
+# Run Pi on the Run Context mounted at /ctx: prompt in /ctx/prompt, system prompt in /ctx/system-prompt, skills in /ctx/skills, working
 # directory /ctx/cwd, session state in /ctx/session. The model server comes from the environment:
 #   ASF_MODEL_ENDPOINT (an OpenAI-compatible base URL), ASF_MODEL_NAME, ASF_MODEL_CONTEXT_WINDOW.
 set -eu
@@ -22,5 +22,6 @@ set --
 for skill in /ctx/skills/*/; do
     [ -d "$skill" ] && set -- "$@" --skill "${skill%/}"
 done
+[ ! -s /ctx/system-prompt ] || set -- "$@" --append-system-prompt "$(cat /ctx/system-prompt)"
 [ -z "$(ls -A /ctx/session 2> /dev/null)" ] || set -- "$@" --continue
 exec pi --provider local --model "$ASF_MODEL_NAME" --session-dir /ctx/session "$@" -p "$(cat /ctx/prompt)"

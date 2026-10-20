@@ -157,6 +157,7 @@ def run_agent(args, ctx):
     with locked() as state:
         n = bump(state, f"agent/{role}") - 1
         state["agent_runs"].append({"role": role, "context": str(ctx), "prompt": (ctx / "prompt").read_text(),
+                                    "system_prompt": (ctx / "system-prompt").read_text() if (ctx / "system-prompt").exists() else "",
                                     "skills": sorted(p.name for p in (ctx / "skills").iterdir()),
                                     "cwd": sorted(read_tree(ctx / "cwd"))})
     plan = (SCENARIO.get("agent", {}).get(role, []) + [{}] * (n + 1))[n]

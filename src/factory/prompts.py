@@ -11,6 +11,10 @@ def instruction(role):
     return (RESOURCES / "roles" / role / "instruction.md").read_text().strip()
 
 
+def system_prompt(role):
+    return (RESOURCES / "roles" / role / "system-prompt.md").read_text().strip()
+
+
 def skills(role):
     return RESOURCES / "roles" / role / "skills"
 

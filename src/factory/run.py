@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from . import verdict as verdicts
 from .adapters import AdapterError
-from .prompts import INTEGRATOR_RUN, compose, skills, truncate
+from .prompts import INTEGRATOR_RUN, compose, skills, system_prompt, truncate
 
 IMPLEMENTOR, WRITER = "implementor", "acceptance-writer"
 ROLES = (IMPLEMENTOR, WRITER)
@@ -113,6 +113,7 @@ class TaskRunner:
         else:
             ctx = self.contexts.create(task, role)
             ctx.write("prompt", text)
+            ctx.write("system-prompt", system_prompt(role))
             ctx.copy(skills(role), "skills")
             a["repo-host"].call("checkout", repo=repo, branch=branch, dest=ctx.path("cwd"))
         result = self.run_environment("agentic", ctx, self.config["agent_timeout"])

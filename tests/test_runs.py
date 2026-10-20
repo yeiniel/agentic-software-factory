@@ -201,6 +201,8 @@ def test_each_agent_context_holds_the_prompt_its_own_skills_and_the_project_on_i
     assert by_role["implementor"]["skills"] == ["implementor"]
     assert by_role["acceptance-writer"]["skills"] == ["acceptance-writer"]
     assert "add a greeting" in by_role["implementor"]["prompt"]
+    assert "Never change the code under" in by_role["acceptance-writer"]["system_prompt"]
+    assert "smallest change" in by_role["implementor"]["system_prompt"]
     assert by_role["implementor"]["cwd"] == ["README"]
     assert by_role["implementor"]["context"] != by_role["acceptance-writer"]["context"]
 
