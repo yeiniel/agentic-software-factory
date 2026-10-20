@@ -29,6 +29,9 @@ class Context:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text)
 
+    def remove(self, name):
+        shutil.rmtree(self.path(name), ignore_errors=True)
+
     def mkdir(self, name):
         self.path(name).mkdir(parents=True, exist_ok=True)
 

@@ -29,7 +29,7 @@ def locked():
         else:
             state = {"main": "c0", "n": 0, "commits": {"c0": SCENARIO.get("repo", {})},
                      "branches": {}, "status": {}, "status_body": {}, "counters": {},
-                     "agent_spans": [], "agent_runs": [], "integrator_runs": []}
+                     "agent_spans": [], "agent_runs": [], "integrator_runs": [], "validation_runs": []}
         yield state
         path.write_text(json.dumps(state))
 
@@ -159,6 +159,7 @@ def run_agent(args, ctx):
         state["agent_runs"].append({"role": role, "context": str(ctx), "prompt": (ctx / "prompt").read_text(),
                                     "system_prompt": (ctx / "system-prompt").read_text() if (ctx / "system-prompt").exists() else "",
                                     "skills": sorted(p.name for p in (ctx / "skills").iterdir()),
+                                    "resumed": (ctx / "session" / "session.jsonl").exists(),
                                     "cwd": sorted(read_tree(ctx / "cwd"))})
     plan = (SCENARIO.get("agent", {}).get(role, []) + [{}] * (n + 1))[n]
     start = time.time()
@@ -187,6 +188,8 @@ def run_script(ctx):
 def run_integrator(args, ctx):
     if not (ctx / "cwd" / "base").is_dir():
         return run_script(ctx)
+    if not (ctx / "cwd" / "main").is_dir():
+        return run_validation(ctx)
     with locked() as state:
         n = bump(state, "integrator") - 1
         state["integrator_runs"].append({"context": str(ctx), "run": (ctx / "run").read_text(),
@@ -200,6 +203,23 @@ def run_integrator(args, ctx):
         human_push()
     files = {p.name: p.read_text() for p in sorted((ctx / "out").iterdir()) if p.is_file()}
     return {"exit_status": status, "timed_out": False, "output": "", "files": files}
+
+
+def run_validation(ctx):
+    with locked() as state:
+        n = bump(state, "validation") - 1
+        state["validation_runs"].append({"at": time.time(), "context": str(ctx), "run": (ctx / "run").read_text(),
+                                         "cwd": sorted(p.name for p in (ctx / "cwd").iterdir())})
+    plan = (SCENARIO.get("validation", []) + [{}] * (n + 1))[n]
+    if SCENARIO.get("integrator_impl") == "real":
+        run_real_integrator(ctx)
+    else:
+        files = {"result": plan.get("result", "green"), "output": plan.get("output", "specs red")}
+        if files["result"] == "red":
+            files["failed_check"] = plan.get("failed_check", "specs-not-red")
+        write_tree(ctx / "out", files)
+    files = {p.name: p.read_text() for p in sorted((ctx / "out").iterdir()) if p.is_file()}
+    return {"exit_status": 0, "timed_out": False, "output": "", "files": files}
 
 
 def run_real_integrator(ctx):
@@ -228,7 +248,6 @@ def scripted_verdict(plan, ctx):
     if result == "red":
         if "failed_check" in plan:
             files["failed_check"] = plan["failed_check"]
-        files["spec_output"] = plan.get("spec_output", "")
     else:
         cwd = ctx / "cwd"
         base, merged = read_tree(cwd / "base"), read_tree(cwd / "main")

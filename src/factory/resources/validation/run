@@ -1,0 +1,34 @@
+#!/bin/sh
+# Acceptance Test Validation (a pure function from a Run Context to a verdict).
+#
+# Runs with the Context's `cwd` as its working directory. `cwd` holds clones `base` and
+# `acceptance-writer`. It writes the verdict to ../out/{result,failed_check,output}. The specs are valid
+# when `make test` fails on the base plus the Acceptance Writer's changes (green); `output` is then the
+# Acceptance Report. Exit status is non-zero only when the script itself could not run.
+set -u
+cwd=$(pwd)
+out=$(cd .. && pwd)/out
+work=$(mktemp -d)
+mkdir -p "$out"
+# Mounted clones may belong to another user; git config through the environment, not the user's files.
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0='*'
+
+red() { # failed_check, output file
+    echo red > "$out/result"
+    printf %s "$1" > "$out/failed_check"
+    cp "$2" "$out/output"
+    exit 0
+}
+
+git clone -q "$cwd/base" "$work/specs" || exit 1
+git -C "$work/specs" config user.name Validation
+git -C "$work/specs" config user.email validation@example.invalid
+git -C "$work/specs" fetch -q "$cwd/acceptance-writer" HEAD || exit 1
+if ! git -C "$work/specs" merge --no-edit FETCH_HEAD > "$work/merge" 2>&1; then
+    red merge "$work/merge"
+fi
+if (cd "$work/specs" && make test) > "$work/report" 2>&1; then
+    red specs-not-red "$work/report"
+fi
+echo green > "$out/result"
+cp "$work/report" "$out/output"

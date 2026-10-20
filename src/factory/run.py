@@ -1,32 +1,15 @@
-"""The fixed graph of Activities for a Run, and the retry accounting around it."""
+"""The fixed graph of Activities for a Run, and the nested retry loops around it (ADR 0016)."""
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
 from . import verdict as verdicts
 from .adapters import AdapterError
-from .prompts import INTEGRATOR_RUN, compose, skills, system_prompt, truncate
+from .prompts import INTEGRATOR_RUN, VALIDATION_RUN, compose, feedback, skills, system_prompt
 
 IMPLEMENTOR, WRITER = "implementor", "acceptance-writer"
 ROLES = (IMPLEMENTOR, WRITER)
+LOOPS = {WRITER: "writer", IMPLEMENTOR: "implementor"}  # the role each loop runs
 MAX_INTEGRATIONS = 5  # fresh Integrator runs when `main` keeps moving
-
-
-def blame(outcome, history, cap):
-    """Which roles to retrigger, with their Feedback. Replaceable (ADR 0003, 0004)."""
-    output = truncate(outcome["output"], cap)
-    check = outcome["failed_check"]
-    if check == "specs-not-red":
-        return {WRITER: truncate(outcome.get("spec_output") or outcome["output"], cap)}
-    if check == "agent":
-        return {role: truncate(text, cap) for role, text in outcome["failures"].items()}
-    roles = {IMPLEMENTOR: output}
-    if len(history) >= 2:
-        previous = history[-2]
-        if (IMPLEMENTOR in previous["roles"] and previous["outcome"].get("output") == outcome["output"]
-                and check == "suite"):
-            # the writer gets its own run output only, never the Implementor's side
-            roles[WRITER] = truncate(outcome.get("spec_output") or "No spec output available.", cap)
-    return roles
 
 
 class TaskRunner:
@@ -65,37 +48,78 @@ class TaskRunner:
         branches = {r: f"factory/{task}/{r}" for r in ROLES}
         for name in branches.values():
             a["repo-host"].call("create-branch", repo=repo, name=name, base=base)
-        feedback = {r: None for r in ROLES}  # the roles to run, each with its Feedback
-        ran = set()
+        feedbacks = {r: None for r in ROLES}  # the Feedback a loop starts with when a Run enters it
+        succeeded, ran = set(), set()
         while True:
             run = len(history) + 1
-            roles = list(feedback)
+            roles = [r for r in ROLES if r not in succeeded]
             a["task-store"].call("set-status", task=task, status="running")
             self.record(task, "run-started", run, roles=roles)
+            loops = {WRITER: self.writer_loop, IMPLEMENTOR: self.implementor_loop}
             with ThreadPoolExecutor(len(roles)) as pool:
-                results = list(pool.map(
-                    lambda r: self.agent(task, repo, run, r, branches[r], base, prompt,
-                                         feedback[r], r in ran), roles))
-            ran.update(roles)
-            failures = {r: "Timed out." if res["timed_out"] else res["output"]
-                        for r, res in zip(roles, results) if res["timed_out"] or res["exit_status"]}
-            if failures:
-                outcome = {"result": "red", "failed_check": "agent", "failures": failures,
-                           "output": "\n".join(f"{r}: {t}" for r, t in failures.items())}
+                futures = {r: pool.submit(loops[r], task, repo, run, branches[r], base, prompt,
+                                          feedbacks[r], ran) for r in roles}
+                results = {r: f.result() for r, f in futures.items()}
+            attempts = {LOOPS[r]: res["attempts"] for r, res in results.items()}
+            exhausted = [r for r in roles if not results[r]["succeeded"]]
+            if exhausted:
+                role = exhausted[0]
+                self.record(task, "loop-exhausted", run, loop=LOOPS[role])
+                outcome = {"result": "red", "failed_check": "loop-exhausted", "loop": LOOPS[role],
+                           "output": results[role]["failure"]}
             else:
+                succeeded.update(roles)
                 outcome = self.integrate(task, repo, run, base, branches)
-            history.append({"run": run, "roles": roles, "feedback": dict(feedback), "outcome": outcome})
+            history.append({"run": run, "roles": roles, "feedback": dict(feedbacks), "attempts": attempts,
+                            "outcome": outcome})
             self.record(task, "run-finished", run, outcome=outcome)
             if outcome["result"] == "green":
                 a["task-store"].call("set-status", task=task, status="done",
                                      body={"commit": outcome["commit"]})
                 return
-            if len(history) >= self.config["max_runs"]:
+            if exhausted or len(history) >= self.config["max_runs"]:
                 a["task-store"].call("set-status", task=task, status="blocked",
                                      body={"history": history})
                 return
-            feedback = blame(outcome, history, cap)
-            self.record(task, "feedback", run, feedback=feedback)
+            # a failed integration retriggers only the Implementor; the Writer's validated branch stays
+            succeeded.discard(IMPLEMENTOR)
+            feedbacks = {IMPLEMENTOR: feedback(outcome["failed_check"], outcome["output"], cap)}
+            self.record(task, "feedback", run, feedback=feedbacks)
+
+    def attempts(self, task, run, loop, budget, first, step):
+        """Run `step(attempt, feedback)` until it returns None (success) or the budget is spent."""
+        log, text = [], first
+        for number in range(1, budget + 1):
+            failure = step(number, text)  # (kind, output) or None
+            log.append({"attempt": number, "result": "green" if failure is None else failure[0]})
+            self.record(task, "attempt", run, loop=loop, attempt=number, result=log[-1]["result"])
+            if failure is None:
+                return {"succeeded": True, "attempts": log}
+            text = feedback(*failure, self.config["feedback_cap"])
+        return {"succeeded": False, "attempts": log, "failure": failure[1]}
+
+    def agent_failure(self, result):
+        if result["timed_out"]:
+            return "timed-out", "Timed out."
+        if result["exit_status"]:
+            return "crashed", result["output"]
+
+    def writer_loop(self, task, repo, run, branch, base, prompt, first, ran):
+        def step(number, text):
+            result = self.agent(task, repo, run, WRITER, branch, base, prompt, text, ran)
+            failure = self.agent_failure(result)
+            if failure:
+                return failure
+            verdict = self.validate(task, repo, run, number, base, branch)
+            if verdict["result"] == "red":
+                return verdict["failed_check"], verdict["output"]
+        return self.attempts(task, run, "writer", self.config["writer_attempts"], first, step)
+
+    def implementor_loop(self, task, repo, run, branch, base, prompt, first, ran):
+        def step(number, text):
+            result = self.agent(task, repo, run, IMPLEMENTOR, branch, base, prompt, text, ran)
+            return self.agent_failure(result)
+        return self.attempts(task, run, "implementor", self.config["implementor_attempts"], first, step)
 
     def run_environment(self, kind, ctx, timeout):
         """The one Runner operation: an Environment on a Run Context."""
@@ -104,23 +128,42 @@ class TaskRunner:
                                      **{"build-timeout": build},
                                      deadline=timeout + build + self.config["adapter_grace"])
 
-    def agent(self, task, repo, run, role, branch, base, prompt, feedback, resume):
+    def agent(self, task, repo, run, role, branch, base, prompt, feedback_text, ran):
         a = self.a
-        text = compose(role, prompt, feedback)
-        if resume:  # the Agent's Context lives across the Task's Runs and its cwd holds its last work
+        text = compose(role, prompt, feedback_text)
+        if role in ran:  # a retry: the Pi session in the Context is kept, the code starts again from the base
             ctx = self.contexts.get(task, role)
             ctx.write("prompt", text)
+            ctx.remove("cwd")
+            a["repo-host"].call("create-branch", repo=repo, name=branch, base=base)
         else:
             ctx = self.contexts.create(task, role)
             ctx.write("prompt", text)
             ctx.write("system-prompt", system_prompt(role))
             ctx.copy(skills(role), "skills")
-            a["repo-host"].call("checkout", repo=repo, branch=branch, dest=ctx.path("cwd"))
+            ran.add(role)
+        a["repo-host"].call("checkout", repo=repo, branch=branch, dest=ctx.path("cwd"))
         result = self.run_environment("agentic", ctx, self.config["agent_timeout"])
         self.record(task, "agent", run, role=role, **result)
         recorded = a["repo-host"].call("record", repo=repo, branch=branch, **{"from": ctx.path("cwd")})
         self.record(task, "branch-recorded", run, role=role, branch=branch, **recorded)
         return result
+
+    def validate(self, task, repo, run, attempt, base, branch):
+        """Acceptance Test Validation: green when the new specs fail on the unchanged repository."""
+        a = self.a
+        ctx = self.contexts.create(task, f"validate-{run}-{attempt}")
+        ctx.copy(VALIDATION_RUN, "run", executable=True)
+        ctx.mkdir("out")
+        a["repo-host"].call("checkout", repo=repo, commit=base, dest=ctx.path("cwd/base"))
+        a["repo-host"].call("checkout", repo=repo, branch=branch, dest=ctx.path(f"cwd/{WRITER}"))
+        if ctx.path("cwd/base/Containerfile").is_file():
+            ctx.copy(ctx.path("cwd/base/Containerfile"), "cwd/Containerfile")
+        result = self.run_environment("deterministic", ctx, self.config["integrator_timeout"])
+        self.record(task, "validation", run, **result)
+        if result["timed_out"]:
+            return {"result": "red", "failed_check": "timed-out", "output": "Timed out."}
+        return verdicts.read(result["files"], verdicts.VALIDATION_CHECKS)
 
     def integrate(self, task, repo, run, base, branches):
         a = self.a
@@ -138,7 +181,7 @@ class TaskRunner:
             result = self.run_environment("deterministic", ctx, self.config["integrator_timeout"])
             self.record(task, "integrator", run, **result)
             if result["timed_out"]:
-                return {"result": "red", "failed_check": "timeout", "output": "Timed out."}
+                return {"result": "red", "failed_check": "timed-out", "output": "Timed out."}
             verdict = verdicts.read(result["files"])
             if verdict["result"] == "red":
                 return verdict

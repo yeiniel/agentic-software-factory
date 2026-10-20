@@ -20,6 +20,17 @@ def skills(role):
 
 
 INTEGRATOR_RUN = RESOURCES / "integrator" / "run"
+VALIDATION_RUN = RESOURCES / "validation" / "run"
+
+WHY_IT_FAILED = {
+    "crashed": "Your previous attempt ended with an error.",
+    "timed-out": "Your previous attempt ran out of time.",
+    "specs-not-red": "Your specs passed on the unchanged code, so they do not test the Task.",
+    "merge": "Your changes could not be merged onto the original code.",
+    "conflict": "Your changes conflict with the other changes made for this Task.",
+    "suite": "The acceptance suite failed on the combined changes.",
+}
+DISCARDED = "Your previous changes were discarded and you start again from the original code."
 
 
 def truncate(text, cap):
@@ -27,6 +38,11 @@ def truncate(text, cap):
     if len(text) <= cap:
         return text
     return "[... output truncated ...]\n" + text[-cap:]
+
+
+def feedback(kind, output, cap):
+    """The Feedback after a failed attempt: why, that the changes are gone, then the raw output."""
+    return f"{WHY_IT_FAILED[kind]}\n{DISCARDED}\n\n{truncate(output, cap)}"
 
 
 def compose(role, task_prompt, feedback=None):

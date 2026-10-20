@@ -39,7 +39,7 @@ def test_vacuous_specs_are_rejected_and_the_writer_retriggered(run_factory):
     assert agent_runs(out).count("implementor") == 1
     assert "ok specs/vacuous.sh" in prompts(out, "acceptance-writer")[1]
     assert out.git_main("specs/vacuous.sh") == GREETING_SPEC
-    assert out.status("t1") == ["running", "running", "done"]
+    assert out.status("t1") == ["running", "done"]
 
 
 def test_a_red_suite_sends_the_acceptance_report_to_the_implementor(run_factory):

@@ -28,7 +28,7 @@ The concrete Adapters for one machine (spec `specs/0002-deployment-adapters.md`)
   into Agent containers; the harness entrypoint writes Pi's `models.json` from them.
 - `ASF_IMAGES_DIR`: alternative layers (the tests use stubs).
 - `PODMAN`: the podman executable.
-- Agent and Integrator time limits are the Factory's `agent_timeout` and `integrator_timeout`.
+- Agent and Integrator time limits are the Factory's `agent_timeout` and `integrator_timeout` (the latter also bounds Acceptance Test Validation). `writer_attempts` and `implementor_attempts` (2 by default) are the per-Run attempt budgets next to `max_runs`.
 
 ## Running it
 

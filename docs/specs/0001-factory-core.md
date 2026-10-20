@@ -12,7 +12,7 @@ I want to hand a software change, written as a prompt, to a system that carries 
 
 ## Solution
 
-A Factory core that contains only business logic and a fixed graph of Activities for each Run, and that performs every effect through an Adapter (ADR 0011). On a Task event it runs the Implementor and the Acceptance Writer as blind, parallel Agents, hands their branches to the Integrator, and lets the Integrator's verdict decide whether `main` advances. On failure it retriggers only the failing role with Feedback. After 2 Runs the Task is Blocked for a human. Vocabulary is in `GLOSSARY.md`, the design in `docs/design.md`, and the decisions in `docs/adr/`.
+A Factory core that contains only business logic and a fixed graph of Activities for each Run, and that performs every effect through an Adapter (ADR 0011). On a Task event it runs the Implementor and the Acceptance Writer as blind, parallel Agents, hands their branches to the Integrator, and lets the Integrator's verdict decide whether `main` advances. On failure it retries the failing role with Feedback inside nested attempt loops (spec 0005). After 2 Runs the Task is Blocked for a human. Vocabulary is in `GLOSSARY.md`, the design in `docs/design.md`, and the decisions in `docs/adr/`.
 
 ## User Stories
 
@@ -70,7 +70,7 @@ A Factory core that contains only business logic and a fixed graph of Activities
 - A Run Context is a directory on storage visible to the Adapters. For an Agent it holds the prompt, the clone on the role's branch as the working directory, and the Pi session state. For the Integrator it holds the clones of the base and the branches.
 - Adapter contracts are documented in the repo as part of the core, with arguments in and JSON out. They are exercised by contract tests, so a new implementation can prove it conforms.
 - The Task statuses are abstract in the core. Mapping them onto a particular Task Store is the Adapter's job.
-- The Run is a single pass. Retry accounting, the cap of 2 Runs per Task, blame routing and Feedback construction live in the core. Blame follows `docs/design.md`.
+- The Run is a single pass. Retry accounting (the cap of 2 Runs per Task and the attempt budgets of spec 0005), loop logic and Feedback construction live in the core. Blame follows `docs/design.md`.
 - The Acceptance Report and Feedback are the Integrator's output passed verbatim; the core only truncates it.
 - The core composes prompts from a role instruction template, the Task and Feedback. The templates are versioned with the core.
 - The Factory serialises Integrator runs and final pushes to `main`. It never pushes to `main` except from a green verdict on a branch derived from the current `main`.
@@ -81,7 +81,7 @@ A Factory core that contains only business logic and a fixed graph of Activities
 
 - A good test drives the Factory as a process and asserts on observable results: the state of `main`, the Task Store, the records and what each Adapter was asked to do. It never imports Factory code.
 - All Adapters are scripted stand-in executables backed by a temporary fixture repo and a fixture Task Store. The Runner stand-in applies canned edits per role per Run, and the Integrator stand-in is either a scripted verdict or the real Integrator against real git and a tiny real `make test`.
-- Scenarios to cover: green on the first Run; Implementor fails once then succeeds with Feedback; specs not red on base routed to the Acceptance Writer; the Implementor fails twice and the Acceptance Writer is also retriggered; branch conflict; `main` moves between verdict and push; two Tasks queued behind one Run; the cap reached and the Task Blocked with its history; a retried Agent's prompt contains the Feedback and never the other branch; an Adapter error not counting against the cap; a `main` push event being recorded but not acted on; an Activity time limit.
+- Scenarios to cover: green on the first Run; Implementor fails once then succeeds with Feedback; specs not red on base routed to the Acceptance Writer; branch conflict; `main` moves between verdict and push; two Tasks queued behind one Run; the cap reached and the Task Blocked with its history; a retried Agent's prompt contains the Feedback and never the other branch; an Adapter error not counting against the cap; a `main` push event being recorded but not acted on; an Activity time limit.
 - Each Adapter contract has its own conformance test, reusable against any implementation.
 - No prior art exists: the repository is empty of code.
 

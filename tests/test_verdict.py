@@ -2,7 +2,7 @@
 import pytest
 
 from factory.adapters import AdapterError
-from factory.verdict import read
+from factory.verdict import VALIDATION_CHECKS, read
 
 
 def test_a_green_verdict_carries_the_acceptance_report():
@@ -10,15 +10,23 @@ def test_a_green_verdict_carries_the_acceptance_report():
         "result": "green", "output": "suite green\n"}
 
 
-@pytest.mark.parametrize("check", ["specs-not-red", "conflict", "suite"])
-def test_a_red_verdict_names_the_failed_check_and_the_spec_output(check):
-    files = {"result": "red\n", "failed_check": f"{check}\n", "spec_output": "spec out", "output": "out"}
-    assert read(files) == {"result": "red", "failed_check": check, "spec_output": "spec out", "output": "out"}
+@pytest.mark.parametrize("check", ["conflict", "suite"])
+def test_a_red_integration_verdict_names_the_failed_check(check):
+    files = {"result": "red\n", "failed_check": f"{check}\n", "output": "out"}
+    assert read(files) == {"result": "red", "failed_check": check, "output": "out"}
 
 
-def test_a_red_verdict_without_spec_output_has_it_empty():
-    files = {"result": "red", "failed_check": "conflict", "output": "CONFLICT"}
-    assert read(files)["spec_output"] == ""
+@pytest.mark.parametrize("check", ["specs-not-red", "merge"])
+def test_a_red_validation_verdict_names_the_failed_check(check):
+    files = {"result": "red\n", "failed_check": f"{check}\n", "output": "out"}
+    assert read(files, VALIDATION_CHECKS) == {"result": "red", "failed_check": check, "output": "out"}
+
+
+def test_a_check_of_the_other_process_is_malformed():
+    with pytest.raises(AdapterError):
+        read({"result": "red", "failed_check": "specs-not-red", "output": "x"})
+    with pytest.raises(AdapterError):
+        read({"result": "red", "failed_check": "suite", "output": "x"}, VALIDATION_CHECKS)
 
 
 @pytest.mark.parametrize("files", [

@@ -71,9 +71,10 @@ back. Deterministic: no network. A timeout is reported as data (`timed_out`).
 
 Not a port: local files in the core (`src/factory/contexts.py`). The core owns the names inside a Context
 (`docs/specs/0004-run-context-and-the-runner.md`): `contexts/<task>/<role>` for each Agent and
+`contexts/<task>/validate-<run>-<attempt>` for each Acceptance Test Validation (`cwd` holds `base` and `acceptance-writer`) and
 `contexts/<task>/integrate-<run>-<attempt>` for each Integrator pass. The Integrator's inputs in `cwd` are
 `base`, `main`, `implementor`, `acceptance-writer` plus a copy of `main`'s `Containerfile`; it leaves
-`result`, `failed_check`, `spec_output` and `output` in `out/` and the integrated clone in `out/integrated`.
+`result`, `failed_check` and `output` in `out/` and the integrated clone in `out/integrated`.
 
 ## Records
 

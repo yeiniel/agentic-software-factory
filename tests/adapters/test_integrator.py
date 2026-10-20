@@ -44,7 +44,7 @@ def integrate(ctx):
     done = subprocess.run(["sh", str(SCRIPT)], cwd=ctx, capture_output=True, text=True, env=env)
     assert done.returncode == 0, done.stderr
     v = ctx.parent / "out"
-    return {name: (v / name).read_text() for name in ("result", "output", "spec_output", "failed_check")
+    return {name: (v / name).read_text() for name in ("result", "output", "failed_check")
             if (v / name).exists()}
 
 
@@ -56,14 +56,6 @@ def test_branches_that_merge_and_pass_are_green_and_the_result_is_returned(conte
     assert verdict["result"].strip() == "green"
     result = context.parent / "out" / "integrated"
     assert all((result / name).exists() for name in ("feature.txt", "spec_feature", "unrelated.txt"))
-
-
-def test_specs_that_are_not_red_on_base_fail_the_first_check(context):
-    commit(context / "acceptance-writer", {"spec_feature": ""})
-    commit(context / "acceptance-writer", {"feature.txt": "already\n"})
-    verdict = integrate(context)
-    assert verdict["result"].strip() == "red" and verdict["failed_check"] == "specs-not-red"
-    assert not (context.parent / "out" / "integrated").exists()
 
 
 def test_a_conflict_fails_the_second_check_with_git_output(context):
@@ -80,7 +72,6 @@ def test_a_red_suite_reports_the_acceptance_report_verbatim(context):
     verdict = integrate(context)
     assert verdict["result"].strip() == "red" and verdict["failed_check"] == "suite"
     assert verdict["output"].startswith("feature.txt is missing\n")
-    assert verdict["spec_output"].startswith("feature.txt is missing\n")
 
 
 @needs_podman
