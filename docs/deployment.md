@@ -12,8 +12,7 @@ The concrete Adapters for one machine (spec `specs/0002-deployment-adapters.md`)
 | Event Source | `adapters/event-source` | `listen`: HTTP on `$EVENT_SOURCE_PORT` (8765). A new `refs/issues/<id>` is a Task `<repo>/<id>`, a push to `main` is a main-push. Status pushes to existing issues are not events |
 | Task Store | `adapters/task-store` | git-native issues over `$REPO_HOST_URL`. `running`/`blocked` are labels on an open issue; `done` closes it with `Fixed-By: <commit>`; the prompt is title and body |
 | Repo Host | `adapters/repo-host` | git over `$REPO_HOST_URL` (`<url>/<repo>.git`); local mirrors under `$ADAPTER_CACHE` |
-| Environment Builder | `adapters/environment-builder` | builds the repo's `Containerfile` (must provide `git` and `make`), then `images/agent/` or `images/integrator/` on top; images cached per repo, commit and layer content |
-| Runner | `adapters/runner` | `podman run` through the host socket (`CONTAINER_HOST`) |
+| Runner | `adapters/runner` | builds `cwd/Containerfile` of a Run Context (must provide `git` and `make`; `images/agent/` on top for Agents; images cached by content) and `podman run`s it through the host socket (`CONTAINER_HOST`) |
 | Records | `adapters/records` | JSON lines in `$RECORDS_DIR/<stream>.jsonl` |
 
 ## Configuration (environment)

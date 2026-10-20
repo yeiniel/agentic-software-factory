@@ -1,6 +1,6 @@
 # Adapter contracts
 
-Each Adapter port is an external executable (ADR 0011). The Factory configures each as a command
+Each Adapter port is an external executable (ADRs 0013, 0014). The Factory configures each as a command
 prefix (`config.json`: `"adapters": {"repo-host": ["/path/to/exe", ...]}`) and calls
 
     <command...> <op> [--name value ...]
@@ -10,7 +10,7 @@ stdout or exceeding the deadline is an **infrastructure error**: the Task is set
 reason `infrastructure`, and the Run does not count toward the cap. All other failures (red
 verdicts, Agent failures, timeouts reported by the Runner) are returned as data.
 
-`repo` is passed to Repo Host and Environment Builder; `task` and `run` identify a Run.
+`repo` is passed to Repo Host; `task` and `run` identify a Run.
 
 ## Implementations
 
@@ -22,8 +22,7 @@ The real Adapters are in `adapters/` and are wired up in `../deployment.md`. Tas
 another implementation set `ADAPTER_<PORT>` (e.g. `ADAPTER_REPO_HOST='cmd args'`) and, if its identifiers
 differ, `ADAPTER_<PORT>_FIXTURE` (JSON overriding the defaults in `tests/conformance/conftest.py`).
 The Repo Host suite mutates its repository, so use a disposable one. A real Event Source needs
-`ADAPTER_EVENT_SOURCE_TRIGGER`, a shell command that makes it emit an event. The Runner suite checks the
-shape of a green verdict only; forcing a red one is implementation-specific.
+`ADAPTER_EVENT_SOURCE_TRIGGER`, a shell command that makes it emit an event. The Runner suite builds trivial Contexts and checks the shape of both result types.
 
 ## Event Source
 
@@ -45,23 +44,36 @@ shape of a green verdict only; forcing a red one is implementation-specific.
 - `fast-forward-main --repo R --branch N --expect-main C` → `{"advanced": bool, "head"}`; must not
   advance if `main` is no longer `C`
 
-## Environment Builder
-
-- `build --repo R --commit C --purpose agent|integrator` → `{"image"}`; cached per repo and commit
-
 ## Runner
 
-The Run Context is a directory it provisions; the Factory only joins paths below it.
+One operation (ADR 0014). The Run Context is a folder the core assembles in the Run Context Store (ADR 0013)
+and hands over by path; the Runner knows no roles and none of the names inside `cwd`.
 
-- `provision-context --kind implementor|acceptance-writer|integrator --task T --run N [--attempt K]`
-  (`K` numbers fresh Integrator passes in the same Run; each needs a fresh directory), body
-  `{"prompt","resume"}` for Agents → `{"context": DIR}`. Agents work in `DIR/work`; the Integrator
-  finds `DIR/base`, `DIR/main`, `DIR/implementor`, `DIR/acceptance-writer` and leaves its result in `DIR/result`.
-- `run-agent --image I --context DIR --task T --role R --timeout S` →
-  `{"exit_status","timed_out","output","transcript"}`
-- `run-integrator --image I --context DIR --timeout S` →
-  `{"exit_status","timed_out","output","verdict":{"result":"green|red","failed_check":"specs-not-red|conflict|suite","spec_output"}}`
-  (`failed_check` and `spec_output`, the output of the new specs alone, on red). `output` is the Acceptance Report, verbatim.
+- `run --type agentic|deterministic --context DIR --timeout S [--build-timeout S]` →
+  `{"exit_status","timed_out","output"}` plus, for `agentic`, `"transcript"` (the newest session transcript
+  of this run) and, for `deterministic`, `"files"` (the text of each top-level regular file in `out/`, size-capped).
+
+The Context's layout:
+
+    cwd/       the working directory; holds Containerfile at its root
+    prompt     agentic: the composed prompt
+    skills/    agentic: one folder per skill, outside cwd
+    run        deterministic: the executable, run with cwd as its working directory
+    out/       deterministic: where `run` leaves its results (created by the core)
+
+The Runner builds, or reuses, the image from `cwd/Containerfile` (build context `cwd`, cache key the
+Containerfile's content, plus the harness layer for the agentic type), requires `git` and `make` in it, and
+runs it. A build failure or exceeding `--build-timeout` is an infrastructure error. Agentic: the model-server
+network, no git credentials, session state added to the Context and resumed when the same Context is handed
+back. Deterministic: no network. A timeout is reported as data (`timed_out`).
+
+## Run Context Store
+
+Not a port: local files in the core (`src/factory/contexts.py`). The core owns the names inside a Context
+(`docs/specs/0004-run-context-and-the-runner.md`): `contexts/<task>/<role>` for each Agent and
+`contexts/<task>/integrate-<run>-<attempt>` for each Integrator pass. The Integrator's inputs in `cwd` are
+`base`, `main`, `implementor`, `acceptance-writer` plus a copy of `main`'s `Containerfile`; it leaves
+`result`, `failed_check`, `spec_output` and `output` in `out/` and the integrated clone in `out/integrated`.
 
 ## Records
 

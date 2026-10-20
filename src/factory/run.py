@@ -2,8 +2,9 @@
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
+from . import verdict as verdicts
 from .adapters import AdapterError
-from .prompts import compose, truncate
+from .prompts import INTEGRATOR_RUN, compose, skills, truncate
 
 IMPLEMENTOR, WRITER = "implementor", "acceptance-writer"
 ROLES = (IMPLEMENTOR, WRITER)
@@ -29,9 +30,10 @@ def blame(outcome, history, cap):
 
 
 class TaskRunner:
-    def __init__(self, adapters, config):
+    def __init__(self, adapters, config, contexts):
         self.a = adapters
         self.config = config
+        self.contexts = contexts
 
     def record(self, task, kind, run=None, **data):
         args = {"stream": f"task/{task}"}
@@ -95,18 +97,27 @@ class TaskRunner:
             feedback = blame(outcome, history, cap)
             self.record(task, "feedback", run, feedback=feedback)
 
+    def run_environment(self, kind, ctx, timeout):
+        """The one Runner operation: an Environment on a Run Context."""
+        build = self.config["build_timeout"]
+        return self.a["runner"].call("run", type=kind, context=ctx, timeout=timeout,
+                                     **{"build-timeout": build},
+                                     deadline=timeout + build + self.config["adapter_grace"])
+
     def agent(self, task, repo, run, role, branch, base, prompt, feedback, resume):
         a = self.a
-        image = a["environment-builder"].call("build", repo=repo, commit=base, purpose="agent")["image"]
-        ctx = a["runner"].call("provision-context",
-                               body={"prompt": compose(role, prompt, feedback), "resume": resume},
-                               kind=role, task=task, run=run)["context"]
-        a["repo-host"].call("checkout", repo=repo, branch=branch, dest=f"{ctx}/work")
-        timeout = self.config["agent_timeout"]
-        result = a["runner"].call("run-agent", image=image, context=ctx, task=task, role=role,
-                                  timeout=timeout, deadline=timeout + self.config["adapter_grace"])
+        text = compose(role, prompt, feedback)
+        if resume:  # the Agent's Context lives across the Task's Runs and its cwd holds its last work
+            ctx = self.contexts.get(task, role)
+            ctx.write("prompt", text)
+        else:
+            ctx = self.contexts.create(task, role)
+            ctx.write("prompt", text)
+            ctx.copy(skills(role), "skills")
+            a["repo-host"].call("checkout", repo=repo, branch=branch, dest=ctx.path("cwd"))
+        result = self.run_environment("agentic", ctx, self.config["agent_timeout"])
         self.record(task, "agent", run, role=role, **result)
-        recorded = a["repo-host"].call("record", repo=repo, branch=branch, **{"from": f"{ctx}/work"})
+        recorded = a["repo-host"].call("record", repo=repo, branch=branch, **{"from": ctx.path("cwd")})
         self.record(task, "branch-recorded", run, role=role, branch=branch, **recorded)
         return result
 
@@ -114,32 +125,27 @@ class TaskRunner:
         a = self.a
         for attempt in range(MAX_INTEGRATIONS):
             main = a["repo-host"].call("main-head", repo=repo)["commit"]
-            image = a["environment-builder"].call("build", repo=repo, commit=main,
-                                                  purpose="integrator")["image"]
-            ctx = a["runner"].call("provision-context", kind="integrator", task=task, run=run,
-                                   attempt=attempt)["context"]
-            a["repo-host"].call("checkout", repo=repo, commit=base, dest=f"{ctx}/base")
-            a["repo-host"].call("checkout", repo=repo, commit=main, dest=f"{ctx}/main")
+            ctx = self.contexts.create(task, f"integrate-{run}-{attempt}")
+            ctx.copy(INTEGRATOR_RUN, "run", executable=True)
+            ctx.mkdir("out")
+            a["repo-host"].call("checkout", repo=repo, commit=base, dest=ctx.path("cwd/base"))
+            a["repo-host"].call("checkout", repo=repo, commit=main, dest=ctx.path("cwd/main"))
             for role, name in branches.items():
-                a["repo-host"].call("checkout", repo=repo, branch=name, dest=f"{ctx}/{role}")
-            timeout = self.config["integrator_timeout"]
-            result = a["runner"].call("run-integrator", image=image, context=ctx, timeout=timeout,
-                                      deadline=timeout + self.config["adapter_grace"])
+                a["repo-host"].call("checkout", repo=repo, branch=name, dest=ctx.path(f"cwd/{role}"))
+            if ctx.path("cwd/main/Containerfile").is_file():  # the Environment is main's
+                ctx.copy(ctx.path("cwd/main/Containerfile"), "cwd/Containerfile")
+            result = self.run_environment("deterministic", ctx, self.config["integrator_timeout"])
             self.record(task, "integrator", run, **result)
             if result["timed_out"]:
                 return {"result": "red", "failed_check": "timeout", "output": "Timed out."}
-            verdict = result["verdict"]
-            if verdict["result"] not in ("green", "red") or (
-                    verdict["result"] == "red" and "failed_check" not in verdict):
-                raise AdapterError(f"run-integrator returned a malformed verdict: {verdict}")
+            verdict = verdicts.read(result["files"])
             if verdict["result"] == "red":
-                return {**verdict, "output": result["output"]}
+                return verdict
             integrated = f"factory/{task}/integrated"
-            a["repo-host"].call("record", repo=repo, branch=integrated, **{"from": f"{ctx}/result"})
+            a["repo-host"].call("record", repo=repo, branch=integrated, **{"from": ctx.path("out/integrated")})
             pushed = a["repo-host"].call("fast-forward-main", repo=repo, branch=integrated,
                                          **{"expect-main": main})
             self.record(task, "fast-forward", run, **pushed)
             if pushed["advanced"]:
-                return {"result": "green", "output": result["output"], "commit": pushed["head"]}
+                return {**verdict, "commit": pushed["head"]}
         raise AdapterError("main kept moving; gave up integrating")
-

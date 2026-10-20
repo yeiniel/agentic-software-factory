@@ -1,6 +1,6 @@
 # Design: Agentic Software Factory
 
-Status: agreed design from a grilling session, nothing implemented yet. Vocabulary is in `../GLOSSARY.md`; use those terms exactly. The fixed decisions are in `adr/`: `0001-agents-are-agnostic-to-task-delivery-and-change-delivery.md` and `0002-algorithmic-work-runs-outside-the-agents.md`, and, for this experiment branch, ADRs 0003 to 0011 (blind parallel Agents, the Deliverable, Pi, container Environments, `make test`, local inference, Tasks as git-native issues on a self-hosted git server, the Factory as a container with the Podman socket, a core with no direct effects). The **Experiment** markers below are now settled by those ADRs where one applies. Everything marked **Experiment** is the initial approach to be tested and may be replaced.
+Status: agreed design from a grilling session, nothing implemented yet. Vocabulary is in `../GLOSSARY.md`; use those terms exactly. The fixed decisions are in `adr/`: `0001-agents-are-agnostic-to-task-delivery-and-change-delivery.md` and `0002-algorithmic-work-runs-outside-the-agents.md`, and, for this experiment branch, ADRs 0003 to 0015 (blind parallel Agents, the Deliverable, Pi, container Environments, `make test`, local inference, Tasks as git-native issues on a self-hosted git server, the Factory as a container with the Podman socket, the core agnostic of implementations, the Runner knowing agentic or deterministic only, roles and the Integrator as core resources). The **Experiment** markers below are now settled by those ADRs where one applies. Everything marked **Experiment** is the initial approach to be tested and may be replaced.
 
 ## Principle
 
@@ -49,18 +49,17 @@ Every actor, agentic and deterministic, leaves a record: each Run writes a struc
 
 ## Architecture
 
-The Factory core holds business logic and the fixed graph of Activities for a Run; it runs no git, Podman or file effects itself (ADR 0011). Each effect is an Adapter, an executable with a documented contract (arguments in, JSON out). The six ports:
+The Factory core holds business logic and the fixed graph of Activities for a Run; it runs no git or Podman effects itself and reaches Tasks, repositories, events, Environments and records only through Adapters (ADR 0013, superseding 0011). It assembles Run Contexts itself in the Run Context Store, local files behind a narrow interface, not a port. Each other effect is an Adapter, an executable with a documented contract (arguments in, JSON out). The five ports:
 
 - **Event Source**: subscribes to Task and repo events.
 - **Task Store**: reads a Task and updates its status.
 - **Repo Host**: hands out a clone of one branch, creates and records branches, and fast-forwards `main`. All git lives here.
-- **Environment Builder**: builds the image for a repo at a commit, with the tooling layered on.
-- **Runner**: runs an Agent or the Integrator in an Environment on a Run Context and returns the result.
+- **Runner**: runs an Environment, agentic or deterministic, on a Run Context and returns the result; it builds the image from the Context's Containerfile itself (ADR 0014).
 - **Records**: receives the event log.
 
-The Integrator runs in an Environment because it executes Agent-written code (`make test`), which must never run in the Factory container (it holds the Podman socket). It is a pure function from a Run Context (base, both branches, latest `main`) to a verdict plus a branch; it starts as a small POSIX shell script layered onto the repo image like Pi, and may be replaced by any tool that honours the contract. The Factory queues Integrator runs one at a time, fast-forwards `main` only on a green verdict, and starts a fresh Integrator run if `main` moved.
+The Integrator runs in an Environment because it executes Agent-written code (`make test`), which must never run in the Factory container (it holds the Podman socket). It is a pure function from a Run Context (base, both branches, latest `main`) to a verdict plus a branch; it starts as a small POSIX shell script that the core writes into its Run Context as `run`, executed in the repo's own image, and may be replaced by any tool that honours the Context layout. The Factory queues Integrator runs one at a time, fast-forwards `main` only on a green verdict, and starts a fresh Integrator run if `main` moved.
 
-The **agent harness layer** is what the Environment Builder adds on top of a repo's image for Agents: Pi and its runtime, Pi's configuration (pointing at the local model server), the skills for both roles, and an entrypoint. There is one layer for both roles; the roles differ only in the prompt, which the core composes (the Task, the role's instruction and any Feedback) and the Run Context provisions per Run. The Run Context is a mounted directory holding the prompt, the clone on the role's branch as the working directory, and the Pi session state (empty on the first Run). The Integrator has its own layer and entrypoint, with its three branches in the clone area, and no Pi.
+The **agent harness layer** is what the Runner adds on top of a repo's image for agentic Environments: Pi and its runtime, Pi's configuration (pointing at the local model server) and an entrypoint. Roles are core resources (ADR 0015): each role's instruction, its skills and the Integrator's `run` script live in `src/factory/resources/` and the core writes them into the Run Context, so the layer is identical for both roles and the Integrator has no layer. The Run Context is a folder (`cwd/`, `prompt`, `skills/`, `run`, `out/`; see `specs/0004-run-context-and-the-runner.md`) mounted into the Environment; the Pi session state is added by the Runner and reused when the same Context is handed back for a retry. The Integrator's `cwd` holds `base`, `main` and both branches.
 
 Deployment (the Factory's own image, the Podman socket mount, the Repo Host container) is separate and tracked outside the core. The core expects a reachable Repo Host, a Podman socket and a model server, and nothing more.
 

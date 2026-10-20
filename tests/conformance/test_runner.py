@@ -1,9 +1,9 @@
-from pathlib import Path
+"""The Runner's one operation, `run`, for both Environment types (docs/adapters/README.md)."""
+import json
 
 import pytest
 
-ROLES = ["implementor", "acceptance-writer"]
-CHECKS = {"specs-not-red", "conflict", "suite"}
+CONTAINERFILE = "FROM docker.io/library/alpine\nRUN apk add --no-cache git make\n"
 
 
 @pytest.fixture
@@ -11,56 +11,52 @@ def runner(adapter):
     return adapter("runner")
 
 
-def provision(runner, kind, run=1, **extra):
-    body = {"prompt": "do it", "resume": False} if kind != "integrator" else None
-    ctx = runner.ok("provision-context", body, kind=kind, task=runner.fixture["task"], run=run,
-                    **extra)["context"]
-    assert Path(ctx).is_dir()
+def context(tmp_path, kind, run_script="echo hi > ../out/hello\n"):
+    """A Run Context in the standard layout (docs/specs/0004)."""
+    ctx = tmp_path / "ctx" / kind
+    (ctx / "cwd").mkdir(parents=True)
+    (ctx / "cwd" / "Containerfile").write_text(CONTAINERFILE)
+    if kind == "agentic":
+        (ctx / "skills" / "a-skill").mkdir(parents=True)
+        (ctx / "prompt").write_text("do it")
+    else:
+        (ctx / "out").mkdir()
+        (ctx / "run").write_text("#!/bin/sh\n" + run_script)
+        (ctx / "run").chmod(0o755)
     return ctx
 
 
-@pytest.mark.parametrize("kind", [*ROLES, "integrator"])
-def test_provision_context_returns_an_existing_directory(runner, kind):
-    provision(runner, kind)
+def run(runner, ctx, kind, **extra):
+    return runner.ok("run", type=kind, context=ctx, timeout=60, **{"build-timeout": 600}, **extra)
 
 
-def test_each_kind_and_run_gets_its_own_context(runner):
-    contexts = {provision(runner, "implementor", 1), provision(runner, "implementor", 2),
-                provision(runner, "acceptance-writer", 1)}
-    assert len(contexts) == 3
-
-
-def test_integrator_passes_in_one_run_get_fresh_contexts(runner):
-    assert provision(runner, "integrator", attempt=0) != provision(runner, "integrator", attempt=1)
-
-
-def test_provisioning_an_unknown_kind_fails(runner):
-    runner.fails("provision-context", {"prompt": "x", "resume": False}, kind="wizard", task=runner.fixture["task"], run=1)
-
-
-@pytest.mark.parametrize("role", ROLES)
-def test_run_agent_reports_the_documented_fields(runner, role):
-    ctx = provision(runner, role)
-    result = runner.ok("run-agent", image=runner.fixture["agent_image"], context=ctx,
-                       task=runner.fixture["task"], role=role, timeout=30)
+def test_an_agentic_run_reports_the_documented_fields(runner, tmp_path):
+    result = run(runner, context(tmp_path, "agentic"), "agentic")
     assert isinstance(result["timed_out"], bool)
     assert result["exit_status"] is None or isinstance(result["exit_status"], int)
     assert isinstance(result["output"], str)
     assert isinstance(result["transcript"], str)
 
 
-def test_run_integrator_returns_a_verdict(runner):
-    ctx = provision(runner, "integrator")
-    result = runner.ok("run-integrator", image=runner.fixture["integrator_image"], context=ctx, timeout=30)
-    assert isinstance(result["timed_out"], bool)
+def test_a_deterministic_run_returns_the_text_of_the_files_in_out(runner, tmp_path):
+    result = run(runner, context(tmp_path, "deterministic"), "deterministic")
+    assert result["exit_status"] == 0 and result["timed_out"] is False
+    assert result["files"] == {"hello": "hi\n"}
     assert isinstance(result["output"], str)
-    verdict = result["verdict"]
-    assert verdict["result"] in ("green", "red")
-    if verdict["result"] == "red":
-        assert verdict["failed_check"] in CHECKS
-        assert isinstance(verdict["spec_output"], str)
-    else:
-        assert (Path(ctx) / "result").is_dir()
+
+
+def test_directories_in_out_are_not_files(runner, tmp_path):
+    ctx = context(tmp_path, "deterministic", "mkdir ../out/clone; echo x > ../out/clone/f; echo y > ../out/top\n")
+    assert run(runner, ctx, "deterministic")["files"] == {"top": "y\n"}
+
+
+def test_a_failing_run_is_data_not_an_error(runner, tmp_path):
+    result = run(runner, context(tmp_path, "deterministic", "exit 3\n"), "deterministic")
+    assert result["exit_status"] == 3 and result["timed_out"] is False
+
+
+def test_an_unknown_type_fails(runner, tmp_path):
+    runner.fails("run", type="wizard", context=context(tmp_path, "agentic"), timeout=10)
 
 
 def test_unknown_operation_fails(runner):

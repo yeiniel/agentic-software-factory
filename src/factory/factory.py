@@ -4,6 +4,7 @@ import sys
 import threading
 
 from .adapters import AdapterError
+from .contexts import ContextStore
 from .run import TaskRunner
 
 END = object()
@@ -24,7 +25,7 @@ def serve(adapters, config):
             events.put(END)
 
     threading.Thread(target=pump, daemon=True).start()
-    runner = TaskRunner(adapters, config)
+    runner = TaskRunner(adapters, config, ContextStore(config["context_root"]))
     while (event := events.get()) is not END:
         if event["type"] == "task":
             runner.execute(event["task"], event["repo"])

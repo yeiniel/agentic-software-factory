@@ -21,16 +21,19 @@ The Agent role that changes the repository to fulfil a Task. The Factory records
 The Agent role that writes the acceptance tests for a Task. The Factory records its result on its own branch.
 
 **Run Context**:
-Everything provisioned for one Agent in one Run: the prompt, the project source on the role's branch (including whatever the project itself brings for agents), and the resumed Pi session state. Skills are not provisioned per Run; they come with the Environment.
+Everything provisioned for one Agent, or for the Integrator, in one Run. For an Agent: the prompt, the role's skills, the project source on the role's branch as its workspace (including whatever the project itself brings for agents), and the resumed Pi session state. For the Integrator: what it runs and what it works on.
 
 **Task Store**:
 Where Tasks live and where their status is written back. An abstraction that Agents never see.
+
+**Run Context Store**:
+Where Run Contexts live between the Factory assembling them and an Environment running on them. An abstraction that Agents never see.
 
 **Repo Host**:
 Where a repository lives and where pushes to it are received. An abstraction, and the source of the events (such as a push) the Factory reacts to.
 
 **Environment**:
-The isolated container where a single Agent, or the Integrator, runs, built from the target repository's own container definition and booted with a Run Context and all dependencies already in place.
+The isolated container where a single Agent, or the Integrator, runs, built from the target repository's own container definition and booted with a Run Context and all dependencies already in place. It is either **agentic** (it reaches the model server) or **deterministic** (it has no network); it never knows what runs in it.
 
 **Integrator**:
 The deterministic, non-agent process that runs in an Environment on a Run Context holding the Implementor's and Acceptance Writer's branches. It checks the new specs, combines the branches and runs the acceptance suite, and returns a verdict plus the combined branch; the Factory alone decides what reaches `main`.
@@ -46,10 +49,10 @@ What the Integrator hands back to a retriggered Agent after a failed Run: the sp
 The status of a Task that reached its Run cap (2 Runs by default) without a Deliverable and now waits for a human.
 
 **Activity**:
-One step in a Run's fixed graph: build the Environment, run the Agents, validate, integrate, publish.
+One step in a Run's fixed graph: assemble the Run Contexts, run the Agents, validate, integrate, publish.
 
 **Adapter**:
-A swappable external executable through which the Factory performs an effect: events, Task Store, Repo Host, Environment building, running an Agent or the Integrator, and records.
+A swappable external executable through which the Factory performs an effect: events, Task Store, Repo Host, running an Environment on a Run Context, and records.
 
 **Run**:
 One attempt to complete a Task: each Agent is launched in its own Environment with its own Run Context, and the Integrator is applied to their results.

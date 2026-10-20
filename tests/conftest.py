@@ -13,7 +13,7 @@ import gitrepohost  # noqa: E402  (test infrastructure)
 
 STANDIN = Path(__file__).parent / "standins" / "standin.py"
 ADAPTERS = Path(__file__).parent.parent / "adapters"
-PORTS = ["event-source", "task-store", "repo-host", "environment-builder", "runner", "records"]
+PORTS = ["event-source", "task-store", "repo-host", "runner", "records"]
 
 
 class Outcome:
@@ -62,6 +62,7 @@ def run_factory(tmp_path):
     def run(scenario, timeout=30, real_git=None, **config):
         scenario.setdefault("repo", {"README": "base"})
         (tmp_path / "scenario.json").write_text(json.dumps(scenario))
+        config["context_root"] = str(tmp_path / "contexts")
         config["adapters"] = {p: [sys.executable, str(STANDIN), p] for p in PORTS}
         if real_git is not None:  # real git Repo Host and the real Integrator script
             root = tmp_path / "git"

@@ -19,12 +19,11 @@ def test_green_first_run_advances_main_and_marks_task_done(run_factory):
 
 
 def agent_runs(out):
-    return [c["args"]["role"] for c in out.calls_to("runner", "run-agent")]
+    return [r["role"] for r in out.state["agent_runs"]]
 
 
 def prompts(out, role):
-    return [c["body"]["prompt"] for c in out.calls_to("runner", "provision-context")
-            if c["args"]["kind"] == role]
+    return [r["prompt"] for r in out.state["agent_runs"] if r["role"] == role]
 
 
 def red(check, output, **extra):
@@ -41,10 +40,12 @@ def test_implementor_failure_retriggers_only_the_implementor_with_feedback(run_f
     first, retry = prompts(out, "implementor")
     assert "FAIL: greeting is empty" not in first
     assert "FAIL: greeting is empty" in retry
-    # the retried Agent resumes its session, on its own branch; the other branch is never named
-    retry_ctx = [c for c in out.calls_to("runner", "provision-context")
-                 if c["args"]["kind"] == "implementor" and c["args"]["run"] == "2"][0]
-    assert retry_ctx["body"]["resume"] is True
+    # the retried Agent gets its own Context back, still holding its last work; the other branch is never named
+    first_run, retry_run = [r for r in out.state["agent_runs"] if r["role"] == "implementor"]
+    assert retry_run["context"] == first_run["context"]
+    assert "implementor.txt" in retry_run["cwd"] and "implementor.txt" not in first_run["cwd"]
+    # the retry is not checked out again: two Agents once, then the Integrator's four, twice
+    assert len(out.calls_to("repo-host", "checkout")) == 2 + 4 + 4
     assert all("acceptance-writer" not in p for p in prompts(out, "implementor"))
     assert out.main["implementor.txt"] == "implementor run 2"
     assert out.main["acceptance-writer.txt"] == "acceptance-writer run 1"
@@ -76,7 +77,7 @@ def test_task_is_blocked_after_two_runs_with_history_and_main_untouched(run_fact
 
     assert out.exit_code == 0, out.stderr
     assert out.status("t1") == ["running", "running", "blocked"]
-    assert len(out.calls_to("runner", "run-integrator")) == 2
+    assert len(out.state["integrator_runs"]) == 2
     assert out.main == {"README": "base"}
     history = out.state["status_body"]["t1"][-1]["history"]
     assert [h["run"] for h in history] == [1, 2]
@@ -109,11 +110,11 @@ def test_main_moving_between_verdict_and_push_triggers_a_fresh_integrator_run(ru
     out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT],
                        "main_moves_after_integrator": [1]})
 
-    assert len(out.calls_to("runner", "run-integrator")) == 2
+    assert len(out.state["integrator_runs"]) == 2
     assert out.main["human.txt"] == "pushed by a human"
     assert out.main["implementor.txt"] == "implementor run 1"
     assert out.status("t1") == ["running", "done"]  # still one Run
-    assert len(out.calls_to("runner", "run-agent")) == 2
+    assert len(out.state["agent_runs"]) == 2
 
 
 def test_two_tasks_run_one_after_the_other(run_factory):
@@ -134,11 +135,11 @@ def test_main_push_is_recorded_and_not_acted_on(run_factory):
 
 
 def test_adapter_error_blocks_visibly_and_does_not_consume_a_run(run_factory):
-    # build calls: run 1 has three (two Agents, Integrator); the fourth is run 2's Implementor
+    # run calls: run 1 has three (two Agents, Integrator); the fourth is run 2's Implementor
     out = run_factory({"tasks": {"t1": "x"},
                        "events": [TASK_EVENT, TASK_EVENT],
                        "integrator": [red("suite", "red")],
-                       "fail": [{"port": "environment-builder", "op": "build", "call": 4}]})
+                       "fail": [{"port": "runner", "op": "run", "call": 4}]})
 
     assert out.exit_code == 0, out.stderr
     assert out.status("t1") == ["running", "running", "blocked", "running", "done"]
@@ -160,7 +161,7 @@ def test_agent_exceeding_the_time_limit_fails_the_run_and_is_retried(run_factory
 def test_hung_adapter_is_cut_off_and_reported_as_an_infrastructure_error(run_factory):
     out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT],
                        "agent": {"implementor": [{"hang": 5, "ignore_timeout": True}]}},
-                      agent_timeout=1, adapter_grace=1)
+                      agent_timeout=1, adapter_grace=1, build_timeout=0)
 
     assert out.status("t1") == ["running", "blocked"]
     assert len(out.events("task/t1", "infrastructure-error")) == 1
@@ -191,3 +192,43 @@ def test_malformed_verdict_is_an_infrastructure_error(run_factory):
     assert out.exit_code == 0, out.stderr
     assert out.status("t1") == ["running", "blocked"]
     assert out.main == {"README": "base"}
+
+
+def test_each_agent_context_holds_the_prompt_its_own_skills_and_the_project_on_its_branch(run_factory):
+    out = run_factory({"tasks": {"t1": "add a greeting"}, "events": [TASK_EVENT]})
+
+    by_role = {r["role"]: r for r in out.state["agent_runs"]}
+    assert by_role["implementor"]["skills"] == ["implementor"]
+    assert by_role["acceptance-writer"]["skills"] == ["acceptance-writer"]
+    assert "add a greeting" in by_role["implementor"]["prompt"]
+    assert by_role["implementor"]["cwd"] == ["README"]
+    assert by_role["implementor"]["context"] != by_role["acceptance-writer"]["context"]
+
+
+def test_skills_stay_outside_the_working_directory_that_is_recorded(run_factory):
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT]})
+
+    assert all("SKILL.md" not in name for r in out.state["agent_runs"] for name in r["cwd"])
+    assert not any("SKILL.md" in name for name in out.main)
+
+
+def test_the_integrator_gets_a_fresh_context_per_attempt_with_a_run_script_and_the_four_inputs(run_factory):
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "main_moves_after_integrator": [1]})
+
+    first, second = out.state["integrator_runs"]
+    assert first["context"] != second["context"]
+    assert first["run"].startswith("#!/bin/sh")
+    assert first["cwd"] == ["acceptance-writer", "base", "implementor", "main"]
+
+
+def test_the_runner_is_never_told_a_role(run_factory):
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT],
+                       "integrator": [red("suite", "red")]})
+
+    calls = out.calls_to("runner")
+    assert {c["op"] for c in calls} == {"run"}
+    assert {c["args"]["type"] for c in calls} == {"agentic", "deterministic"}
+    for call in calls:
+        rest = {k: v for k, v in call["args"].items() if k != "context"}
+        assert "implementor" not in str(rest) and "acceptance-writer" not in str(rest)
+        assert call["body"] is None

@@ -26,8 +26,7 @@ STANDIN = Path(__file__).parent.parent / "standins" / "standin.py"
 FIXTURE = {
     "repo": "r",                    # a repository whose `main` has at least one commit
     "task": "t1", "prompt": "add a greeting",  # a Task in the Task Store
-    "commit": "c0",                 # a commit of `repo` to build an Environment for
-    "agent_image": "img", "integrator_image": "img",  # images the Runner can run
+    "commit": "c0",                 # a commit of `repo`
     "events": [{"type": "task", "task": "t1", "repo": "r"},
                {"type": "main-push", "repo": "r", "commit": "c0"}],
 }
@@ -86,10 +85,9 @@ def real_target(port, tmp_path):
         fixture["task"] = f"r/{ident}"
     if port == "event-source":
         env["EVENT_SOURCE_PORT"] = str(free_port())
-    if port in ("environment-builder", "runner"):
-        if shutil.which("podman") is None:
-            pytest.skip("needs Podman")
-    target = Target(exe, env, fixture, timeout=600 if port == "environment-builder" else 120)
+    if port == "runner" and shutil.which("podman") is None:
+        pytest.skip("needs Podman")
+    target = Target(exe, env, fixture, timeout=600 if port == "runner" else 120)
     if port == "event-source":
         post = ("import sys,time,urllib.request as u\n"
                 "for line in ('%s %s refs/issues/abc', '%s %s refs/heads/main'):\n"
@@ -98,10 +96,6 @@ def real_target(port, tmp_path):
                 "        except OSError: time.sleep(0.1)\n") % ("0" * 40, "1" * 40, "1" * 40, "2" * 40,
                                                               env["EVENT_SOURCE_PORT"])
         target.trigger = f"{shlex.quote(sys.executable)} -c {shlex.quote(post)}"
-    if port == "runner":
-        builder = Target([str(ADAPTERS / "environment-builder")], env, fixture, timeout=600)
-        fixture["agent_image"] = builder.ok("build", repo="r", commit=head, purpose="agent")["image"]
-        fixture["integrator_image"] = builder.ok("build", repo="r", commit=head, purpose="integrator")["image"]
     return target
 
 

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Run Pi on the Run Context mounted at /ctx: prompt in /ctx/prompt.md, clone in /ctx/work,
-# session state in /ctx/session. The model server comes from the environment:
+# Run Pi on the Run Context mounted at /ctx: prompt in /ctx/prompt, skills in /ctx/skills, working
+# directory /ctx/cwd, session state in /ctx/session. The model server comes from the environment:
 #   ASF_MODEL_ENDPOINT (an OpenAI-compatible base URL), ASF_MODEL_NAME, ASF_MODEL_CONTEXT_WINDOW.
 set -eu
 : "${ASF_MODEL_ENDPOINT:?}" "${ASF_MODEL_NAME:?}" "${ASF_MODEL_CONTEXT_WINDOW:?}"
@@ -16,8 +16,11 @@ JSON
 # A queued request can wait a long time for its first byte on a shared model server.
 echo '{"httpIdleTimeoutMs": 0}' > /root/.pi/agent/settings.json
 git config --global safe.directory '*'
-cd /ctx/work
-resume=
-[ -z "$(ls -A /ctx/session 2> /dev/null)" ] || resume=--continue
-# shellcheck disable=SC2086
-exec pi --provider local --model "$ASF_MODEL_NAME" --session-dir /ctx/session $resume -p "$(cat /ctx/prompt.md)"
+cd /ctx/cwd
+# The role's skills are folders in /ctx/skills; a session already in /ctx/session is resumed.
+set --
+for skill in /ctx/skills/*/; do
+    [ -d "$skill" ] && set -- "$@" --skill "${skill%/}"
+done
+[ -z "$(ls -A /ctx/session 2> /dev/null)" ] || set -- "$@" --continue
+exec pi --provider local --model "$ASF_MODEL_NAME" --session-dir /ctx/session "$@" -p "$(cat /ctx/prompt)"

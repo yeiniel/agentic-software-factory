@@ -3,7 +3,6 @@
     "event-source": ["/opt/asf/adapters/event-source", "listen"],
     "task-store": ["/opt/asf/adapters/task-store"],
     "repo-host": ["/opt/asf/adapters/repo-host"],
-    "environment-builder": ["/opt/asf/adapters/environment-builder"],
     "runner": ["/opt/asf/adapters/runner"],
     "records": ["/opt/asf/adapters/records"]
   }

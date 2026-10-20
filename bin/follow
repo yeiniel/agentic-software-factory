@@ -15,7 +15,7 @@ data = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local
 prefix = sys.argv[1] if len(sys.argv) > 1 else ""
 records = max(glob.glob(f"{data}/records/task/*/{prefix}*.jsonl"), key=os.path.getmtime)
 repo, task = os.path.basename(os.path.dirname(records)), os.path.basename(records)[:-len(".jsonl")]
-sessions = f"{data}/runner/sessions/{repo}-{task}"
+sessions = f"{data}/runner/contexts/{repo}-{task}"
 print(f"following {task}", file=sys.stderr)
 offsets = {}
 
@@ -66,9 +66,9 @@ while True:
     try:
         for line in new_lines(records):
             print(record(line), flush=True)
-        for path in sorted(glob.glob(f"{sessions}/*/*.jsonl")):
+        for path in sorted(glob.glob(f"{sessions}/*/session/*.jsonl")):
             for line in new_lines(path):
-                for text in session(os.path.basename(os.path.dirname(path)), line) or []:
+                for text in session(os.path.basename(os.path.dirname(os.path.dirname(path))), line) or []:
                     print(text, flush=True)
         time.sleep(1)
     except KeyboardInterrupt:

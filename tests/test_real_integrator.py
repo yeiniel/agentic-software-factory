@@ -66,7 +66,7 @@ def test_a_persisting_merge_conflict_blocks_the_task_and_leaves_main_untouched(r
 def test_a_human_push_between_verdict_and_push_means_a_fresh_integrator_run(run_factory):
     out = factory(run_factory, main_moves_after_integrator=[1])
 
-    assert len(out.calls_to("runner", "run-integrator")) == 2
+    assert len(out.state["integrator_runs"]) == 2
     assert out.git_main("human.txt") == "pushed by a human"
     assert out.git_main("src/greeting.txt") == "hello\n"
     assert out.status("t1") == ["running", "done"]

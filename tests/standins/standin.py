@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scripted stand-in for all six Adapter ports: `standin.py <port> <op> [--k v ...]`.
+"""Scripted stand-in for all five Adapter ports: `standin.py <port> <op> [--k v ...]`.
 
 Behaviour is scripted by $FIXTURE_DIR/scenario.json; every call is logged to
 calls.jsonl and state lives in state.json. Test infrastructure only.
@@ -29,14 +29,15 @@ def locked():
         else:
             state = {"main": "c0", "n": 0, "commits": {"c0": SCENARIO.get("repo", {})},
                      "branches": {}, "status": {}, "status_body": {}, "counters": {},
-                     "agent_spans": []}
+                     "agent_spans": [], "agent_runs": [], "integrator_runs": []}
         yield state
         path.write_text(json.dumps(state))
 
 
 def read_tree(root):
     root = Path(root)
-    return {str(p.relative_to(root)): p.read_text() for p in sorted(root.rglob("*")) if p.is_file()}
+    return {str(p.relative_to(root)): p.read_text() for p in sorted(root.rglob("*"))
+            if p.is_file() and ".git" not in p.relative_to(root).parts}
 
 
 def write_tree(root, files):
@@ -68,8 +69,7 @@ def bump(state, key):
 
 OPS = {"event-source": {"listen"}, "task-store": {"get-prompt", "set-status"},
        "repo-host": {"main-head", "create-branch", "checkout", "record", "fast-forward-main"},
-       "environment-builder": {"build"},
-       "runner": {"provision-context", "run-agent", "run-integrator"}, "records": {"append"}}
+       "runner": {"run"}, "records": {"append"}}
 
 
 def reject(message):
@@ -144,70 +144,68 @@ def do_repo_host(op, args, body):
             return {"advanced": True, "head": state["main"]}
 
 
-def do_environment_builder(op, args, body):
-    if args["purpose"] not in ("agent", "integrator"):
-        reject(f"unknown purpose {args['purpose']}")
-    return {"image": f"img-{args['purpose']}-{args['commit']}"}
-
-
 def do_runner(op, args, body):
-    if op == "provision-context":
-        if args["kind"] not in ("implementor", "acceptance-writer", "integrator"):
-            reject(f"unknown kind {args['kind']}")
-        ctx = FIX / "contexts" / f"{args['task']}-{args['run']}-{args['kind']}-{args.get('attempt', 0)}"
-        ctx.mkdir(parents=True, exist_ok=True)
-        (ctx / "context.json").write_text(json.dumps(body))
-        return {"context": str(ctx)}
-    if op == "run-agent":
-        return run_agent(args)
-    if op == "run-integrator":
-        return run_integrator(args)
+    if args["type"] not in ("agentic", "deterministic"):
+        reject(f"unknown type {args['type']}")
+    ctx = Path(args["context"])
+    return run_agent(args, ctx) if args["type"] == "agentic" else run_integrator(args, ctx)
 
 
-def run_agent(args):
-    role, ctx = args["role"], Path(args["context"])
+def run_agent(args, ctx):
+    """The role is the Context's folder name here only: the stand-in knows the core's layout."""
+    role = ctx.name
     with locked() as state:
         n = bump(state, f"agent/{role}") - 1
+        state["agent_runs"].append({"role": role, "context": str(ctx), "prompt": (ctx / "prompt").read_text(),
+                                    "skills": sorted(p.name for p in (ctx / "skills").iterdir()),
+                                    "cwd": sorted(read_tree(ctx / "cwd"))})
     plan = (SCENARIO.get("agent", {}).get(role, []) + [{}] * (n + 1))[n]
     start = time.time()
     hang = plan.get("hang", 0)
     timed_out = hang > float(args["timeout"]) and not plan.get("ignore_timeout")
     time.sleep(float(args["timeout"]) if timed_out else hang)
     if not timed_out:
-        write_tree(ctx / "work", plan.get("edits", {f"{role}.txt": f"{role} run {n + 1}"}))
+        write_tree(ctx / "cwd", plan.get("edits", {f"{role}.txt": f"{role} run {n + 1}"}))
+    (ctx / "session").mkdir(exist_ok=True)
+    (ctx / "session" / "session.jsonl").write_text('{"stub": true}\n')
     with locked() as state:
         state["agent_spans"].append({"role": role, "start": start, "end": time.time()})
     return {"exit_status": None if timed_out else plan.get("exit_status", 0),
             "timed_out": timed_out, "output": plan.get("output", f"{role} output"),
-            "transcript": str(ctx / "transcript.jsonl")}
+            "transcript": str(ctx / "session" / "session.jsonl")}
 
 
-def run_integrator(args):
-    ctx = Path(args["context"])
+def run_script(ctx):
+    """Any other deterministic Context: just execute its `run` in its `cwd` (no isolation here)."""
+    done = subprocess.run([str(ctx / "run")], cwd=ctx / "cwd", capture_output=True, text=True)
+    files = {p.name: p.read_text() for p in sorted((ctx / "out").glob("*")) if p.is_file()}
+    return {"exit_status": done.returncode, "timed_out": False, "output": done.stdout + done.stderr,
+            "files": files}
+
+
+def run_integrator(args, ctx):
+    if not (ctx / "cwd" / "base").is_dir():
+        return run_script(ctx)
     with locked() as state:
         n = bump(state, "integrator") - 1
+        state["integrator_runs"].append({"context": str(ctx), "run": (ctx / "run").read_text(),
+                                         "cwd": sorted(p.name for p in (ctx / "cwd").iterdir())})
     plan = (SCENARIO.get("integrator", []) + [{}] * (n + 1))[n]
     if SCENARIO.get("integrator_impl") == "real":
-        verdict, output = run_real_integrator(ctx)
+        status = run_real_integrator(ctx)
     else:
-        verdict, output = scripted_verdict(plan, ctx)
+        status = scripted_verdict(plan, ctx)
     if (n + 1) in SCENARIO.get("main_moves_after_integrator", []):
         human_push()
-    return {"exit_status": 0 if verdict["result"] == "green" else 1, "timed_out": False,
-            "output": output, "verdict": verdict}
+    files = {p.name: p.read_text() for p in sorted((ctx / "out").iterdir()) if p.is_file()}
+    return {"exit_status": status, "timed_out": False, "output": "", "files": files}
 
 
 def run_real_integrator(ctx):
-    done = subprocess.run(["sh", str(HERE.parent.parent / "images" / "integrator" / "integrator.sh"), str(ctx)], capture_output=True, text=True)
+    done = subprocess.run([str(ctx / "run")], cwd=ctx / "cwd", capture_output=True, text=True)
     if done.returncode:
         reject(f"integrator could not run: {done.stderr}")
-    v = ctx / "verdict"
-    read = lambda name: (v / name).read_text()
-    verdict = {"result": read("result").strip()}
-    if verdict["result"] == "red":
-        verdict["failed_check"] = read("failed_check")
-        verdict["spec_output"] = read("spec_output")
-    return verdict, read("output")
+    return done.returncode
 
 
 def human_push():
@@ -223,20 +221,22 @@ def human_push():
 
 
 def scripted_verdict(plan, ctx):
-    verdict = {"result": plan.get("result", "green")}
-    output = plan.get("output", "suite green")
-    if verdict["result"] == "red":
+    out = ctx / "out"
+    result = plan.get("result", "green")
+    files = {"result": result, "output": plan.get("output", "suite green")}
+    if result == "red":
         if "failed_check" in plan:
-            verdict["failed_check"] = plan["failed_check"]
-        verdict["spec_output"] = plan.get("spec_output", "")
+            files["failed_check"] = plan["failed_check"]
+        files["spec_output"] = plan.get("spec_output", "")
     else:
-        base = read_tree(ctx / "base")
-        merged = read_tree(ctx / "main")
+        cwd = ctx / "cwd"
+        base, merged = read_tree(cwd / "base"), read_tree(cwd / "main")
         for role in ("implementor", "acceptance-writer"):
-            tree = read_tree(ctx / role)
+            tree = read_tree(cwd / role)
             merged.update({k: v for k, v in tree.items() if base.get(k) != v})
-        write_tree(ctx / "result", merged)
-    return verdict, output
+        write_tree(out / "integrated", merged)
+    write_tree(out, files)
+    return 0 if result == "green" else 1
 
 
 def do_records(op, args, body):
