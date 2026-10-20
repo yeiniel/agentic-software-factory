@@ -5,10 +5,16 @@
 set -eu
 : "${ASF_MODEL_ENDPOINT:?}" "${ASF_MODEL_NAME:?}" "${ASF_MODEL_CONTEXT_WINDOW:?}"
 mkdir -p /root/.pi/agent
+# The model description the earlier experiments ran with: a thinking Qwen served through llama-server's chat template.
 cat > /root/.pi/agent/models.json <<JSON
 {"providers": {"local": {"baseUrl": "$ASF_MODEL_ENDPOINT", "api": "openai-completions", "apiKey": "none",
-  "models": [{"id": "$ASF_MODEL_NAME", "contextWindow": $ASF_MODEL_CONTEXT_WINDOW}]}}}
+  "models": [{"id": "$ASF_MODEL_NAME", "name": "$ASF_MODEL_NAME", "input": ["text"], "reasoning": true,
+    "contextWindow": $ASF_MODEL_CONTEXT_WINDOW, "maxTokens": 16384,
+    "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+    "compat": {"thinkingFormat": "qwen-chat-template"}}]}}}
 JSON
+# A queued request can wait a long time for its first byte on a shared model server.
+echo '{"httpIdleTimeoutMs": 0}' > /root/.pi/agent/settings.json
 git config --global safe.directory '*'
 cd /ctx/work
 resume=
