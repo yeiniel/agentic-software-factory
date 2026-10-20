@@ -4,6 +4,8 @@ status: ready-for-agent
 
 # Factory core
 
+The retry rules in this spec (stories 25, 26, 27 and 31) are amended by spec 0005 and ADR 0016.
+
 ## Problem Statement
 
 I want to hand a software change, written as a prompt, to a system that carries it out on an existing repository without my involvement and without risking `main`. Today that means supervising an agent, deciding when its work is good enough, and doing the branching and merging myself. I need a Factory that decides on its own whether a Task is done, learns from failures instead of blindly retrying, and is independent of any particular git server, container runtime or task tracker, so the same logic can later move to another language or deployment.
@@ -38,13 +40,13 @@ A Factory core that contains only business logic and a fixed graph of Activities
 22. As a developer, I want only the failing role retriggered, so that work that passed isn't redone.
 23. As a developer, I want the passing role's branch reused unchanged on a retry, so that a retry costs only what failed.
 24. As a developer, I want specs that are not red on base blamed on the Acceptance Writer, so that vacuous specs are fixed by the right role.
-25. As a developer, I want any other failure sent first to the Implementor with the Integrator's output, so that the suite acts as the specification.
-26. As a developer, I want the Acceptance Writer also retriggered, with its own run output only, if the Implementor fails twice on the same output, so that a wrong spec can be corrected without breaking blindness.
-27. As a developer, I want a retried Agent to continue from its own previous branch and resume its previous session, so that its fix is targeted.
+25. As a developer, I want a failed integration sent to the Implementor with the Integrator's output, so that the suite acts as the specification.
+26. (Superseded by spec 0005: the Acceptance Writer is retriggered only through Acceptance Test Validation.)
+27. (Superseded by spec 0005: a retried Agent starts again from the initial code and resumes its previous session.)
 28. As a developer, I want Feedback to be the Integrator's output verbatim, truncated to a size cap, so that no summarising step is needed.
 29. As a developer, I want Feedback to remind the Agent to check the Task when it is unclear whether the implementation or the spec is wrong, so that ambiguity is resolved against the source of truth.
 30. As a developer, I want Feedback never to disclose the other Agent's branch, so that blindness holds across retries.
-31. As a developer, I want a Task to stop after 2 Runs in total and become Blocked, so that a bad prompt can't burn budget forever.
+31. As a developer, I want a Task to stop after 2 Runs in total, or when an Agent's attempt budget within a Run is used up, and become Blocked, so that a bad prompt can't burn budget forever.
 32. As a developer, I want a Blocked Task to carry the history of every Run, so that I can understand what happened and rewrite the prompt.
 33. As a developer, I want every actor, agentic and deterministic, to leave a record in each Run (every command with exit code and output, every branch and merge result, the Feedback produced, pointers to Agent transcripts), so that a person or an evaluator can audit it.
 34. As a developer, I want records written through an Adapter, so that where they live is a deployment choice.

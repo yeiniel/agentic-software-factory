@@ -1,6 +1,6 @@
 # Design: Agentic Software Factory
 
-Status: agreed design from a grilling session, nothing implemented yet. Vocabulary is in `../GLOSSARY.md`; use those terms exactly. The fixed decisions are in `adr/`: `0001-agents-are-agnostic-to-task-delivery-and-change-delivery.md` and `0002-algorithmic-work-runs-outside-the-agents.md`, and, for this experiment branch, ADRs 0003 to 0015 (blind parallel Agents, the Deliverable, Pi, container Environments, `make test`, local inference, Tasks as git-native issues on a self-hosted git server, the Factory as a container with the Podman socket, the core agnostic of implementations, the Runner knowing agentic or deterministic only, roles and the Integrator as core resources). The **Experiment** markers below are now settled by those ADRs where one applies. Everything marked **Experiment** is the initial approach to be tested and may be replaced.
+Status: agreed design from a grilling session, nothing implemented yet. Vocabulary is in `../GLOSSARY.md`; use those terms exactly. The fixed decisions are in `adr/`: `0001-agents-are-agnostic-to-task-delivery-and-change-delivery.md` and `0002-algorithmic-work-runs-outside-the-agents.md`, and, for this experiment branch, ADRs 0003 to 0016 (blind parallel Agents, the Deliverable, Pi, container Environments, `make test`, local inference, Tasks as git-native issues on a self-hosted git server, the Factory as a container with the Podman socket, the core agnostic of implementations, the Runner knowing agentic or deterministic only, roles and the Integrator as core resources, Acceptance Test Validation apart from integration with nested retry loops). The **Experiment** markers below are now settled by those ADRs where one applies. Everything marked **Experiment** is the initial approach to be tested and may be replaced.
 
 ## Principle
 
@@ -23,29 +23,32 @@ A Task is done when the full acceptance suite passes on `main`. (**Experiment**:
    - **Implementor**: changes the code; the Factory records the result on its own branch.
    - **Acceptance Writer**: writes acceptance specs; the Factory records the result on its own branch.
 2. The Agents are **blind to each other**: neither sees the other's branch. Their only shared contract is the Task text.
-3. The **Integrator** (non-agent, run in its own Environment on a Run Context holding both branches and the latest `main`; it returns a verdict and a branch, and the Factory alone pushes to `main`) then:
-   1. Checks the new specs are valid: `make test` on the base plus the Acceptance Writer's branch must exit non-zero (vacuous specs are rejected). What is new is known from that branch's diff against base. The acceptance suite is `make test` (ADR 0007).
-   2. Merges or rebases the two branches. A conflict fails the Run.
-   3. Runs the entire acceptance suite on the integrated result.
-   4. If green, rebases onto the latest `main`, re-runs the full suite and fast-forwards `main`. Integration is a single serial queue against the current `main`; the two Agents run in parallel.
-   5. Marks the Task done in the task store. Agents never touch the store.
-4. On failure, `main` is untouched, and a new Run starts for the same Task.
-5. Only one Run is in flight at a time for now: the local model server has a fixed number of slots (ADR 0008). Parallel Tasks are future work and depend on more capacity.
+3. **Acceptance Test Validation** (non-agent, run in its own Environment on a Run Context holding the base and the Acceptance Writer's branch) starts as soon as the Acceptance Writer is recorded, in parallel with the Implementor. `make test` on the base plus the Acceptance Writer's branch must exit non-zero: vacuous specs are rejected, and so are specs made to pass by changing the code. What is new is known from that branch's diff against base. The acceptance suite is `make test` (ADR 0007).
+4. The **Integrator** (non-agent, run in its own Environment on a Run Context holding both branches and the latest `main`; it returns a verdict and a branch, and the Factory alone pushes to `main`) then:
+   1. Merges or rebases the two branches. A conflict fails the Run.
+   2. Runs the entire acceptance suite on the integrated result.
+   3. If green, rebases onto the latest `main`, re-runs the full suite and fast-forwards `main`. Integration is a single serial queue against the current `main`; the two Agents run in parallel.
+   4. Marks the Task done in the task store. Agents never touch the store.
+5. On failure, `main` is untouched. A failed integration starts a new Run for the same Task (see Retries and Feedback).
+6. Only one Run is in flight at a time for now: the local model server has a fixed number of slots (ADR 0008). Parallel Tasks are future work and depend on more capacity.
 
 Every actor, agentic and deterministic, leaves a record: each Run writes a structured event log (every Integrator command with its exit code and output, branch and merge results, the Feedback produced) plus the Agents' Pi session transcripts, stored outside the repo.
 
 ## Retries and Feedback
 
-- A retry is a new Run that carries **Feedback**, so it is informed and not a blind re-roll.
-- Only the failing role is retriggered; the passing role's branch is reused unchanged.
-- Blame is coarse, because `make test` gives only an exit code (ADR 0007):
-  - If the new specs are not red on base, the Acceptance Writer is retriggered.
-  - Otherwise a failure is first the Implementor's, with the output as Feedback.
-  - If the Implementor fails twice on the same output, the Acceptance Writer is also retriggered with its own run output, never the Implementor's diff.
-- Each Run starts a fresh container with a fresh clone, switched to the role's branch, so the retried Agent continues from its own previous result. It also resumes its previous Pi session, whose state lives in a local folder per role per Task that is mounted into the container, behind an abstraction so it can be swapped later; Feedback arrives as an ordinary follow-up prompt. A Run's clone contains only its pre-created branch, with the remote and every other branch removed, so blindness holds by construction; the Factory fetches the result back from the clone after the container exits.
-- Feedback contents: the spec run output (the **Acceptance Report**), any conflicts, and a reminder to check against the Task spec when it is unclear whether the implementation or the spec is wrong. It never discloses the other Agent's branch. Output is passed raw and algorithmically, truncated to a size cap, with no LLM summarising step.
+Retries are nested loops (ADR 0016, spec 0005).
+
+- The outer loop is the Run, capped at **2 Runs per Task**. A failed integration costs a Run. After that the Task is **Blocked** and the history of each Run (inputs, Feedback, outcome) goes to a human.
+- Inside a Run, two inner loops run in parallel, each with its own attempt budget that is reset every time a Run enters it, so two Runs can run an Agent four times:
+  - **Writer loop** (`writer_attempts`, 2 by default): the Acceptance Writer, then Acceptance Test Validation. An attempt fails if the Agent crashes or times out, or if its specs are not red on base.
+  - **Implementor loop** (`implementor_attempts`, 2 by default): the Implementor. An attempt fails only if the Agent crashes or times out; whether the code is right is judged at integration.
+- If either inner loop uses up its budget the Task is Blocked and nothing is integrated; the history names the loop.
+- A loop that succeeded keeps its branch in the next Run and is not re-entered.
+- Blame is coarse, because `make test` gives only an exit code (ADR 0007). A failed integration (a conflict or a red suite) is the Implementor's, with the output as Feedback. The Acceptance Writer is retriggered only through Acceptance Test Validation. Specs that are red on base but wrong end the Task Blocked: a known gap.
+- Each attempt starts a fresh container with a fresh clone of the base, on the role's branch reset to the base: the Agent's code returns to the initial state. The Agent resumes its previous Pi session, whose state lives in a local folder per role per Task that is mounted into the container, behind an abstraction so it can be swapped later; Feedback arrives as an ordinary follow-up prompt that says its previous changes were discarded. A Run's clone contains only its pre-created branch, with the remote and every other branch removed, so blindness holds by construction; the Factory fetches the result back from the clone after the container exits.
+- Feedback contents: why it failed, the spec run output (the **Acceptance Report**), any conflicts, a note that the previous changes were discarded, and a reminder to check against the Task spec when it is unclear whether the implementation or the spec is wrong. It never discloses the other Agent's branch. Output is passed raw and algorithmically, truncated to a size cap, with no LLM summarising step.
 - The Acceptance Report is made informative on failure by two things: a good spec framework, and a repo-owned Pi skill that teaches the Acceptance Writer how to write specs that explain themselves when they fail.
-- The cap is **2 Runs per Task in total** (not per role). After that the Task is **Blocked** and the history of each Run (inputs, Feedback, outcome) goes to a human.
+- Infrastructure errors and the retry when `main` moves during integration use no budget.
 
 ## Architecture
 
@@ -59,7 +62,7 @@ The Factory core holds business logic and the fixed graph of Activities for a Ru
 
 The Integrator runs in an Environment because it executes Agent-written code (`make test`), which must never run in the Factory container (it holds the Podman socket). It is a pure function from a Run Context (base, both branches, latest `main`) to a verdict plus a branch; it starts as a small POSIX shell script that the core writes into its Run Context as `run`, executed in the repo's own image, and may be replaced by any tool that honours the Context layout. The Factory queues Integrator runs one at a time, fast-forwards `main` only on a green verdict, and starts a fresh Integrator run if `main` moved.
 
-The **agent harness layer** is what the Runner adds on top of a repo's image for agentic Environments: Pi and its runtime, Pi's configuration (pointing at the local model server) and an entrypoint. Roles are core resources (ADR 0015): each role's instruction, its skills and the Integrator's `run` script live in `src/factory/resources/` and the core writes them into the Run Context, so the layer is identical for both roles and the Integrator has no layer. The Run Context is a folder (`cwd/`, `prompt`, `skills/`, `run`, `out/`; see `specs/0004-run-context-and-the-runner.md`) mounted into the Environment; the Pi session state is added by the Runner and reused when the same Context is handed back for a retry. The Integrator's `cwd` holds `base`, `main` and both branches.
+The **agent harness layer** is what the Runner adds on top of a repo's image for agentic Environments: Pi and its runtime, Pi's configuration (pointing at the local model server) and an entrypoint. Roles are core resources (ADR 0015): each role's instruction, system prompt and skills, and the `run` scripts of Acceptance Test Validation and the Integrator, live in `src/factory/resources/` and the core writes them into the Run Context, so the layer is identical for both roles and the Integrator has no layer. The Run Context is a folder (`cwd/`, `prompt`, `system-prompt`, `skills/`, `run`, `out/`; see `specs/0004-run-context-and-the-runner.md`) mounted into the Environment; the Pi session state is added by the Runner and reused when the same Context is handed back for a retry. The Integrator's `cwd` holds `base`, `main` and both branches.
 
 Deployment (the Factory's own image, the Podman socket mount, the Repo Host container) is separate and tracked outside the core. The core expects a reachable Repo Host, a Podman socket and a model server, and nothing more.
 

@@ -46,7 +46,7 @@ A folder. The Runner creates nothing in it except its own state.
 - A Run Context Store module in the core, over local files on the Factory image. Interface: create a Context, write a file into it, give the path for the Repo Host to check out into, hand the same Context back. It is not a port.
 - The core's resources live in `src/factory/resources/`: each role's instruction and skills, and the Integrator `run` script. `images/agent/skills` and `images/integrator/` are removed; the agent layer holds only Pi and its configuration.
 - A Verdict module in the core reads the Integrator's `files` (`result`, `failed_check`, `spec_output`, `output`) and validates them; `blame` consumes it. The stand-in drops its own parser.
-- Before a retry the core alters the existing Agent Context (the new `prompt`) and hands it back; `cwd` already holds the Agent's last work and is not checked out again.
+- Before a retry the core alters the existing Agent Context (the new `prompt`), checks `cwd` out again from the base (spec 0005) and hands it back; the Pi session in the Context is kept.
 - The Integrator leaves its integrated clone in `out/`; the core passes that path to the Repo Host `record`.
 - `docs/adapters/README.md`, `docs/design.md`, the Runner conformance suite, the stand-in and the deploy files change in the same commit.
 
