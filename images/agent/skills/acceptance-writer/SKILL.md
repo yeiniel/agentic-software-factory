@@ -26,7 +26,10 @@ a guess of how it will be implemented.
 6. One behaviour per spec. Cover the behaviours the Task states, then the edge cases it implies. Do not
    test what the Task does not ask for.
 7. Existing specs must keep passing. Do not edit or delete them unless the Task changes that behaviour.
-8. Only edit files. Do not run `git commit`, `git branch`, `git push` or anything else that changes git
+8. Edit only test files (and the `Makefile` test target if the specs need it). Never change the code under
+   test, even when your specs fail: a failing spec is the expected result, and fixing the code is someone
+   else's job. Changing it makes your specs pass on the unchanged repository and they are rejected.
+9. Only edit files. Do not run `git commit`, `git branch`, `git push` or anything else that changes git
    state: the Factory records your work.
 
 When you receive Feedback from a previous attempt, it is the output of your own specs. Fix them. If it
