@@ -1,0 +1,7 @@
+#!/bin/sh
+# Usage: bin/down [--model]
+# Stop the Factory and the git server (state in the asf-git volume and ~/.local/share/asf is kept);
+# --model also stops the model server.
+set -eu
+systemctl --user stop factory git-server && echo "down: factory git-server"
+[ "${1:-}" != --model ] || "$(dirname "$0")/model" stop

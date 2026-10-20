@@ -1,0 +1,5 @@
+#!/bin/sh
+# Usage: bin/restart
+# Restart the Factory, which rebuilds its image: use after changing the core, Adapters or layers.
+set -eu
+systemctl --user restart factory && echo "restarted: factory"

@@ -72,6 +72,7 @@ Blindness and `main`'s protection from Agents come from construction: the Factor
 ## Known gaps
 
 - Events are not guaranteed: a webhook missed while the Factory is down is lost. Reconciling against the Task Store on start is the likely fix, deferred.
+- A Task whose behaviour `main` already has is not supported. The Acceptance Writer cannot produce specs that are red on base, so it is retriggered until the Task runs out of Runs and ends blocked. A spec for recognising such a Task is future work.
 - Humans can write anything to the Repo Host, including `main`; nothing enforces that only the Integrator advances `main` against a human push. A convention for this experiment.
 - Egress from Environments is not restricted beyond the container network.
 
