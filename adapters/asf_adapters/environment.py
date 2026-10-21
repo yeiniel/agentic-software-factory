@@ -18,7 +18,7 @@ from .common import RequestError, podman
 
 
 def layer_dir() -> Path:
-    root = os.environ.get("ASF_IMAGES_DIR") or Path(__file__).resolve().parent.parent / "images"
+    root = os.environ.get("ASF_IMAGES_DIR") or Path(__file__).resolve().parents[2] / "images"
     return Path(root) / "agent"
 
 
