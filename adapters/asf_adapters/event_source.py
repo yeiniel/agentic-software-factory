@@ -13,6 +13,7 @@ import threading
 from collections.abc import Iterator
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import NoReturn
 from urllib.parse import parse_qs, urlparse
 
 from . import common as _common
@@ -68,11 +69,12 @@ class Server(ThreadingHTTPServer):
         self.server_port = self.socket.getsockname()[1]
 
 
-def listen(_args: Args) -> None:
+def listen(_args: Args) -> NoReturn:
     port = int(os.environ.get("EVENT_SOURCE_PORT", "8765"))
     server = Server(("0.0.0.0", port), Hook)  # noqa: S104  (the hook reaches us from another container)
     print(f"listening on port {server.server_port}", file=sys.stderr, flush=True)
-    server.serve_forever()
+    while True:
+        server.handle_request()
 
 
 def main() -> None:

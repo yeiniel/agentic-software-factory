@@ -15,31 +15,31 @@ mkdir -p "$out"
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0='*'
 
 identity() {
-    git -C "$1" config user.name Integrator
-    git -C "$1" config user.email integrator@example.invalid
+	git -C "$1" config user.name Integrator
+	git -C "$1" config user.email integrator@example.invalid
 }
 
 red() { # failed_check, output file
-    echo red > "$out/result"
-    printf %s "$1" > "$out/failed_check"
-    cp "$2" "$out/output"
-    exit 0
+	echo red >"$out/result"
+	printf %s "$1" >"$out/failed_check"
+	cp "$2" "$out/output"
+	exit 0
 }
 
 # 1. Combine the branches on top of the latest main. A conflict fails the Run.
 git clone -q "$cwd/main" "$out/integrated" || exit 1
 identity "$out/integrated"
 for role in implementor acceptance-writer; do
-    git -C "$out/integrated" fetch -q "$cwd/$role" HEAD || exit 1
-    if ! git -C "$out/integrated" merge --no-edit -m "Integrate $role" FETCH_HEAD > "$work/merge" 2>&1; then
-        git -C "$out/integrated" merge --abort
-        red conflict "$work/merge"
-    fi
+	git -C "$out/integrated" fetch -q "$cwd/$role" HEAD || exit 1
+	if ! git -C "$out/integrated" merge --no-edit -m "Integrate $role" FETCH_HEAD >"$work/merge" 2>&1; then
+		git -C "$out/integrated" merge --abort
+		red conflict "$work/merge"
+	fi
 done
 
 # 2. The entire acceptance suite on the integrated result.
-if (cd "$out/integrated" && make test) > "$out/output" 2>&1; then
-    echo green > "$out/result"
+if (cd "$out/integrated" && make test) >"$out/output" 2>&1; then
+	echo green >"$out/result"
 else
-    red suite "$out/output"
+	red suite "$out/output"
 fi

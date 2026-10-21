@@ -14,14 +14,14 @@ from replay import Replay
 
 @pytest.fixture
 def start_receiver(tmp_path):
-    """`start_receiver(model_url=None)` runs `python -m asf_console.receiver` on free ports."""
+    """`start_receiver(model_url=None)` runs `python -m asf_console.serve` on free ports."""
     processes = []
 
-    def start(model_url=None):
+    def start(model_url=None, keepalive=None):
         command = [
             sys.executable,
             "-m",
-            "asf_console.receiver",
+            "asf_console.serve",
             "--db",
             str(tmp_path / f"console{len(processes)}.db"),
             "--otlp-host",
@@ -32,7 +32,11 @@ def start_receiver(tmp_path):
             "0",
         ]
         process = subprocess.Popen(
-            command + (["--model-url", model_url] if model_url else []), stdout=subprocess.PIPE, text=True
+            command
+            + (["--model-url", model_url] if model_url else [])
+            + (["--keepalive", str(keepalive)] if keepalive else []),
+            stdout=subprocess.PIPE,
+            text=True,
         )
         processes.append(process)
         assert process.stdout is not None

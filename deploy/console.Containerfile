@@ -3,4 +3,4 @@
 FROM docker.io/library/python:3.12-alpine
 COPY console/asf_console /opt/asf-console/asf_console
 ENV PYTHONPATH=/opt/asf-console PYTHONUNBUFFERED=1 CONSOLE_DATA=/var/lib/asf/console
-CMD ["python", "-m", "asf_console.receiver", "--otlp-host", "0.0.0.0", "--api-host", "0.0.0.0"]
+CMD ["python", "-m", "asf_console.serve", "--otlp-host", "0.0.0.0", "--api-host", "0.0.0.0"]

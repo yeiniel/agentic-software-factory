@@ -12,7 +12,7 @@ from typing import Any
 
 Json = dict[str, Any]
 Args = dict[str, str]
-Op = Callable[[Args], Json | None]
+Op = Callable[[Args], Json]
 
 IDENTITY = {
     "GIT_AUTHOR_NAME": "Factory",
@@ -63,8 +63,7 @@ def main(ops: dict[str, Op]) -> None:
     except (RequestError, KeyError, ValueError) as error:
         print(f"{op}: {error!r}" if isinstance(error, KeyError) else f"{op}: {error}", file=sys.stderr)
         sys.exit(1)
-    if result is not None:
-        print(json.dumps(result))
+    print(json.dumps(result))
 
 
 def require_env(name: str) -> str:

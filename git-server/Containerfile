@@ -1,13 +1,17 @@
 # The Repo Host: a git daemon anyone on the Factory's network may push to, with hooks that
 # refuse deletes and rewrites and tell the Event Source about each push.
-FROM docker.io/library/alpine
+FROM docker.io/library/alpine:3
 RUN apk add --no-cache git git-daemon curl
 # `git issue` (ADR 0009), here so bin/task can create Tasks without installing it on the host.
 # Pinned to a release and checked against its checksum.
+# hadolint ignore=DL4006
 RUN curl -fsSL -o /tmp/gni.tar.gz https://github.com/remenoscodes/git-native-issue/archive/refs/tags/v1.3.3.tar.gz \
     && echo "3fbea43405b722f99cc01befaf632bb1633fe79833aaa52bba76d2b0a95b229d  /tmp/gni.tar.gz" | sha256sum -c - \
-    && tar xzf /tmp/gni.tar.gz -C /tmp && (cd /tmp/git-native-issue-1.3.3 && ./install.sh /usr/local) \
-    && rm -rf /tmp/gni.tar.gz /tmp/git-native-issue-1.3.3
+    && tar xzf /tmp/gni.tar.gz -C /tmp
+WORKDIR /tmp/git-native-issue-1.3.3
+RUN ./install.sh /usr/local
+WORKDIR /
+RUN rm -rf /tmp/gni.tar.gz /tmp/git-native-issue-1.3.3
 COPY hooks /opt/hooks
 COPY create-repo /usr/local/bin/create-repo
 RUN mkdir -p /srv/git && git config --system safe.directory '*'

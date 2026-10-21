@@ -7,6 +7,8 @@ import socket
 import subprocess
 import sys
 import threading
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -46,7 +48,7 @@ def server(tmp_path):
     lines = queue.Queue()
     threading.Thread(target=lambda: [lines.put(json.loads(l)) for l in stdout], daemon=True).start()
     yield tmp_path / "srv" / "r.git", env, lines
-    source.kill()
+    source.terminate()
     source.wait()
     stdout.close()
     source.stderr.close()
@@ -114,3 +116,34 @@ def test_refs_may_not_be_deleted_or_rewritten(server, tmp_path):
     assert git(work, env, "push", "-f", "origin", "HEAD:refs/heads/other", check=False).returncode == 0
     git(work, env, "commit", "-q", "--amend", "-m", "again")
     assert git(work, env, "push", "-f", "origin", "HEAD:refs/heads/other", check=False).returncode != 0
+
+
+def hook(env, path, body):
+    """POST to the Event Source the way the git server's hook does; the HTTP status."""
+    request = urllib.request.Request(f"{env['EVENT_SOURCE_URL']}{path}", data=body.encode())
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return response.status
+    except urllib.error.HTTPError as error:
+        with error:
+            return error.code
+
+
+def test_a_deleted_ref_is_not_an_event_and_the_next_push_line_still_is(server):
+    _, env, events = server
+    deleted = f"{'1' * 40} {'0' * 40} refs/heads/main"
+    pushed = f"{'1' * 40} {'2' * 40} refs/heads/main"
+
+    assert hook(env, "/push?repo=r", f"{deleted}\n{pushed}\n") == 204
+    assert events.get(timeout=10) == {"type": "main-push", "repo": "r", "commit": "2" * 40}
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [("/elsewhere?repo=r", ""), ("/push", ""), ("/push?repo=r", "only two")],
+    ids=["unknown-path", "no-repo", "malformed-line"],
+)
+def test_a_request_the_hook_would_not_send_is_refused(server, path, body):
+    _, env, _ = server
+
+    assert hook(env, path, body) == 400

@@ -1,8 +1,7 @@
 """The Runner's one operation, `run`, for both Environment types (docs/adapters/README.md)."""
 
 import pytest
-
-CONTAINERFILE = "FROM docker.io/library/alpine\nRUN apk add --no-cache git make\n"
+from podman_images import CONTAINERFILE
 
 
 @pytest.fixture

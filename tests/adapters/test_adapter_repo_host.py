@@ -40,3 +40,27 @@ def test_a_recorded_branch_reaches_the_server_and_a_retry_continues_from_it(exe,
         host.ok("record", repo="r", branch="factory/t/implementor", **{"from": dest})
     log = git(tmp_path / "git" / "r.git", "log", "--format=%s", "factory/t/implementor").split("\n")
     assert len([l for l in log if l.startswith("Record")]) == 2
+
+
+def test_a_repository_without_a_main_has_no_head(exe, tmp_path):
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(tmp_path / "git" / "empty.git")], check=True)
+    done = exe("repo-host").run("main-head", repo="empty")
+    assert done.returncode != 0 and "no main" in done.stderr
+
+
+def test_a_server_that_refuses_the_push_to_main_leaves_main_where_it_is(exe, repo, tmp_path):
+    repo({"README": "x"})
+    host = exe("repo-host")
+    head = host.ok("main-head", repo="r")["commit"]
+    host.ok("create-branch", repo="r", name="factory/t/integrated", base=head)
+    dest = tmp_path / "work"
+    host.ok("checkout", repo="r", branch="factory/t/integrated", dest=dest)
+    (dest / "new.txt").write_text("new")
+    host.ok("record", repo="r", branch="factory/t/integrated", **{"from": dest})
+    hook = tmp_path / "git" / "r.git" / "hooks" / "pre-receive"
+    hook.write_text('#!/bin/sh\nwhile read old new ref; do [ "$ref" = refs/heads/main ] && exit 1; done\nexit 0\n')
+    hook.chmod(0o755)
+
+    result = host.ok("fast-forward-main", repo="r", branch="factory/t/integrated", expect_main=head)
+
+    assert result == {"advanced": False, "head": head}

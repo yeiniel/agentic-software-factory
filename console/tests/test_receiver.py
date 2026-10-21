@@ -3,7 +3,10 @@
 import json
 import threading
 import time
+import urllib.error
 import urllib.request
+
+import pytest
 
 from replay import Script, blocked_task, green_task, retried_task
 
@@ -207,3 +210,155 @@ def test_the_stream_announces_new_data(replay, receiver):
     reader.join(timeout=10)
     stream.close()
     assert seen and seen[-1]["type"] == "changed" and seen[-1]["task"] == "r/stream"
+
+
+def post(receiver, path, body):
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{receiver.otlp_port}{path}",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(request, timeout=10).read()
+
+
+def logs(*records):
+    return {"resourceLogs": [{"scopeLogs": [{"logRecords": list(records)}]}]}
+
+
+def string(key, value):
+    return {"key": f"asf.{key}", "value": {"stringValue": value}}
+
+
+TRACE = "a" * 32
+
+
+def span_started(span, task="r/t"):
+    return {
+        "traceId": TRACE,
+        "spanId": span,
+        "body": {"stringValue": "started"},
+        "attributes": [string("kind", "started"), string("task", task), string("span", "run"), string("name", "1")],
+    }
+
+
+def span_finished(span, task="r/t"):
+    return {
+        "resourceSpans": [
+            {
+                "scopeSpans": [
+                    {
+                        "spans": [
+                            {
+                                "traceId": TRACE,
+                                "spanId": span,
+                                "name": "run:1",
+                                "startTimeUnixNano": "1000000000",
+                                "endTimeUnixNano": "3000000000",
+                                "attributes": [
+                                    string("task", task),
+                                    string("span", "run"),
+                                    string("name", "1"),
+                                    string("outcome", "green"),
+                                ],
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+
+
+def test_an_unknown_path_is_not_found(receiver):
+    with pytest.raises(urllib.error.HTTPError) as refused:
+        urllib.request.urlopen(f"http://127.0.0.1:{receiver.api_port}/nope", timeout=10)
+    with refused.value:
+        assert refused.value.code == 404
+
+
+def test_a_run_that_is_not_a_number_is_ignored(receiver, api):
+    post(
+        receiver,
+        "/v1/logs",
+        logs({"attributes": [string("kind", "task-received"), string("task", "r/t"), string("run", "abc")]}),
+    )
+
+    assert [t["task"] for t in api("/api/tasks")["tasks"]] == ["r/t"]
+
+
+def test_usage_that_is_not_a_number_counts_as_nothing(receiver, api):
+    post(
+        receiver,
+        "/v1/logs",
+        logs(
+            {
+                "attributes": [
+                    string("kind", "agent"),
+                    string("task", "r/t"),
+                    string("role", "implementor"),
+                    string("usage.turns", "many"),
+                ]
+            }
+        ),
+    )
+
+    assert api("/api/metrics")["factory"]["agents"]["implementor"]["turns"] == 0
+
+
+def test_a_span_that_finishes_before_it_is_started_is_one_span(receiver, api):
+    post(receiver, "/v1/traces", span_finished("b" * 16))
+    post(receiver, "/v1/logs", logs(span_started("b" * 16)))
+
+    (span,) = api("/api/task?id=r/t")["spans"]
+    assert (span["span"], span["state"], span["outcome"]) == ("run", "finished", "green")
+
+
+def test_a_span_that_is_exported_twice_is_still_one_span(receiver, api):
+    post(receiver, "/v1/traces", span_finished("b" * 16))
+    post(receiver, "/v1/traces", span_finished("b" * 16))
+
+    assert len(api("/api/task?id=r/t")["spans"]) == 1
+
+
+def transcript(receiver, *bodies):
+    post(
+        receiver,
+        "/v1/logs",
+        logs(
+            *(
+                {
+                    "traceId": TRACE,
+                    "spanId": "b" * 16,
+                    "body": {"stringValue": body},
+                    "attributes": [string("source", "transcript"), string("task", "r/t")],
+                }
+                for body in bodies
+            )
+        ),
+    )
+
+
+def test_transcript_entries_that_say_nothing_readable_are_left_out_of_the_log(receiver, api):
+    transcript(
+        receiver,
+        "not json",
+        json.dumps({"type": "message", "message": {"role": "assistant"}}),
+        json.dumps({"type": "message", "message": {"role": "assistant", "content": ["bare", {"type": "image"}]}}),
+        json.dumps({"type": "message", "message": {"role": "assistant", "content": "plain"}}),
+    )
+
+    assert [e["text"] for e in api("/api/task/log?id=r/t")["log"]] == ["says: plain"]
+
+
+def test_the_stream_is_kept_alive_and_a_client_that_leaves_is_dropped(start_receiver, replay):
+    receiver = start_receiver(keepalive=0.2)
+    stream = urllib.request.urlopen(f"http://127.0.0.1:{receiver.api_port}/stream", timeout=10)
+    stream.readline()
+    stream.readline()
+    assert b"keepalive" in stream.readline() + stream.readline()
+    stream.close()
+    for _ in range(3):  # the first write after the client left may still succeed
+        post(receiver, "/v1/logs", logs({"attributes": [string("kind", "task-received"), string("task", "r/t")]}))
+        time.sleep(0.3)
+    with urllib.request.urlopen(f"http://127.0.0.1:{receiver.api_port}/api/tasks", timeout=10) as response:
+        assert response.status == 200

@@ -3,4 +3,4 @@
 # The Console's TUI: Tasks, one Task (Run, loop, attempt, Activity tree with a merged log) and Metrics.
 # Read-only; talks to the receiver's API (default http://127.0.0.1:4319).
 set -eu
-exec uv run --quiet --project "$(dirname "$0")/../console" python -m asf_console.app "$@"
+exec uv run --quiet --project "$(dirname "$0")/../console" python -m asf_console.tui "$@"

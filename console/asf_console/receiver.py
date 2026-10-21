@@ -1,6 +1,6 @@
 """The receiver: OTLP/HTTP (JSON) in, a local read-only HTTP API with a live stream out.
 
-  python -m asf_console.receiver [--db FILE] [--otlp-port 4318] [--api-port 4319] [--model-url URL]
+  python -m asf_console.serve [--db FILE] [--otlp-port 4318] [--api-port 4319] [--model-url URL]
 
 Two listeners share one store: OTLP for the Factory and the Runner, and the API for clients (put it on
 loopback only). GET /api/tasks, /api/task?id=T, /api/task/log?id=T[&after=SEQ], /api/metrics, and /stream
@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import queue
+import sqlite3
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -66,7 +67,7 @@ def make_handler(routes: dict[tuple[str, str], Route]) -> type[BaseHTTPRequestHa
                 length = int(self.headers.get("Content-Length") or 0)
                 body = json.loads(self.rfile.read(length)) if length else None
                 result = route(Request(self, {k: v[0] for k, v in parse_qs(url.query).items()}, body))
-            except (ValueError, KeyError) as error:
+            except (ValueError, KeyError, TypeError, AttributeError, sqlite3.Error) as error:
                 self.reply(HTTPStatus.BAD_REQUEST, {"error": str(error)})
                 return
             if result is not None:
@@ -89,8 +90,10 @@ class Receiver:
         api_address: tuple[str, int],
         model_url: str | None = None,
         model_interval: float = 3.0,
+        keepalive: float = KEEPALIVE,
     ) -> None:
         self.store = store
+        self.keepalive = keepalive
         self.model = ModelServer(model_url, model_interval)
         self.subscribers: list[queue.Queue[Json]] = []
         self.lock = threading.Lock()
@@ -148,7 +151,7 @@ class Receiver:
             handler.wfile.flush()
             while True:
                 try:
-                    handler.wfile.write(b"data: " + json.dumps(mailbox.get(timeout=KEEPALIVE)).encode() + b"\n\n")
+                    handler.wfile.write(b"data: " + json.dumps(mailbox.get(timeout=self.keepalive)).encode() + b"\n\n")
                 except queue.Empty:
                     handler.wfile.write(b": keepalive\n\n")
                 handler.wfile.flush()
@@ -173,16 +176,17 @@ def main() -> None:
     parser.add_argument("--otlp-port", type=int, default=4318)
     parser.add_argument("--api-host", default="127.0.0.1")
     parser.add_argument("--api-port", type=int, default=4319)
+    parser.add_argument("--keepalive", type=float, default=KEEPALIVE, help="seconds between stream keepalives")
     parser.add_argument("--model-url", default=os.environ.get("CONSOLE_MODEL_URL"))
     args = parser.parse_args()
     Path(args.db).parent.mkdir(parents=True, exist_ok=True)
     receiver = Receiver(
-        Store(args.db), (args.otlp_host, args.otlp_port), (args.api_host, args.api_port), args.model_url
+        Store(args.db),
+        (args.otlp_host, args.otlp_port),
+        (args.api_host, args.api_port),
+        args.model_url,
+        keepalive=args.keepalive,
     )
     receiver.start()
     print(f"OTLP on {args.otlp_host}:{receiver.otlp_port}, API on {args.api_host}:{receiver.api_port}", flush=True)
     threading.Event().wait()
-
-
-if __name__ == "__main__":
-    main()

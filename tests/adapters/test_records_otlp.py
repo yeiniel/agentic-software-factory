@@ -132,3 +132,10 @@ def test_append_without_a_stream_fails_and_unknown_operations_fail(exe, env, rec
     env["OTEL_EXPORTER_OTLP_ENDPOINT"] = receiver[0]
     assert exe("records-otlp").run("append", {"kind": "x"}).returncode != 0
     assert exe("records-otlp").run("no-such-op").returncode != 0
+
+
+def test_booleans_keep_their_type(exe, env, receiver):
+    url, got = receiver
+    env["OTEL_EXPORTER_OTLP_ENDPOINT"] = url
+    exe("records-otlp").ok("append", {"kind": "agent", "timed_out": True}, stream="task/t1")
+    assert {"key": "asf.timed_out", "value": {"boolValue": True}} in first_log(got)["attributes"]

@@ -76,6 +76,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"tools/**" = ["INP001", "B018"]
 # Tests are scenarios: asserts, subprocesses, fixtures and helpers without annotations.
 "{tests,console/tests}/**" = ["ANN", "ARG", "S101", "S603", "S607", "S310", "PLR2004", "PLR0913", "PLR0917",
                               "PT018", "PLW1510", "INP001", "T201", "FBT", "E741", "PTH", "SIM", "BLE001",
@@ -86,11 +87,15 @@ pythonVersion = "3.12"
 typeCheckingMode = "standard"
 strict = ["src", "console/asf_console", "adapters"]
 include = [
-    "src", "console", "adapters", "tests",
+    "src", "console", "adapters", "tests", "tools",
     "adapters/event-source", "adapters/records", "adapters/records-otlp",
     "adapters/repo-host", "adapters/runner", "adapters/task-store",
 ]
-exclude = ["**/.venv", "**/__pycache__"]
+exclude = ["**/.venv", "**/__pycache__", "tools/vulture_whitelist.py"]
 extraPaths = ["adapters", "tests", "tests/standins", "tests/adapters", "console/tests"]
 venvPath = "."
 venv = ".venv"
+
+[tool.vulture]
+paths = ["src", "console/asf_console", "adapters", "tools"]
+min_confidence = 60

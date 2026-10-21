@@ -148,3 +148,26 @@ def test_without_an_endpoint_nothing_is_forwarded_and_the_run_is_unaffected(runn
 def test_the_result_reports_turns_tool_calls_and_tokens_of_this_run(runner, ctx):
     runner.env.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
     assert run(runner, ctx)["usage"] == {"turns": 2, "tool_calls": 1, "input_tokens": 250, "output_tokens": 50}
+
+
+ODD_LINES = [
+    "",
+    "not json",
+    "[1]",
+    message("assistant", "plain text"),
+    message("assistant", [{"type": "text", "text": "x"}, "not an object"]),
+    json.dumps({"type": "message", "message": {"role": "assistant", "content": [], "usage": 5}}),
+    json.dumps({"type": "message", "timestamp": "nope", "message": {"role": "assistant", "usage": {"input": "x"}}}),
+]
+
+
+def test_session_lines_that_are_not_messages_are_skipped_in_the_counts_and_still_forwarded(runner, ctx, receiver):
+    url, got = receiver
+    runner.env.update(OTEL_EXPORTER_OTLP_ENDPOINT=url, FAKE_LINES="\n".join(ODD_LINES))
+
+    result = run(runner, ctx)
+
+    assert result["usage"] == {"turns": 4, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0}
+    records = forwarded(got)
+    assert len(records) == len(ODD_LINES) - 1 + 1  # the blank line is not an entry; the session header is
+    assert all("traceId" not in r and "spanId" not in r for r in records)
