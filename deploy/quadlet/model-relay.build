@@ -1,0 +1,4 @@
+[Build]
+ImageTag=localhost/asf-model-relay
+File=@REPO@/deploy/model-relay.Containerfile
+SetWorkingDirectory=@REPO@/deploy

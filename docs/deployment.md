@@ -48,7 +48,8 @@ Quadlet units in `deploy/quadlet/` (spec `specs/0003-deploy-the-factory.md`):
 | `git-server` | the git server image; port 9418 on `127.0.0.1` for you to push; volume `asf-git` |
 | `console` | `deploy/console.Containerfile`: the receiver, standard library only; OTLP for the Factory on `asf-net`, the API on `127.0.0.1:4319`; store `~/.local/share/asf/console/console.db` |
 | `factory` | `deploy/factory.Containerfile`; the host's Podman socket, Run Contexts and Records under `~/.local/share/asf/`; volume `asf-cache` |
-| `asf-net`, `asf-agents` | networks: Factory and git server; Agents |
+| `asf-net`, `asf-agents`, `asf-relay` | networks: Factory and git server; Agents (internal); the model relay's way to the host |
+| `model-relay` | `deploy/model-relay.Containerfile` | TCP relay from the Agents' network to the model server; Agents use `ASF_MODEL_ENDPOINT=http://model-relay:8080/v1` (ADR 0019) |
 
 ```
 deploy/install                       # render the units for this checkout, enable podman.socket
