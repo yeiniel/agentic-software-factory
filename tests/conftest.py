@@ -76,7 +76,7 @@ def run_factory(tmp_path):
         (tmp_path / "config.json").write_text(json.dumps(config))
         command = shlex.split(os.environ.get("FACTORY_CMD", f"{sys.executable} -m factory"))
         process = subprocess.run(
-            command + ["--config", str(tmp_path / "config.json")],
+            [*command, "--config", str(tmp_path / "config.json")],
             env={
                 **os.environ,
                 "FIXTURE_DIR": str(tmp_path),

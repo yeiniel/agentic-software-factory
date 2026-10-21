@@ -43,7 +43,7 @@ def test_green_run_lands_a_merge_of_both_branches_on_real_main(run_factory):
     assert out.status("t1") == ["running", "done"], out.events("task/t1", "infrastructure-error")
     assert out.git_main("src/greeting.txt") == "hello\n"
     assert out.git_main("specs/greeting.sh") == GREETING_SPEC
-    assert any(s.startswith("Integrate") or s.startswith("Merge") for s in out.git_log_main())
+    assert any(s.startswith(("Integrate", "Merge")) for s in out.git_log_main())
 
 
 def test_vacuous_specs_are_rejected_and_the_writer_retriggered(run_factory):

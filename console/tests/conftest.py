@@ -1,4 +1,5 @@
 """Fixtures: the receiver as a process, and the real OTLP Records Adapter replaying Factory events into it."""
+
 import json
 import re
 import signal
@@ -17,11 +18,24 @@ def start_receiver(tmp_path):
     processes = []
 
     def start(model_url=None):
-        command = [sys.executable, "-m", "asf_console.receiver", "--db", str(tmp_path / f"console{len(processes)}.db"),
-                   "--otlp-host", "127.0.0.1", "--otlp-port", "0", "--api-port", "0"]
-        process = subprocess.Popen(command + (["--model-url", model_url] if model_url else []),
-                                   stdout=subprocess.PIPE, text=True)
+        command = [
+            sys.executable,
+            "-m",
+            "asf_console.receiver",
+            "--db",
+            str(tmp_path / f"console{len(processes)}.db"),
+            "--otlp-host",
+            "127.0.0.1",
+            "--otlp-port",
+            "0",
+            "--api-port",
+            "0",
+        ]
+        process = subprocess.Popen(
+            command + (["--model-url", model_url] if model_url else []), stdout=subprocess.PIPE, text=True
+        )
         processes.append(process)
+        assert process.stdout is not None
         ports = re.search(r"OTLP on \S+:(\d+), API on \S+:(\d+)", process.stdout.readline())
         assert ports, "the receiver did not announce its ports"
         return SimpleNamespace(otlp_port=int(ports[1]), api_port=int(ports[2]))
@@ -48,4 +62,5 @@ def api(receiver):
     def get(path):
         with urllib.request.urlopen(f"http://127.0.0.1:{receiver.api_port}{path}", timeout=10) as response:
             return json.load(response)
+
     return get

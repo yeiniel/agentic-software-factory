@@ -1,4 +1,5 @@
 """The TUI against a stub API: the three views render from the payloads; an empty receiver is not an error."""
+
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -11,36 +12,103 @@ from asf_console.client import Client
 
 NOW = 1792576800.0
 NO_SUMMARY = {"count": 0, "avg": None, "max": None}
-EMPTY_METRICS = {"tasks": {"done": 0, "blocked": 0, "running": 0, "todo": 0, "time_to_done": NO_SUMMARY,
-                           "runs": NO_SUMMARY, "activities": {}, "agents": {}},
-                 "factory": {"runs_per_task": None, "attempts_per_loop": {}, "loop_exhaustion_rate": None,
-                             "integration_failure_rate": None, "agents": {}},
-                 "model": {"available": False}}
-FULL_METRICS = {**EMPTY_METRICS,
-                "tasks": {**EMPTY_METRICS["tasks"], "done": 2, "blocked": 1,
-                          "activities": {"integrate": {"count": 3, "avg": 4.0, "max": 7.0}}},
-                "factory": {**EMPTY_METRICS["factory"], "runs_per_task": 1.5,
-                            "loop_exhaustion_rate": 1 / 3,
-                            "agents": {"implementor": {"runs": 2, "turns": 6, "tool_calls": 5, "tokens": 3600,
-                                                       "tokens_per_run": 1800.0}}},
-                "model": {"available": True, "slots": {"total": 2, "busy": 1}, "queue_depth": 0,
-                          "tokens_per_second": 41.5}}
-TASKS = [{"task": "r/a", "repo": "r", "status": "running", "reason": None, "run": 2, "activity": "agent",
-          "received": NOW - 90, "last_event": NOW - 3, "age": 90.0},
-         {"task": "r/b", "repo": "r", "status": "blocked", "reason": "loop-exhausted", "run": 1, "activity": None,
-          "received": NOW - 600, "last_event": NOW - 500, "age": 600.0}]
-SPANS = [{"id": "1", "span": "run", "name": "2", "state": "running", "duration": None, "outcome": None,
-          "attrs": {}, "children": [
-              {"id": "2", "span": "activity", "name": "agent", "state": "running", "duration": None,
-               "outcome": None, "attrs": {"role": "implementor"}, "children": []}]}]
-LOG = [{"seq": 1, "ts": NOW, "source": "factory", "role": None, "run": 2, "text": "loop-feedback: try again"},
-       {"seq": 2, "ts": NOW + 1, "source": "agent", "role": "implementor", "run": 2, "text": "says: reading"}]
+EMPTY_METRICS = {
+    "tasks": {
+        "done": 0,
+        "blocked": 0,
+        "running": 0,
+        "todo": 0,
+        "time_to_done": NO_SUMMARY,
+        "runs": NO_SUMMARY,
+        "activities": {},
+        "agents": {},
+    },
+    "factory": {
+        "runs_per_task": None,
+        "attempts_per_loop": {},
+        "loop_exhaustion_rate": None,
+        "integration_failure_rate": None,
+        "agents": {},
+    },
+    "model": {"available": False},
+}
+FULL_METRICS = {
+    **EMPTY_METRICS,
+    "tasks": {
+        **EMPTY_METRICS["tasks"],
+        "done": 2,
+        "blocked": 1,
+        "activities": {"integrate": {"count": 3, "avg": 4.0, "max": 7.0}},
+    },
+    "factory": {
+        **EMPTY_METRICS["factory"],
+        "runs_per_task": 1.5,
+        "loop_exhaustion_rate": 1 / 3,
+        "agents": {"implementor": {"runs": 2, "turns": 6, "tool_calls": 5, "tokens": 3600, "tokens_per_run": 1800.0}},
+    },
+    "model": {"available": True, "slots": {"total": 2, "busy": 1}, "queue_depth": 0, "tokens_per_second": 41.5},
+}
+TASKS = [
+    {
+        "task": "r/a",
+        "repo": "r",
+        "status": "running",
+        "reason": None,
+        "run": 2,
+        "activity": "agent",
+        "received": NOW - 90,
+        "last_event": NOW - 3,
+        "age": 90.0,
+    },
+    {
+        "task": "r/b",
+        "repo": "r",
+        "status": "blocked",
+        "reason": "loop-exhausted",
+        "run": 1,
+        "activity": None,
+        "received": NOW - 600,
+        "last_event": NOW - 500,
+        "age": 600.0,
+    },
+]
+SPANS = [
+    {
+        "id": "1",
+        "span": "run",
+        "name": "2",
+        "state": "running",
+        "duration": None,
+        "outcome": None,
+        "attrs": {},
+        "children": [
+            {
+                "id": "2",
+                "span": "activity",
+                "name": "agent",
+                "state": "running",
+                "duration": None,
+                "outcome": None,
+                "attrs": {"role": "implementor"},
+                "children": [],
+            }
+        ],
+    }
+]
+LOG = [
+    {"seq": 1, "ts": NOW, "source": "factory", "role": None, "run": 2, "text": "loop-feedback: try again"},
+    {"seq": 2, "ts": NOW + 1, "source": "agent", "role": "implementor", "run": 2, "text": "says: reading"},
+]
 
 
 @pytest.fixture
 def stub():
-    payloads = {"/api/tasks": {"tasks": TASKS}, "/api/metrics": FULL_METRICS, "/api/task": {"spans": SPANS},
-                "/api/task/log": {"log": LOG}}
+    payloads = {
+        "/api/tasks": {"tasks": TASKS},
+        "/api/metrics": FULL_METRICS,
+        "/api/task": {"spans": SPANS},
+        "/api/task/log": {"log": LOG},
+    }
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -56,7 +124,7 @@ def stub():
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, *args):
+        def log_message(self, format, *args):  # noqa: A002
             pass
 
     server = HTTPServer(("127.0.0.1", 0), Handler)
@@ -105,8 +173,15 @@ async def test_the_metrics_view_shows_the_three_groups(stub):
     async with app.run_test() as pilot:
         await settle(pilot)
         metrics = text(app.query_one("#metrics-text", Static))
-        for expected in ("done 2  blocked 1", "integrate", "Runs per Task           1.50", "loop exhaustion         33%",
-                         "tokens 3600", "slots busy 1/2", "41.50 tokens/s"):
+        for expected in (
+            "done 2  blocked 1",
+            "integrate",
+            "Runs per Task           1.50",
+            "loop exhaustion         33%",
+            "tokens 3600",
+            "slots busy 1/2",
+            "41.50 tokens/s",
+        ):
             assert expected in metrics
 
 

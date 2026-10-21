@@ -1,4 +1,5 @@
 """Receiver tests replay recorded Factory events through the real OTLP Records Adapter into a live receiver."""
+
 import hashlib
 import json
 import os
@@ -41,8 +42,9 @@ class Script:
 
     def close(self, span, outcome="ok", duration=1.0):
         kind, name, parent, run, attrs = self.spans[span]
-        self.event("finished", run, id=span, parent=parent, span=kind, name=name, **attrs,
-                   duration=duration, outcome=outcome)
+        self.event(
+            "finished", run, id=span, parent=parent, span=kind, name=name, **attrs, duration=duration, outcome=outcome
+        )
 
     def status(self, status, **extra):
         self.event("task-status", status=status, **extra)
@@ -73,13 +75,30 @@ def green_task(replay, task="r/green"):
     s.event("run-started", 1, roles=["implementor", "acceptance-writer"])
     run = s.open("run", "1", None, 1)
     w = s.open("loop", "writer", run, 1)
-    attempt(s, 1, "writer", 1, w, "green", "acceptance-writer",
-            {"turns": 4, "tool_calls": 3, "input_tokens": 1000, "output_tokens": 200},
-            [("validate", "green", 5.0)])
+    attempt(
+        s,
+        1,
+        "writer",
+        1,
+        w,
+        "green",
+        "acceptance-writer",
+        {"turns": 4, "tool_calls": 3, "input_tokens": 1000, "output_tokens": 200},
+        [("validate", "green", 5.0)],
+    )
     s.close(w, "succeeded", 10)
     i = s.open("loop", "implementor", run, 1)
-    attempt(s, 1, "implementor", 1, i, "green", "implementor",
-            {"turns": 6, "tool_calls": 5, "input_tokens": 3000, "output_tokens": 600}, duration=8.0)
+    attempt(
+        s,
+        1,
+        "implementor",
+        1,
+        i,
+        "green",
+        "implementor",
+        {"turns": 6, "tool_calls": 5, "input_tokens": 3000, "output_tokens": 600},
+        duration=8.0,
+    )
     s.close(i, "succeeded", 12)
     s.step("activity", "integrate", run, 1, "green", 7.0)
     s.step("activity", "publish", run, 1, "advanced", 1.0)

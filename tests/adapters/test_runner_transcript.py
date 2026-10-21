@@ -52,7 +52,7 @@ def receiver():
             self.end_headers()
             self.wfile.write(b"{}")
 
-        def log_message(self, *args):
+        def log_message(self, format, *args):  # noqa: A002
             pass
 
     server = HTTPServer(("127.0.0.1", 0), Handler)
@@ -80,10 +80,9 @@ def ctx(tmp_path):
 
 
 def forwarded(got):
-    records = [
+    return [
         r for path, body in got if path == "/v1/logs" for r in body["resourceLogs"][0]["scopeLogs"][0]["logRecords"]
     ]
-    return records
 
 
 def run(runner, ctx, **extra):

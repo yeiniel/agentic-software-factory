@@ -21,7 +21,7 @@ def create_issue(bare, title, body=""):
 
 def issue_log(bare, ident):
     """Messages of the issue's commits, oldest first."""
-    out = git("--git-dir", str(bare), "log", "--reverse", "--format=%B%x00", f"refs/issues/{ident}")
+    out = git("--git-dir", str(bare), "log", "--reverse", "--format=%B%x00", f"refs/issues/{ident}") or ""
     return [m.strip() for m in out.split("\0") if m.strip()]
 
 
