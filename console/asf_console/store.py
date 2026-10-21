@@ -55,6 +55,10 @@ class Store:
         with self.lock:
             self.db.executescript(SCHEMA)
 
+    def close(self):
+        with self.lock:
+            self.db.close()
+
     def query(self, sql, *args):
         with self.lock:
             return [dict(row) for row in self.db.execute(sql, args)]

@@ -6,7 +6,18 @@ requires-python = ">=3.12"
 dependencies = []
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "asf-console",
+    "coverage==7.16.2",
+    "hypothesis==6.170.5",
+    "pyright==1.1.414",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-timeout==2.4.0",
+    "ruff==0.17.1",
+    "vulture==2.16",
+]
+mutate = ["cosmic-ray==8.7.0"]
 
 [build-system]
 requires = ["hatchling"]
@@ -15,6 +26,32 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/factory"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra"
+[tool.uv.workspace]
+members = ["console"]
+
+[tool.uv.sources]
+asf-console = { workspace = true }
+
+[tool.pytest]
+strict = true
+testpaths = ["tests", "console/tests"]
+addopts = ["-ra"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["error"]
+timeout = "300"
+
+[tool.coverage.run]
+branch = true
+data_file = ".cov/coverage"
+patch = ["subprocess"]
+sigterm = true
+relative_files = true
+source_pkgs = ["factory", "asf_console"]
+source_dirs = ["adapters"]
+disable_warnings = ["no-data-collected"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true

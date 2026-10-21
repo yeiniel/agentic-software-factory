@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import golden
 sys.path.insert(0, str(Path(__file__).parent / "standins"))
 import gitrepohost  # noqa: E402  (test infrastructure)
 
@@ -80,3 +81,9 @@ def run_factory(tmp_path):
             capture_output=True, text=True, timeout=timeout)
         return Outcome(tmp_path, process)
     return run
+
+
+@pytest.fixture
+def golden_transcript(request):
+    """`golden_transcript(out)` asserts the scenario against tests/goldens/<test name>.txt."""
+    return lambda out: golden.check(out, request.node.name)
