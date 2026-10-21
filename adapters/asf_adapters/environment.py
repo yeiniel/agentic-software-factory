@@ -13,7 +13,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from _common import Failure, podman
+from .common import Failure, podman
 
 
 def layer_dir():

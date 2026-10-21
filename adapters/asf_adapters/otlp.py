@@ -2,7 +2,7 @@
 import json
 import urllib.request
 
-from _common import Failure, require_env
+from .common import Failure, require_env
 
 TIMEOUT = 5
 

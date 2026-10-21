@@ -1,0 +1,13 @@
+[project]
+name = "asf-adapters"
+version = "0.1.0"
+description = "Agentic Software Factory Adapters: executables behind the core's ports"
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["asf_adapters"]

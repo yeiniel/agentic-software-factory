@@ -4,6 +4,7 @@ requires-python = ">=3.12"
 
 [manifest]
 members = [
+    "asf-adapters",
     "asf-console",
     "factory",
 ]
@@ -183,6 +184,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/64/08/ddad0d5398d0961d5
 wheels = [
     { url = "https://files.pythonhosted.org/packages/83/7d/01b2ac2fec808dea667b8678938156c3910219f2c45ee2e0b01e72786d72/anybadge-1.16.0-py3-none-any.whl", hash = "sha256:bc9ef2e20d875ee09237a15250a17b6fd7e67276f083d32a297963cdec179918", size = 28412, upload-time = "2025-01-11T23:03:24.857Z" },
 ]
+
+[[package]]
+name = "asf-adapters"
+version = "0.1.0"
+source = { editable = "adapters" }
 
 [[package]]
 name = "asf-console"
@@ -370,6 +376,7 @@ source = { editable = "." }
 
 [package.dev-dependencies]
 dev = [
+    { name = "asf-adapters" },
     { name = "asf-console" },
     { name = "coverage" },
     { name = "hypothesis" },
@@ -388,6 +395,7 @@ mutate = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "asf-adapters", editable = "adapters" },
     { name = "asf-console", editable = "console" },
     { name = "coverage", specifier = "==7.16.2" },
     { name = "hypothesis", specifier = "==6.170.5" },
@@ -1075,6 +1083,10 @@ dependencies = [
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/36/dc/9addbf490110b5727380059ee542ad8353bdcee45a37ba6a5e0976966ae0/sqlalchemy-2.1.6.tar.gz", hash = "sha256:499eae5c9051efe96cb9a73ec2fbde8ffa4186f102b9094ebab8fcc9d3b99f52", size = 10589700, upload-time = "2026-10-21T16:25:06.497Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/71/62984152c616b26883a686cf05d650f34782108c26c17d0946683b2f13c1/sqlalchemy-2.1.6-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:ea5f3dd7450669acbfee7813d3a2a13876806b1d9e4c1626a7bf587c33c68472", size = 2511148, upload-time = "2026-10-21T16:53:10.732Z" },
+    { url = "https://files.pythonhosted.org/packages/04/60/b4821fe7a42405d12abf9ba48e13b5e056e428d6f0e48c8166f0c7df61fa/sqlalchemy-2.1.6-cp315-cp315t-macosx_11_0_arm64.whl", hash = "sha256:e269c68ec200538ae3fa7f9e8d8ed2b4b34d974c25945286ccc2a488438acf32", size = 2507298, upload-time = "2026-10-21T16:53:12.887Z" },
+]
 
 [[package]]
 name = "stevedore"
