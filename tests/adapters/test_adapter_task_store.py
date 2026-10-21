@@ -1,6 +1,7 @@
 """Task Store against real git: issues round-trip through refs/issues/* on a bare repository."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +23,7 @@ def server(tmp_path):
 
 @pytest.fixture
 def store(tmp_path, server):
-    env = {"PATH": "/usr/bin:/bin", "REPO_HOST_URL": str(tmp_path / "git"), "ADAPTER_CACHE": str(tmp_path / "cache")}
+    env = {**os.environ, "REPO_HOST_URL": str(tmp_path / "git"), "ADAPTER_CACHE": str(tmp_path / "cache")}
 
     def run(op, body=None, **args):
         argv = [str(STORE), op] + [x for k, v in args.items() for x in (f"--{k}", str(v))]
@@ -123,3 +124,34 @@ def test_a_cleared_label_stays_cleared(store, server):
 def test_a_body_ending_in_a_key_value_paragraph_is_kept_whole(store, server):
     ident = gitissues.create_issue(server, "T", "Do it.\n\nNote: keep the API stable")
     assert ok(store("get-prompt", task=f"r/{ident}"))["prompt"] == "T\n\nDo it.\n\nNote: keep the API stable"
+
+
+def test_a_prefix_that_matches_two_issues_fails(store, server):
+    gitissues.create_issue(server, "one", ident="abc1")
+    gitissues.create_issue(server, "two", ident="abc2")
+    assert store("get-prompt", task="r/abc").returncode != 0
+    assert ok(store("get-prompt", task="r/abc1")) == {"prompt": "one"}
+
+
+def test_comments_do_not_hide_the_labels_of_the_issue(store, server):
+    ident = gitissues.create_issue(server, "T")
+    gitissues.add_labels(server, ident, "bug")
+    gitissues.add_comment(server, ident, "Looks good to me")
+    ok(store("set-status", task=f"r/{ident}", status="running"))
+    assert labels_and_state(server, ident)["Labels"] == "bug, running"
+
+
+def test_an_issue_without_any_trailers_is_still_a_task(store, server):
+    ident = gitissues.create_issue(server, "Plain", trailers=False)
+    assert ok(store("get-prompt", task=f"r/{ident}")) == {"prompt": "Plain"}
+    ok(store("set-status", task=f"r/{ident}", status="running"))
+    assert labels_and_state(server, ident)["Labels"] == "running"
+
+
+def test_a_server_that_refuses_the_push_fails_the_status_change_after_retrying(store, server):
+    ident = gitissues.create_issue(server, "T")
+    hook = server / "hooks" / "pre-receive"
+    hook.write_text("#!/bin/sh\nexit 1\n")
+    hook.chmod(0o755)
+    done = store("set-status", task=f"r/{ident}", status="running")
+    assert done.returncode != 0 and "set-status" in done.stderr

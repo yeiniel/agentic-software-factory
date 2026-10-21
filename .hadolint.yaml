@@ -1,0 +1,7 @@
+# Distribution packages are not version-pinned: the bases are rolling and a pin breaks the build when the
+# distribution drops that version.
+ignored:
+  - DL3008
+  - DL3018
+  - DL3040
+  - DL3041

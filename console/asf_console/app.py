@@ -3,7 +3,7 @@
 import argparse
 import threading
 import time
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from textual import work
 from textual.app import App, ComposeResult
@@ -52,7 +52,7 @@ class ConsoleApp(App[None]):
         yield Footer()
 
     def on_mount(self) -> None:
-        table = self.query_one("#tasks-table", DataTable[str])
+        table = cast("DataTable[str]", self.query_one("#tasks-table", DataTable))
         table.add_columns(*TASK_COLUMNS)
         table.focus()
         self.refresh_all()
@@ -105,7 +105,7 @@ class ConsoleApp(App[None]):
             status.update(f"receiver unreachable: {error}")
             return
         status.update("")
-        table = self.query_one("#tasks-table", DataTable[str])
+        table = cast("DataTable[str]", self.query_one("#tasks-table", DataTable))
         cursor = table.cursor_row
         table.clear()
         for task in data["tasks"]:
@@ -117,7 +117,7 @@ class ConsoleApp(App[None]):
             self.show_task(data["spans"], data["log"])
 
     def show_task(self, spans: list[Json], entries: list[Json]) -> None:
-        tree = self.query_one("#tree", Tree[None])
+        tree = cast("Tree[None]", self.query_one("#tree", Tree))
         tree.clear()
         tree.root.label = self.selected or ""
 
@@ -139,7 +139,3 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Factory Console")
     parser.add_argument("--url", default=DEFAULT_URL, help="the receiver's API")
     ConsoleApp(Client(parser.parse_args().url)).run()
-
-
-if __name__ == "__main__":
-    main()

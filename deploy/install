@@ -6,7 +6,7 @@ repo=$(cd "$(dirname "$0")/.." && pwd)
 units=${XDG_CONFIG_HOME:-$HOME/.config}/containers/systemd
 mkdir -p "$units" "$HOME/.config/asf"
 for f in "$repo"/deploy/quadlet/*; do
-    sed "s|@REPO@|$repo|g" "$f" > "$units/$(basename "$f")"
+	sed "s|@REPO@|$repo|g" "$f" >"$units/$(basename "$f")"
 done
 [ -e "$HOME/.config/asf/factory.env" ] || cp "$repo/deploy/factory.env.example" "$HOME/.config/asf/factory.env"
 systemctl --user daemon-reload

@@ -31,7 +31,7 @@ def first_events(source, count=1, wait=15):
             if line.strip():
                 events.append(json.loads(line))
     finally:
-        process.kill()
+        process.terminate()
         process.wait()
         stdout.close()
     return events

@@ -5,7 +5,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
-from textual.widgets import DataTable, RichLog, Static, Tree
+from textual.widgets import DataTable, RichLog, Static, TabbedContent, Tree
 
 from asf_console.app import ConsoleApp
 from asf_console.client import Client
@@ -200,3 +200,12 @@ async def test_an_unreachable_receiver_is_said_in_the_status_line():
     async with app.run_test() as pilot:
         await settle(pilot)
         assert "receiver unreachable" in text(app.query_one("#status", Static))
+
+
+async def test_the_number_keys_switch_between_the_views(stub):
+    app = ConsoleApp(Client(stub[1]))
+    async with app.run_test() as pilot:
+        await settle(pilot)
+        for key, view in (("3", "metrics"), ("2", "task"), ("1", "tasks")):
+            await pilot.press(key)
+            assert app.query_one(TabbedContent).active == view

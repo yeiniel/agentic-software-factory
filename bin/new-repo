@@ -3,15 +3,18 @@
 # Create NAME on the git server; with SEED_DIR, its files become `main`. The repo needs a
 # Containerfile and `make test` to take Tasks (docs/deployment.md).
 set -eu
-[ $# -ge 1 ] || { sed -n '2p' "$0" >&2; exit 2; }
+[ $# -ge 1 ] || {
+	sed -n '2p' "$0" >&2
+	exit 2
+}
 name=$1 seed=${2:-}
 if [ -n "$seed" ]; then
-    seed=$(cd "$seed" && pwd)
-    podman exec git-server rm -rf /tmp/seed
-    podman cp "$seed" git-server:/tmp/seed
-    podman exec git-server create-repo /srv/git "$name" /tmp/seed
-    podman exec git-server rm -rf /tmp/seed
+	seed=$(cd "$seed" && pwd)
+	podman exec git-server rm -rf /tmp/seed
+	podman cp "$seed" git-server:/tmp/seed
+	podman exec git-server create-repo /srv/git "$name" /tmp/seed
+	podman exec git-server rm -rf /tmp/seed
 else
-    podman exec git-server create-repo /srv/git "$name"
+	podman exec git-server create-repo /srv/git "$name"
 fi
 echo "created: git://localhost:9418/$name.git"

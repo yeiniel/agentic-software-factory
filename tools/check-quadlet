@@ -1,0 +1,20 @@
+#!/bin/sh
+# Usage: tools/check-quadlet
+# Render the Quadlet units as deploy/install does and run Podman's generator in dry-run mode; fails when the
+# generator reports a unit it cannot convert.
+set -eu
+repo=$(cd "$(dirname "$0")/.." && pwd)
+generator=${QUADLET_GENERATOR:-/usr/lib/systemd/system-generators/podman-system-generator}
+units=$(mktemp -d)
+trap 'rm -rf "$units"' EXIT
+for f in "$repo"/deploy/quadlet/*; do
+	sed "s|@REPO@|$repo|g" "$f" >"$units/$(basename "$f")"
+done
+if ! output=$(QUADLET_UNIT_DIRS=$units "$generator" --user --dryrun 2>&1); then
+	printf '%s\n' "$output" >&2
+	exit 1
+fi
+if printf '%s\n' "$output" | grep -qi 'error\|failed\|unsupported'; then
+	printf '%s\n' "$output" >&2
+	exit 1
+fi

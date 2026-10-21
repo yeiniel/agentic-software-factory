@@ -1,0 +1,5 @@
+#!/bin/sh
+# Runs the quality gate on the working tree (spec 0007). Installed by `make hooks`.
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+exec mise exec -- make check

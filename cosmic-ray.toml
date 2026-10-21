@@ -1,0 +1,9 @@
+# `make mutate`: mutation testing of the core through its black-box suite (spec 0007). Slow; does not gate.
+[cosmic-ray]
+module-path = "src/factory"
+timeout = 600.0
+excluded-modules = []
+test-command = "uv run --locked pytest -x -q tests/test_runs.py tests/test_adapter_failures.py tests/test_events.py"
+
+[cosmic-ray.distributor]
+name = "local"

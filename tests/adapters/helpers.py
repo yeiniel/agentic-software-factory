@@ -7,13 +7,13 @@ import sys
 from pathlib import Path
 
 import pytest
+from podman_images import CONTAINERFILE  # noqa: F401  (re-exported for the tests)
 
 ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT / "tests" / "standins"))
 
 ADAPTERS = ROOT / "adapters"
 STUB_IMAGES = ROOT / "tests" / "standins" / "images"
-CONTAINERFILE = "FROM docker.io/library/alpine\nRUN apk add --no-cache git make\n"
 
 needs_podman = pytest.mark.skipif(shutil.which("podman") is None, reason="needs Podman")
 

@@ -3,8 +3,12 @@
 # Create a Task in REPO on the git server, inside the git-server container (which has `git issue`):
 # clone the repo, create the issue, push refs/issues/*. The push is what starts the Task.
 set -eu
-[ $# -ge 2 ] || { sed -n '2p' "$0" >&2; exit 2; }
-repo=$1; shift
+[ $# -ge 2 ] || {
+	sed -n '2p' "$0" >&2
+	exit 2
+}
+repo=$1
+shift
 podman exec -i git-server sh -eu -c '
     repo=$1; shift
     work=$(mktemp -d)

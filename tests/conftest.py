@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 import golden
+import podman_images
 
 sys.path.insert(0, str(Path(__file__).parent / "standins"))
 import gitrepohost
@@ -105,3 +106,8 @@ def pytest_runtest_makereport(item, call):
         call.excinfo = pytest.ExceptionInfo.from_exception(
             AssertionError(f"skipped in check mode: {call.excinfo.value}")
         )
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Remove the images this session built (tests/podman_images.py)."""
+    podman_images.remove_images()

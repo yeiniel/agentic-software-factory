@@ -20,6 +20,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "standins"))
 import gitissues
 import gitrepohost
+from podman_images import CONTAINERFILE
 
 ADAPTERS = Path(__file__).parent.parent.parent / "adapters"
 STANDIN = Path(__file__).parent.parent / "standins" / "standin.py"
@@ -67,7 +68,6 @@ class Target:
 
 
 STUB_IMAGES = Path(__file__).parent.parent / "standins" / "images"
-CONTAINERFILE = "FROM docker.io/library/alpine\nRUN apk add --no-cache git make\n"
 needs_podman = pytest.mark.skipif(shutil.which("podman") is None, reason="needs Podman")
 
 
