@@ -1,6 +1,6 @@
 """Helpers for the real Adapters' own behaviour tests (the shared contract is in tests/conformance)."""
+
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -10,7 +10,6 @@ import pytest
 
 ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT / "tests" / "standins"))
-import gitrepohost  # noqa: E402
 
 ADAPTERS = ROOT / "adapters"
 STUB_IMAGES = ROOT / "tests" / "standins" / "images"
@@ -25,8 +24,14 @@ class Exe:
 
     def run(self, op, body=None, **args):
         argv = [self.path, op] + [x for k, v in args.items() for x in (f"--{k.replace('_', '-')}", str(v))]
-        return subprocess.run(argv, input=json.dumps(body) if body is not None else "",
-                              capture_output=True, text=True, env=self.env, timeout=600)
+        return subprocess.run(
+            argv,
+            input=json.dumps(body) if body is not None else "",
+            capture_output=True,
+            text=True,
+            env=self.env,
+            timeout=600,
+        )
 
     def ok(self, op, body=None, **args):
         done = self.run(op, body, **args)

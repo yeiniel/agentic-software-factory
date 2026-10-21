@@ -1,4 +1,5 @@
 """The events the core emits for the Console (spec 0006): spans with ids, task lifecycle, trace context."""
+
 import re
 
 TASK_EVENT = {"type": "task", "task": "t1", "repo": "r"}
@@ -105,8 +106,16 @@ def test_existing_event_kinds_are_unchanged(run_factory):
     out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT]})
 
     kinds = {r["event"]["kind"] for r in out.records}
-    assert {"run-started", "attempt", "agent", "branch-recorded", "validation", "integrator",
-            "fast-forward", "run-finished"} <= kinds
+    assert {
+        "run-started",
+        "attempt",
+        "agent",
+        "branch-recorded",
+        "validation",
+        "integrator",
+        "fast-forward",
+        "run-finished",
+    } <= kinds
     (run_started,) = spans(out, "run-started")
     assert run_started["run"] == 1 and set(run_started["roles"]) == {"implementor", "acceptance-writer"}
 

@@ -1,5 +1,4 @@
 """The Runner's one operation, `run`, for both Environment types (docs/adapters/README.md)."""
-import json
 
 import pytest
 

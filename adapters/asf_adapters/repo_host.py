@@ -3,73 +3,78 @@
 The contract is in docs/adapters/README.md. Reads go through a local mirror of the server's branches
 (under $ADAPTER_CACHE); writes are pushes. Clones handed out have one branch and no remote.
 """
-import subprocess
+
+from pathlib import Path
 
 from . import common as _common
-from .common import IDENTITY, Failure, git, remote
+from .common import IDENTITY, Args, Json, RequestError, git, remote, run_git, try_git
 
 MIRROR = "+refs/heads/*:refs/heads/*"
 
 
-def mirror(repo):
+def mirror(repo: str) -> Path:
     return _common.mirror("repo-host", repo, MIRROR)
 
 
-def main_head(a):
+def main_head(a: Args) -> Json:
     out = git("ls-remote", remote(a["repo"]), "refs/heads/main")
     if not out:
-        raise Failure("repository has no main")
+        raise RequestError("repository has no main")
     return {"commit": out.split()[0]}
 
 
-def create_branch(a):
+def create_branch(a: Args) -> Json:
     if a["name"] == "main":
-        raise Failure("main is only advanced by fast-forward-main")
+        raise RequestError("main is only advanced by fast-forward-main")
     cache = mirror(a["repo"])
     commit = git("rev-parse", "--verify", f"{a['base']}^{{commit}}", cwd=cache)
     git("push", "-q", "--force", remote(a["repo"]), f"{commit}:refs/heads/{a['name']}", cwd=cache)
     return {"commit": commit}
 
 
-def checkout(a):
+def checkout(a: Args) -> Json:
     cache, dest = mirror(a["repo"]), a["dest"]
     ref, local = (f"refs/heads/{a['branch']}", a["branch"]) if "branch" in a else (a["commit"], "work")
     git("init", "-q", dest)
-    git("fetch", "-q", cache, ref, cwd=dest)  # no remote is configured
+    git("fetch", "-q", str(cache), ref, cwd=dest)  # no remote is configured
     git("checkout", "-q", "-b", local, "FETCH_HEAD", cwd=dest)
     git("config", "user.name", "Factory", cwd=dest)
     git("config", "user.email", IDENTITY["GIT_AUTHOR_EMAIL"], cwd=dest)
     return {"commit": git("rev-parse", "HEAD", cwd=dest)}
 
 
-def record(a):
+def record(a: Args) -> Json:
     src, branch, url = a["from"], a["branch"], remote(a["repo"])
     git("add", "-A", cwd=src)
     if git("status", "--porcelain", cwd=src):
         git("commit", "-q", "-m", f"Record {branch}", cwd=src)
     cache = mirror(a["repo"])
-    before = git("rev-parse", "-q", "--verify", f"refs/heads/{branch}^{{tree}}", cwd=cache, check=False)
+    before = try_git("rev-parse", "-q", "--verify", f"refs/heads/{branch}^{{tree}}", cwd=cache)
     after = git("rev-parse", "HEAD^{tree}", cwd=src)
     git("push", "-q", "--force", url, f"HEAD:refs/heads/{branch}", cwd=src)
     return {"commit": git("rev-parse", "HEAD", cwd=src), "changed": before != after}
 
 
-def fast_forward_main(a):
+def fast_forward_main(a: Args) -> Json:
     cache = mirror(a["repo"])
     head = git("rev-parse", "refs/heads/main", cwd=cache)
     commit = git("rev-parse", f"refs/heads/{a['branch']}", cwd=cache)
-    if head != a["expect-main"] or git("merge-base", "--is-ancestor", head, commit, cwd=cache,
-                                       check=False) is None:
+    if head != a["expect-main"] or try_git("merge-base", "--is-ancestor", head, commit, cwd=cache) is None:
         return {"advanced": False, "head": head}
     lease = f"--force-with-lease=refs/heads/main:{head}"
-    pushed = subprocess.run(["git", "push", "-q", lease, remote(a["repo"]),
-                                     f"{commit}:refs/heads/main"], cwd=cache, capture_output=True)
+    pushed = run_git("push", "-q", lease, remote(a["repo"]), f"{commit}:refs/heads/main", cwd=cache)
     if pushed.returncode:  # main moved, or the server refused
         return {"advanced": False, "head": main_head(a)["commit"]}
     return {"advanced": True, "head": commit}
 
 
-
-def main():
-    _common.main({"main-head": main_head, "create-branch": create_branch, "checkout": checkout,
-                  "record": record, "fast-forward-main": fast_forward_main})
+def main() -> None:
+    _common.main(
+        {
+            "main-head": main_head,
+            "create-branch": create_branch,
+            "checkout": checkout,
+            "record": record,
+            "fast-forward-main": fast_forward_main,
+        }
+    )

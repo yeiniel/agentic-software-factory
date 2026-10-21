@@ -57,3 +57,39 @@ disable_warnings = ["no-data-collected", "module-not-imported"]
 fail_under = 100
 show_missing = true
 skip_covered = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-include = ["adapters/*"]
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812", "CPY001", "D203", "D213",  # formatter conflict, copyright header, docstring style pairs
+    "D1",  # missing docstrings: names and scenarios carry the meaning, comments only say why
+    "D401",  # docstrings are noun phrases
+    "EM101", "EM102", "TRY003",  # exception messages are written where they are raised
+    "PLR0913", "PLR0917",  # the core threads a Task's context explicitly; reshaping it is not this work
+    "S310", "S603", "S607", "T201",  # the products run configured commands, open the operator's URLs and print for their callers
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests are scenarios: asserts, subprocesses, fixtures and helpers without annotations.
+"{tests,console/tests}/**" = ["ANN", "ARG", "S101", "S603", "S607", "S310", "PLR2004", "PLR0913", "PLR0917",
+                              "PT018", "PLW1510", "INP001", "T201", "FBT", "E741", "PTH", "SIM", "BLE001",
+                              "S108", "S104", "S602", "PLC0415", "E402", "I001", "S110", "S311", "C901"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+strict = ["src", "console/asf_console", "adapters"]
+include = [
+    "src", "console", "adapters", "tests",
+    "adapters/event-source", "adapters/records", "adapters/records-otlp",
+    "adapters/repo-host", "adapters/runner", "adapters/task-store",
+]
+exclude = ["**/.venv", "**/__pycache__"]
+venvPath = "."
+venv = ".venv"

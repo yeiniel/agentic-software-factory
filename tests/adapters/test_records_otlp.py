@@ -1,4 +1,5 @@
 """The OTLP Records implementation: started events arrive as logs, finished ones as complete spans."""
+
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -44,9 +45,20 @@ def first_log(got):
 def test_a_started_event_is_exported_as_a_log_record_with_its_ids(exe, env, receiver):
     url, got = receiver
     env["OTEL_EXPORTER_OTLP_ENDPOINT"] = url
-    exe("records-otlp").ok("append", {"kind": "started", "run": 1, "trace": TRACE, "id": SPAN,
-                                      "parent": PARENT, "span": "activity", "name": "agent"},
-                           stream="task/r/t1", run=1)
+    exe("records-otlp").ok(
+        "append",
+        {
+            "kind": "started",
+            "run": 1,
+            "trace": TRACE,
+            "id": SPAN,
+            "parent": PARENT,
+            "span": "activity",
+            "name": "agent",
+        },
+        stream="task/r/t1",
+        run=1,
+    )
 
     log = first_log(got)
     assert log["traceId"] == TRACE and log["spanId"] == SPAN
@@ -58,9 +70,22 @@ def test_a_started_event_is_exported_as_a_log_record_with_its_ids(exe, env, rece
 def test_a_finished_event_is_exported_as_a_complete_span_with_the_same_ids(exe, env, receiver):
     url, got = receiver
     env["OTEL_EXPORTER_OTLP_ENDPOINT"] = url
-    exe("records-otlp").ok("append", {"kind": "finished", "run": 1, "trace": TRACE, "id": SPAN,
-                                      "parent": PARENT, "span": "activity", "name": "agent",
-                                      "duration": 2.5, "outcome": "crashed"}, stream="task/r/t1", run=1)
+    exe("records-otlp").ok(
+        "append",
+        {
+            "kind": "finished",
+            "run": 1,
+            "trace": TRACE,
+            "id": SPAN,
+            "parent": PARENT,
+            "span": "activity",
+            "name": "agent",
+            "duration": 2.5,
+            "outcome": "crashed",
+        },
+        stream="task/r/t1",
+        run=1,
+    )
 
     path, body = got[-1]
     assert path == "/v1/traces"
@@ -74,8 +99,12 @@ def test_a_finished_event_is_exported_as_a_complete_span_with_the_same_ids(exe, 
 def test_other_events_are_logs_with_nested_fields_flattened(exe, env, receiver):
     url, got = receiver
     env["OTEL_EXPORTER_OTLP_ENDPOINT"] = url
-    exe("records-otlp").ok("append", {"kind": "agent", "run": 2, "trace": TRACE, "role": "implementor",
-                                      "usage": {"turns": 3, "tool_calls": 4}}, stream="task/r/t1", run=2)
+    exe("records-otlp").ok(
+        "append",
+        {"kind": "agent", "run": 2, "trace": TRACE, "role": "implementor", "usage": {"turns": 3, "tool_calls": 4}},
+        stream="task/r/t1",
+        run=2,
+    )
 
     a = attrs(first_log(got))
     assert a["asf.kind"] == "agent" and a["asf.usage.turns"] == "3" and a["asf.usage.tool_calls"] == "4"

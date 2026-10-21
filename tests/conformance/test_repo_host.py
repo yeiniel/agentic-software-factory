@@ -1,4 +1,3 @@
-import subprocess
 import uuid
 from pathlib import Path
 
@@ -18,8 +17,11 @@ def repo(host):
 
 def tree(root):
     root = Path(root)
-    return {str(p.relative_to(root)): p.read_text() for p in sorted(root.rglob("*"))
-            if p.is_file() and ".git" not in p.relative_to(root).parts}
+    return {
+        str(p.relative_to(root)): p.read_text()
+        for p in sorted(root.rglob("*"))
+        if p.is_file() and ".git" not in p.relative_to(root).parts
+    }
 
 
 def new_branch(host, repo, base=None):
@@ -55,20 +57,6 @@ def test_checkout_of_main_matches_main_head(host, repo, tmp_path):
     host.ok("checkout", repo=repo, branch="main", dest=tmp_path / "a")
     host.ok("checkout", repo=repo, commit=head, dest=tmp_path / "b")
     assert tree(tmp_path / "a") == tree(tmp_path / "b")
-
-
-def test_a_clone_holds_one_branch_and_no_remote(host, repo, tmp_path):
-    name = new_branch(host, repo)
-    host.ok("create-branch", repo=repo, name=f"other/{uuid.uuid4().hex[:8]}",
-            base=host.ok("main-head", repo=repo)["commit"])
-    dest = tmp_path / "clone"
-    host.ok("checkout", repo=repo, branch=name, dest=dest)
-    if not (dest / ".git").exists():
-        pytest.skip("not a git clone: single-branch isolation is not observable")
-    git = lambda *a: subprocess.run(["git", "-C", str(dest), *a], capture_output=True, text=True,
-                                    check=True).stdout
-    assert git("remote").strip() == ""
-    assert [b for b in git("branch", "--all").split() if b != "*"] == [name]
 
 
 def test_checkout_of_an_unknown_branch_fails(host, repo, tmp_path):

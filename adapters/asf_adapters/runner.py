@@ -13,6 +13,7 @@ no roles and none of the input or result names; its own state is `session/` in a
   result's `usage` counts the turns, tool calls and tokens of this run.
   deterministic: no network; executes /ctx/run in /ctx/cwd. Its results are the files in /ctx/out.
 """
+
 import os
 import subprocess
 import time
@@ -21,33 +22,36 @@ from pathlib import Path
 from . import common as _common
 from . import environment as _environment
 from . import session as _session
-from .common import Failure, podman, require_env, slug
+from .common import Args, Json, RequestError, podman, require_env, slug
 
 MODEL_ENV = ("ASF_MODEL_ENDPOINT", "ASF_MODEL_NAME", "ASF_MODEL_CONTEXT_WINDOW")
 FILE_CAP = 1_000_000  # characters of each result file; the tail is kept, where failures are reported
 DEFAULT_BUILD_TIMEOUT = 900
 
 
-def run_container(name, args, timeout):
+def run_container(name: str, args: list[str], timeout: float) -> tuple[int | None, str, bool]:
     """Run a container to completion or kill it at the deadline; returns (status, output, timed_out)."""
-    process = subprocess.Popen([os.environ.get("PODMAN", "podman"), "run", "--rm", "--name", name,
-                                "--security-opt", "label=disable", *args],
-                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    process = subprocess.Popen(
+        [os.environ.get("PODMAN", "podman"), "run", "--rm", "--name", name, "--security-opt", "label=disable", *args],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
     try:
         output, _ = process.communicate(timeout=timeout)
-        return process.returncode, output, False
     except subprocess.TimeoutExpired:
         podman("rm", "-f", "-t", "0", name, check=False)
         output, _ = process.communicate()
         return None, output or "", True
+    return process.returncode, output, False
 
 
-def container_name(ctx):
+def container_name(ctx: Path) -> str:
     return f"asf-{slug(ctx.parent.name + '-' + ctx.name)}-{os.getpid()}"
 
 
-def read_files(out):
-    files = {}
+def read_files(out: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
     for path in sorted(out.glob("*")) if out.is_dir() else []:
         if path.is_file() and not path.is_symlink():
             text = path.read_text(errors="replace")
@@ -55,19 +59,22 @@ def read_files(out):
     return files
 
 
-def run(a):
+def run(a: Args) -> Json:
     kind, ctx = a["type"], Path(a["context"]).resolve()
     if kind not in ("agentic", "deterministic"):
-        raise Failure(f"unknown type {kind!r}")
+        raise RequestError(f"unknown type {kind!r}")
     timeout = float(a["timeout"])
-    image = _environment.image(ctx / "cwd", kind == "agentic", float(a.get("build-timeout", DEFAULT_BUILD_TIMEOUT)))
+    image = _environment.image(
+        ctx / "cwd", agentic=kind == "agentic", timeout=float(a.get("build-timeout", DEFAULT_BUILD_TIMEOUT))
+    )
     name = container_name(ctx)
     if kind == "deterministic":
         status, output, timed_out = run_container(
-            name, ["--network", "none", "-v", f"{ctx}:/ctx", "-w", "/ctx/cwd", "--entrypoint", "/ctx/run", image],
-            timeout)
-        return {"exit_status": status, "timed_out": timed_out, "output": output,
-                "files": read_files(ctx / "out")}
+            name,
+            ["--network", "none", "-v", f"{ctx}:/ctx", "-w", "/ctx/cwd", "--entrypoint", "/ctx/run", image],
+            timeout,
+        )
+        return {"exit_status": status, "timed_out": timed_out, "output": output, "files": read_files(ctx / "out")}
     session = ctx / "session"
     session.mkdir(exist_ok=True)
     started = time.time()
@@ -77,15 +84,19 @@ def run(a):
     with _session.Forwarder(watched, a.get("traceparent")):
         status, output, timed_out = run_container(name, [*network, "-v", f"{ctx}:/ctx", *env, image], timeout)
     watched.poll()  # whatever the last interval left, for the counts
-    transcripts = sorted((p for p in session.rglob("*.jsonl") if p.stat().st_mtime >= started),
-                         key=lambda p: p.stat().st_mtime)  # this run's, not an earlier one's
-    result = {"exit_status": status, "timed_out": timed_out, "output": output,
-              "transcript": str(transcripts[-1]) if transcripts else ""}
+    transcripts = sorted(
+        (p for p in session.rglob("*.jsonl") if p.stat().st_mtime >= started), key=lambda p: p.stat().st_mtime
+    )  # this run's, not an earlier one's
+    result: Json = {
+        "exit_status": status,
+        "timed_out": timed_out,
+        "output": output,
+        "transcript": str(transcripts[-1]) if transcripts else "",
+    }
     if watched.usage():
         result["usage"] = watched.usage()
     return result
 
 
-
-def main():
+def main() -> None:
     _common.main({"run": run})

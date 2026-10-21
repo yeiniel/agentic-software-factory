@@ -1,22 +1,27 @@
 """The fixed graph of Activities for a Run, and the nested retry loops around it (ADR 0016)."""
+
 import hashlib
 import secrets
 import sys
 import time
+from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
 from . import verdict as verdicts
-from .adapters import AdapterError
+from .adapters import Adapter, AdapterError, Json
+from .contexts import Context, ContextStore
 from .prompts import INTEGRATOR_RUN, VALIDATION_RUN, compose, feedback, skills, system_prompt
 
 IMPLEMENTOR, WRITER = "implementor", "acceptance-writer"
 ROLES = (IMPLEMENTOR, WRITER)
-LOOPS = {WRITER: "writer", IMPLEMENTOR: "implementor"}  # the role each loop runs
+LOOPS: dict[str, str] = {WRITER: "writer", IMPLEMENTOR: "implementor"}  # the role each loop runs
+Failure = tuple[str, str]  # (kind, output) of a failed attempt
+Step = Callable[[int, str | None, str], Failure | None]
 MAX_INTEGRATIONS = 5  # fresh Integrator runs when `main` keeps moving
 
 
-def trace_id(task):
+def trace_id(task: str) -> str:
     """One trace per Task: 32 hex characters derived from the Task id, stable across Factory restarts."""
     return hashlib.sha256(task.encode()).hexdigest()[:32]
 
@@ -24,30 +29,30 @@ def trace_id(task):
 class Span:
     """A started-then-finished stretch of work; `outcome` is set by the code it wraps."""
 
-    def __init__(self, trace):
+    def __init__(self, trace: str) -> None:
         self.id = secrets.token_hex(8)
         self.trace = trace
         self.outcome = "ok"
 
     @property
-    def traceparent(self):
+    def traceparent(self) -> str:
         return f"00-{self.trace}-{self.id}-01"
 
 
 class TaskRunner:
-    def __init__(self, adapters, config, contexts):
+    def __init__(self, adapters: dict[str, Adapter], config: Json, contexts: ContextStore) -> None:
         self.a = adapters
         self.config = config
         self.contexts = contexts
 
-    def record(self, task, kind, run=None, **data):
-        args = {"stream": f"task/{task}"}
-        if run is not None:
-            args["run"] = run
-        self.a["records"].call("append", body={"kind": kind, "run": run, "trace": trace_id(task), **data}, **args)
+    def record(self, task: str, kind: str, run: int | None = None, **data: object) -> None:
+        body = {"kind": kind, "run": run, "trace": trace_id(task), **data}
+        self.a["records"].call("append", body=body, stream=f"task/{task}", run=run)
 
     @contextmanager
-    def span(self, task, run, kind, name, parent, **attributes):
+    def span(
+        self, task: str, run: int | None, kind: str, name: str, parent: str | None, **attributes: object
+    ) -> Generator[Span]:
         """Emit `started` and, however the block ends, `finished` with its duration and outcome."""
         span = Span(trace_id(task))
         fields = {"id": span.id, "parent": parent, "span": kind, "name": name, **attributes}
@@ -59,42 +64,45 @@ class TaskRunner:
             span.outcome = "error"
             raise
         finally:
-            self.record(task, "finished", run, **fields, duration=round(time.monotonic() - began, 3),
-                        outcome=span.outcome)
+            self.record(
+                task, "finished", run, **fields, duration=round(time.monotonic() - began, 3), outcome=span.outcome
+            )
 
-    def set_status(self, task, status, body=None, reason=None):
+    def set_status(self, task: str, status: str, body: Json | None = None, reason: str | None = None) -> None:
         """Write a status to the Task Store, and record it so the Console never queries the store."""
         self.a["task-store"].call("set-status", task=task, status=status, body=body)
-        extra = {k: v for k, v in {"reason": reason, "commit": (body or {}).get("commit")}.items() if v}
+        extra: Json = {k: v for k, v in {"reason": reason, "commit": (body or {}).get("commit")}.items() if v}
         self.record(task, "task-status", status=status, **extra)
 
-    def execute(self, task, repo):
-        history = []
+    def execute(self, task: str, repo: str) -> None:
+        history: list[Json] = []
         try:
             self.record(task, "task-received", repo=repo)
             self.attempt(task, repo, history)
-        except Exception as error:  # an Adapter error or a malformed Adapter reply
+        except Exception as error:  # noqa: BLE001  # an Adapter error or a malformed Adapter reply
             self.infrastructure_error(task, history, error)
 
-    def infrastructure_error(self, task, history, error):
+    def infrastructure_error(self, task: str, history: list[Json], error: Exception) -> None:
         """Visible failure that does not consume a Run toward the cap."""
-        data = {"error": str(error), "runs_used": len(history)}
+        data: Json = {"error": str(error), "runs_used": len(history)}
         try:
             self.record(task, "infrastructure-error", **data)
-            self.set_status(task, "blocked", {"reason": "infrastructure", **data, "history": history},
-                            reason="infrastructure")
+            self.set_status(
+                task, "blocked", {"reason": "infrastructure", **data, "history": history}, reason="infrastructure"
+            )
         except AdapterError as reporting:
             print(f"could not report infrastructure error for {task}: {reporting}", file=sys.stderr)
 
-    def attempt(self, task, repo, history):
+    def attempt(self, task: str, repo: str, history: list[Json]) -> None:
         a, cap = self.a, self.config["feedback_cap"]
         prompt = a["task-store"].call("get-prompt", task=task)["prompt"]
         base = a["repo-host"].call("main-head", repo=repo)["commit"]
         branches = {r: f"factory/{task}/{r}" for r in ROLES}
         for name in branches.values():
             a["repo-host"].call("create-branch", repo=repo, name=name, base=base)
-        feedbacks = {r: None for r in ROLES}  # the Feedback a loop starts with when a Run enters it
-        succeeded, ran = set(), set()
+        feedbacks: dict[str, str | None] = dict.fromkeys(ROLES)  # the Feedback a loop starts with when a Run enters it
+        succeeded: set[str] = set()
+        ran: set[str] = set()
         while True:
             run = len(history) + 1
             roles = [r for r in ROLES if r not in succeeded]
@@ -103,38 +111,49 @@ class TaskRunner:
             with self.span(task, run, "run", str(run), None) as run_span:
                 loops = {WRITER: self.writer_loop, IMPLEMENTOR: self.implementor_loop}
                 with ThreadPoolExecutor(len(roles)) as pool:
-                    futures = {r: pool.submit(loops[r], task, repo, run, branches[r], base, prompt,
-                                              feedbacks[r], ran, run_span.id) for r in roles}
+                    futures = {
+                        r: pool.submit(
+                            loops[r], task, repo, run, branches[r], base, prompt, feedbacks[r], ran, run_span.id
+                        )
+                        for r in roles
+                    }
                     results = {r: f.result() for r, f in futures.items()}
                 attempts = {LOOPS[r]: res["attempts"] for r, res in results.items()}
                 exhausted = [r for r in roles if not results[r]["succeeded"]]
                 if exhausted:
                     role = exhausted[0]
                     self.record(task, "loop-exhausted", run, loop=LOOPS[role])
-                    outcome = {"result": "red", "failed_check": "loop-exhausted", "loop": LOOPS[role],
-                               "output": results[role]["failure"]}
+                    outcome = {
+                        "result": "red",
+                        "failed_check": "loop-exhausted",
+                        "loop": LOOPS[role],
+                        "output": results[role]["failure"],
+                    }
                 else:
                     succeeded.update(roles)
                     outcome = self.integrate(task, repo, run, base, branches, run_span.id)
                 run_span.outcome = outcome["result"]
-                history.append({"run": run, "roles": roles, "feedback": dict(feedbacks), "attempts": attempts,
-                                "outcome": outcome})
+                history.append(
+                    {"run": run, "roles": roles, "feedback": dict(feedbacks), "attempts": attempts, "outcome": outcome}
+                )
                 self.record(task, "run-finished", run, outcome=outcome)
             if outcome["result"] == "green":
                 self.set_status(task, "done", {"commit": outcome["commit"]})
                 return
             if exhausted or len(history) >= self.config["max_runs"]:
-                self.set_status(task, "blocked", {"history": history},
-                                reason="loop-exhausted" if exhausted else "max-runs")
+                self.set_status(
+                    task, "blocked", {"history": history}, reason="loop-exhausted" if exhausted else "max-runs"
+                )
                 return
             # a failed integration retriggers only the Implementor; the Writer's validated branch stays
             succeeded.discard(IMPLEMENTOR)
             feedbacks = {IMPLEMENTOR: feedback(outcome["failed_check"], outcome["output"], cap)}
             self.record(task, "feedback", run, feedback=feedbacks)
 
-    def attempts(self, task, run, loop, budget, first, step, parent):
+    def attempts(self, task: str, run: int, loop: str, budget: int, first: str | None, step: Step, parent: str) -> Json:
         """Run `step(attempt, feedback, span)` until it returns None (success) or the budget is spent."""
-        log, text = [], first
+        log: list[Json] = []
+        text, last_output = first, ""
         with self.span(task, run, "loop", loop, parent) as loop_span:
             loop_span.outcome = "exhausted"
             for number in range(1, budget + 1):
@@ -147,18 +166,31 @@ class TaskRunner:
                     loop_span.outcome = "succeeded"
                     return {"succeeded": True, "attempts": log}
                 text = feedback(*failure, self.config["feedback_cap"])
+                last_output = failure[1]
                 if number < budget:
                     self.record(task, "loop-feedback", run, loop=loop, attempt=number, feedback=text)
-            return {"succeeded": False, "attempts": log, "failure": failure[1]}
+            return {"succeeded": False, "attempts": log, "failure": last_output}
 
-    def agent_failure(self, result):
+    def agent_failure(self, result: Json) -> Failure | None:
         if result["timed_out"]:
             return "timed-out", "Timed out."
         if result["exit_status"]:
             return "crashed", result["output"]
+        return None
 
-    def writer_loop(self, task, repo, run, branch, base, prompt, first, ran, parent):
-        def step(number, text, attempt_span):
+    def writer_loop(
+        self,
+        task: str,
+        repo: str,
+        run: int,
+        branch: str,
+        base: str,
+        prompt: str,
+        first: str | None,
+        ran: set[str],
+        parent: str,
+    ) -> Json:
+        def step(number: int, text: str | None, attempt_span: str) -> Failure | None:
             result = self.agent(task, repo, run, WRITER, branch, base, prompt, text, ran, attempt_span)
             failure = self.agent_failure(result)
             if failure:
@@ -166,23 +198,54 @@ class TaskRunner:
             verdict = self.validate(task, repo, run, number, base, branch, attempt_span)
             if verdict["result"] == "red":
                 return verdict["failed_check"], verdict["output"]
+            return None
+
         return self.attempts(task, run, "writer", self.config["writer_attempts"], first, step, parent)
 
-    def implementor_loop(self, task, repo, run, branch, base, prompt, first, ran, parent):
-        def step(number, text, attempt_span):
+    def implementor_loop(
+        self,
+        task: str,
+        repo: str,
+        run: int,
+        branch: str,
+        base: str,
+        prompt: str,
+        first: str | None,
+        ran: set[str],
+        parent: str,
+    ) -> Json:
+        def step(_number: int, text: str | None, attempt_span: str) -> Failure | None:
             result = self.agent(task, repo, run, IMPLEMENTOR, branch, base, prompt, text, ran, attempt_span)
             return self.agent_failure(result)
+
         return self.attempts(task, run, "implementor", self.config["implementor_attempts"], first, step, parent)
 
-    def run_environment(self, kind, ctx, timeout, traceparent=None):
+    def run_environment(self, kind: str, ctx: Context, timeout: float, traceparent: str | None = None) -> Json:
         """The one Runner operation: an Environment on a Run Context."""
         build = self.config["build_timeout"]
-        extra = {"traceparent": traceparent} if traceparent else {}
-        return self.a["runner"].call("run", type=kind, context=ctx, timeout=timeout,
-                                     **{"build-timeout": build}, **extra,
-                                     deadline=timeout + build + self.config["adapter_grace"])
+        return self.a["runner"].call(
+            "run",
+            type=kind,
+            context=ctx,
+            timeout=timeout,
+            build_timeout=build,
+            traceparent=traceparent,
+            deadline=timeout + build + self.config["adapter_grace"],
+        )
 
-    def agent(self, task, repo, run, role, branch, base, prompt, feedback_text, ran, parent):
+    def agent(
+        self,
+        task: str,
+        repo: str,
+        run: int,
+        role: str,
+        branch: str,
+        base: str,
+        prompt: str,
+        feedback_text: str | None,
+        ran: set[str],
+        parent: str,
+    ) -> Json:
         a = self.a
         text = compose(role, prompt, feedback_text)
         with self.span(task, run, "activity", "assemble", parent):
@@ -201,13 +264,15 @@ class TaskRunner:
         with self.span(task, run, "activity", "agent", parent, role=role) as activity:
             result = self.run_environment("agentic", ctx, self.config["agent_timeout"], activity.traceparent)
             self.record(task, "agent", run, role=role, **result)
-            recorded = a["repo-host"].call("record", repo=repo, branch=branch, **{"from": ctx.path("cwd")})
+            recorded = a["repo-host"].call("record", repo=repo, branch=branch, from_=ctx.path("cwd"))
             self.record(task, "branch-recorded", run, role=role, branch=branch, **recorded)
             failure = self.agent_failure(result)
             activity.outcome = failure[0] if failure else "ok"
         return result
 
-    def validate(self, task, repo, run, attempt, base, branch, parent):
+    def validate(
+        self, task: str, repo: str, run: int, attempt: int, base: str, branch: str, parent: str
+    ) -> dict[str, str]:
         """Acceptance Test Validation: green when the new specs fail on the unchanged repository."""
         a = self.a
         with self.span(task, run, "activity", "assemble", parent):
@@ -228,7 +293,7 @@ class TaskRunner:
             activity.outcome = verdict["result"] if verdict["result"] == "green" else verdict["failed_check"]
         return verdict
 
-    def integrate(self, task, repo, run, base, branches, parent):
+    def integrate(self, task: str, repo: str, run: int, base: str, branches: dict[str, str], parent: str) -> Json:
         a = self.a
         for attempt in range(MAX_INTEGRATIONS):
             with self.span(task, run, "activity", "assemble", parent):
@@ -254,10 +319,8 @@ class TaskRunner:
                 return verdict
             with self.span(task, run, "activity", "publish", parent) as activity:
                 integrated = f"factory/{task}/integrated"
-                a["repo-host"].call("record", repo=repo, branch=integrated,
-                                    **{"from": ctx.path("out/integrated")})
-                pushed = a["repo-host"].call("fast-forward-main", repo=repo, branch=integrated,
-                                             **{"expect-main": main})
+                a["repo-host"].call("record", repo=repo, branch=integrated, from_=ctx.path("out/integrated"))
+                pushed = a["repo-host"].call("fast-forward-main", repo=repo, branch=integrated, expect_main=main)
                 self.record(task, "fast-forward", run, **pushed)
                 activity.outcome = "advanced" if pushed["advanced"] else "main-moved"
             if pushed["advanced"]:

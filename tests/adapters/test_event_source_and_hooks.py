@@ -1,4 +1,5 @@
 """The git server's hooks and the Event Source, together: push, and the event arrives."""
+
 import json
 import os
 import queue
@@ -25,11 +26,20 @@ def server(tmp_path):
     seed = tmp_path / "seed"
     seed.mkdir()
     (seed / "README").write_text("base")
-    env = {**os.environ, "HOOKS_DIR": str(ROOT / "git-server" / "hooks"),
-           "EVENT_SOURCE_URL": f"http://127.0.0.1:{port}", "EVENT_SOURCE_PORT": str(port)}
+    env = {
+        **os.environ,
+        "HOOKS_DIR": str(ROOT / "git-server" / "hooks"),
+        "EVENT_SOURCE_URL": f"http://127.0.0.1:{port}",
+        "EVENT_SOURCE_PORT": str(port),
+    }
     subprocess.run([str(CREATE_REPO), str(tmp_path / "srv"), "r", str(seed)], check=True, env=env)
-    source = subprocess.Popen([str(ROOT / "adapters" / "event-source"), "listen"], env=env,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    source = subprocess.Popen(
+        [str(ROOT / "adapters" / "event-source"), "listen"],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
     source.stderr.readline()  # "listening on port ..."
     lines = queue.Queue()
     threading.Thread(target=lambda: [lines.put(json.loads(l)) for l in source.stdout], daemon=True).start()
@@ -47,8 +57,13 @@ def clone(bare, tmp_path, env):
 
 
 def git(work, env, *args, check=True):
-    return subprocess.run(["git", "-C", str(work), "-c", "user.name=h", "-c", "user.email=h@x", *args],
-                          capture_output=True, text=True, env=env, check=check)
+    return subprocess.run(
+        ["git", "-C", str(work), "-c", "user.name=h", "-c", "user.email=h@x", *args],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=check,
+    )
 
 
 def test_a_new_issue_arrives_as_a_task_event(server, tmp_path):

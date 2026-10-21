@@ -1,11 +1,12 @@
 """Repo Host behaviour beyond the shared contract: what an Agent's clone can see."""
+
 import subprocess
 
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "standins"))
-import gitissues  # noqa: E402
+import gitissues
 
 
 def git(path, *args):
@@ -19,7 +20,10 @@ def test_a_clone_holds_no_issue_refs_even_when_the_server_has_issues(exe, repo, 
     head = host.ok("main-head", repo="r")["commit"]
     host.ok("create-branch", repo="r", name="factory/t/implementor", base=head)
     host.ok("checkout", repo="r", branch="factory/t/implementor", dest=tmp_path / "clone")
-    assert git(tmp_path / "clone", "for-each-ref", "--format=%(refname)").split() == ["refs/heads/factory/t/implementor"]
+    assert git(tmp_path / "clone", "for-each-ref", "--format=%(refname)").split() == [
+        "refs/heads/factory/t/implementor"
+    ]
+    assert git(tmp_path / "clone", "remote").strip() == ""
     assert git(tmp_path / "clone", "count-objects", "-v")  # a real repository
     assert "secret body" not in git(tmp_path / "clone", "log", "--all", "--format=%B")
 

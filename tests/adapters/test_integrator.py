@@ -1,9 +1,9 @@
 """The Integrator script against real git and a tiny real `make test`."""
+
 import json
 import os
 import shutil
 import subprocess
-from pathlib import Path
 
 import pytest
 
@@ -15,8 +15,9 @@ CHECK = "[ ! -e spec_feature ] || [ -e feature.txt ] || { echo 'feature.txt is m
 
 
 def git(path, *args):
-    subprocess.run(["git", "-C", str(path), "-c", "user.name=t", "-c", "user.email=t@x", *args],
-                   check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(path), "-c", "user.name=t", "-c", "user.email=t@x", *args], check=True, capture_output=True
+    )
 
 
 def commit(path, files, message="change"):
@@ -40,12 +41,13 @@ def context(tmp_path):
 
 
 def integrate(ctx):
-    env = {k: v for k, v in os.environ.items() if k not in ("MAKELEVEL", "MAKEFLAGS", "MFLAGS")}  # we may run under make
+    env = {
+        k: v for k, v in os.environ.items() if k not in ("MAKELEVEL", "MAKEFLAGS", "MFLAGS")
+    }  # we may run under make
     done = subprocess.run(["sh", str(SCRIPT)], cwd=ctx, capture_output=True, text=True, env=env)
     assert done.returncode == 0, done.stderr
     v = ctx.parent / "out"
-    return {name: (v / name).read_text() for name in ("result", "output", "failed_check")
-            if (v / name).exists()}
+    return {name: (v / name).read_text() for name in ("result", "output", "failed_check") if (v / name).exists()}
 
 
 def test_branches_that_merge_and_pass_are_green_and_the_result_is_returned(context):

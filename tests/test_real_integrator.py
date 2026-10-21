@@ -1,10 +1,13 @@
 """The Factory against a real git Repo Host and the real Integrator, with a tiny real `make test`."""
+
 TASK_EVENT = {"type": "task", "task": "t1", "repo": "r"}
 
 PROJECT = {
     "README": "base\n",
-    "Makefile": ("test:\n\t@fail=0; for t in specs/*.sh; do if sh $$t; then echo \"ok $$t\"; "
-                 "else echo \"FAIL $$t\"; fail=1; fi; done; exit $$fail\n"),
+    "Makefile": (
+        'test:\n\t@fail=0; for t in specs/*.sh; do if sh $$t; then echo "ok $$t"; '
+        'else echo "FAIL $$t"; fail=1; fi; done; exit $$fail\n'
+    ),
     "specs/base.sh": "true\n",
 }
 GREETING_SPEC = "grep -q hello src/greeting.txt\n"
@@ -21,9 +24,14 @@ def prompts(out, role):
 
 
 def factory(run_factory, agent=None, **extra):
-    scenario = {**SCENARIO, "agent": {"implementor": [{"edits": IMPLEMENTED}],
-                                      "acceptance-writer": [{"edits": {"specs/greeting.sh": GREETING_SPEC}}]},
-                **extra}
+    scenario = {
+        **SCENARIO,
+        "agent": {
+            "implementor": [{"edits": IMPLEMENTED}],
+            "acceptance-writer": [{"edits": {"specs/greeting.sh": GREETING_SPEC}}],
+        },
+        **extra,
+    }
     scenario["agent"].update(agent or {})
     return run_factory(scenario, real_git=PROJECT)
 
@@ -39,9 +47,15 @@ def test_green_run_lands_a_merge_of_both_branches_on_real_main(run_factory):
 
 
 def test_vacuous_specs_are_rejected_and_the_writer_retriggered(run_factory):
-    out = factory(run_factory, agent={"acceptance-writer": [
-        {"edits": {"specs/vacuous.sh": "true\n"}},
-        {"edits": {"specs/vacuous.sh": GREETING_SPEC}}]})
+    out = factory(
+        run_factory,
+        agent={
+            "acceptance-writer": [
+                {"edits": {"specs/vacuous.sh": "true\n"}},
+                {"edits": {"specs/vacuous.sh": GREETING_SPEC}},
+            ]
+        },
+    )
 
     assert agent_runs(out).count("acceptance-writer") == 2
     assert agent_runs(out).count("implementor") == 1
@@ -51,8 +65,9 @@ def test_vacuous_specs_are_rejected_and_the_writer_retriggered(run_factory):
 
 
 def test_a_red_suite_sends_the_acceptance_report_to_the_implementor(run_factory):
-    out = factory(run_factory, agent={"implementor": [
-        {"edits": {"src/greeting.txt": "goodbye\n"}}, {"edits": IMPLEMENTED}]})
+    out = factory(
+        run_factory, agent={"implementor": [{"edits": {"src/greeting.txt": "goodbye\n"}}, {"edits": IMPLEMENTED}]}
+    )
 
     assert "FAIL specs/greeting.sh" in prompts(out, "implementor")[1]
     assert out.git_main("src/greeting.txt") == "hello\n"
@@ -60,9 +75,13 @@ def test_a_red_suite_sends_the_acceptance_report_to_the_implementor(run_factory)
 
 
 def test_a_persisting_merge_conflict_blocks_the_task_and_leaves_main_untouched(run_factory):
-    out = factory(run_factory, agent={
-        "implementor": [{"edits": {**IMPLEMENTED, "README": "implementor\n"}}] * 2,
-        "acceptance-writer": [{"edits": {"specs/greeting.sh": GREETING_SPEC, "README": "writer\n"}}]})
+    out = factory(
+        run_factory,
+        agent={
+            "implementor": [{"edits": {**IMPLEMENTED, "README": "implementor\n"}}] * 2,
+            "acceptance-writer": [{"edits": {"specs/greeting.sh": GREETING_SPEC, "README": "writer\n"}}],
+        },
+    )
 
     assert out.status("t1") == ["running", "running", "blocked"]
     assert "CONFLICT" in prompts(out, "implementor")[1]

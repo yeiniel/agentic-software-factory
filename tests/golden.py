@@ -3,6 +3,7 @@
 Only what is nondeterministic is normalised: durations, span ids, commit ids, Context paths, and the order in
 which the two parallel Agents' calls interleave. `UPDATE_GOLDENS=1` rewrites the files; review the diff.
 """
+
 import json
 import os
 import re
@@ -72,10 +73,15 @@ def canonical(calls):
 
 def contexts(state):
     """The Run Contexts the core wrote, as the stand-in Runner saw them."""
-    runs = [("agent", r) for r in state["agent_runs"]] + [("validation", r) for r in state["validation_runs"]] \
+    runs = (
+        [("agent", r) for r in state["agent_runs"]]
+        + [("validation", r) for r in state["validation_runs"]]
         + [("integrator", r) for r in state["integrator_runs"]]
-    return [{"kind": kind, **{k: v for k, v in run.items() if k not in ("at", "start", "end")}}
-            for kind, run in sorted(runs, key=lambda item: item[1]["context"])]
+    )
+    return [
+        {"kind": kind, **{k: v for k, v in run.items() if k not in ("at", "start", "end")}}
+        for kind, run in sorted(runs, key=lambda item: item[1]["context"])
+    ]
 
 
 def transcript(out):
@@ -91,8 +97,9 @@ def normalise(text, fixture):
     text = text.replace(f"{fixture}/contexts/", "<contexts>/").replace(str(fixture), "<fixture>")
     for pattern, label in ((SPAN_ID, "span"), (COMMIT_ID, "commit")):
         labels = {}
-        text = pattern.sub(lambda m, labels=labels, label=label: labels.setdefault(
-            m.group(), f"{label}-{len(labels) + 1}"), text)
+        text = pattern.sub(
+            lambda m, labels=labels, label=label: labels.setdefault(m.group(), f"{label}-{len(labels) + 1}"), text
+        )
     return text
 
 
