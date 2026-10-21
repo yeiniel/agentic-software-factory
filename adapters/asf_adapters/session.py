@@ -10,8 +10,8 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-import _otlp
-from _common import Failure
+from . import otlp as _otlp
+from .common import Failure
 
 POLL = 0.5
 
