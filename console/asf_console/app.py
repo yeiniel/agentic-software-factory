@@ -6,6 +6,7 @@ import time
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import Horizontal
 from textual.widgets import DataTable, Footer, Header, RichLog, Static, TabbedContent, TabPane, Tree
 
 from .client import DEFAULT_URL, Client
@@ -36,17 +37,13 @@ class ConsoleApp(App):
             with TabPane("Tasks", id="tasks"):
                 yield DataTable(id="tasks-table", cursor_type="row")
             with TabPane("Task", id="task"):
-                with self.container():
+                with Horizontal(id="task-view"):
                     yield Tree("Select a Task in the Tasks view", id="tree")
                     yield RichLog(id="log", wrap=True, markup=False, highlight=False)
             with TabPane("Metrics", id="metrics"):
                 yield Static("", id="metrics-text")
         yield Static("", id="status")
         yield Footer()
-
-    def container(self):
-        from textual.containers import Horizontal
-        return Horizontal(id="task-view")
 
     def on_mount(self):
         table = self.query_one("#tasks-table", DataTable)
