@@ -1,4 +1,5 @@
 """Runner against real Podman with the stub entrypoint: mounts, time limit, network, results, builds."""
+
 import hashlib
 import subprocess
 from pathlib import Path
@@ -72,8 +73,10 @@ def test_the_exit_status_of_a_failing_agent_is_reported(runner, tmp_path):
 def test_an_agent_over_its_time_limit_is_stopped(runner, tmp_path):
     result = agent(runner, agentic_context(tmp_path, "HANG"), timeout=3)
     assert result["timed_out"] is True and result["exit_status"] is None
-    assert subprocess.run(["podman", "ps", "-q", "--filter", "name=asf-"], capture_output=True,
-                          text=True).stdout.strip() == ""
+    assert (
+        subprocess.run(["podman", "ps", "-q", "--filter", "name=asf-"], capture_output=True, text=True).stdout.strip()
+        == ""
+    )
 
 
 def test_the_transcript_is_the_newest_session_file_of_this_run(runner, tmp_path):
@@ -105,13 +108,14 @@ def test_a_failing_deterministic_run_reports_its_status_and_files(runner, tmp_pa
 
 
 def test_a_deterministic_run_over_its_time_limit_is_stopped(runner, tmp_path):
-    result = runner.ok("run", type="deterministic", context=deterministic_context(tmp_path, "sleep 60\n"),
-                       timeout=3)
+    result = runner.ok("run", type="deterministic", context=deterministic_context(tmp_path, "sleep 60\n"), timeout=3)
     assert result["timed_out"] is True and result["exit_status"] is None
 
 
 def test_oversized_files_are_capped_keeping_the_tail(runner, tmp_path):
-    ctx = deterministic_context(tmp_path, "head -c 1500000 /dev/zero | tr '\\0' A > ../out/big; echo END >> ../out/big\n")
+    ctx = deterministic_context(
+        tmp_path, "head -c 1500000 /dev/zero | tr '\\0' A > ../out/big; echo END >> ../out/big\n"
+    )
     big = runner.ok("run", type="deterministic", context=ctx, timeout=60)["files"]["big"]
     assert len(big) < 1_100_000 and big.endswith("END\n")
 
@@ -124,9 +128,13 @@ def test_a_context_without_a_containerfile_is_reported(runner, tmp_path, type_):
     assert done.returncode != 0 and "no Containerfile" in done.stderr
 
 
-@pytest.mark.parametrize("missing, containerfile", [
-    ("make", "FROM docker.io/library/alpine\nRUN apk add --no-cache git\n"),
-    ("git", "FROM docker.io/library/alpine\nRUN apk add --no-cache make\n")])
+@pytest.mark.parametrize(
+    "missing, containerfile",
+    [
+        ("make", "FROM docker.io/library/alpine\nRUN apk add --no-cache git\n"),
+        ("git", "FROM docker.io/library/alpine\nRUN apk add --no-cache make\n"),
+    ],
+)
 def test_an_image_without_git_or_make_is_reported_and_not_kept(runner, tmp_path, missing, containerfile):
     ctx = agentic_context(tmp_path, containerfile=containerfile)
     done = runner.run("run", type="agentic", context=ctx, timeout=60)

@@ -1,4 +1,5 @@
 """Black-box harness: starts the Factory as a process wired to scripted stand-in Adapters."""
+
 import json
 import os
 import shlex
@@ -9,8 +10,9 @@ from pathlib import Path
 import pytest
 
 import golden
+
 sys.path.insert(0, str(Path(__file__).parent / "standins"))
-import gitrepohost  # noqa: E402  (test infrastructure)
+import gitrepohost
 
 STANDIN = Path(__file__).parent / "standins" / "standin.py"
 ADAPTERS = Path(__file__).parent.parent / "adapters"
@@ -30,14 +32,14 @@ class Outcome:
     def git_main(self, path):
         """Contents of `path` on `main` of the real-git repo `r`, or None."""
         bare = self.fixture / "git" / "r.git"
-        done = subprocess.run(["git", "--git-dir", str(bare), "show", f"main:{path}"],
-                              capture_output=True, text=True)
+        done = subprocess.run(["git", "--git-dir", str(bare), "show", f"main:{path}"], capture_output=True, text=True)
         return done.stdout if done.returncode == 0 else None
 
     def git_log_main(self):
         bare = self.fixture / "git" / "r.git"
-        return subprocess.run(["git", "--git-dir", str(bare), "log", "--format=%s", "main"],
-                              capture_output=True, text=True).stdout.split("\n")
+        return subprocess.run(
+            ["git", "--git-dir", str(bare), "log", "--format=%s", "main"], capture_output=True, text=True
+        ).stdout.split("\n")
 
     def _jsonl(self, name):
         path = self.fixture / name
@@ -75,11 +77,19 @@ def run_factory(tmp_path):
         command = shlex.split(os.environ.get("FACTORY_CMD", f"{sys.executable} -m factory"))
         process = subprocess.run(
             command + ["--config", str(tmp_path / "config.json")],
-            env={**os.environ, "FIXTURE_DIR": str(tmp_path),
-                 "FACTORY_TEST_GIT_ROOT": str(tmp_path / "git"),
-                 "REPO_HOST_URL": str(tmp_path / "git"), "ADAPTER_CACHE": str(tmp_path / "cache")},
-            capture_output=True, text=True, timeout=timeout)
+            env={
+                **os.environ,
+                "FIXTURE_DIR": str(tmp_path),
+                "FACTORY_TEST_GIT_ROOT": str(tmp_path / "git"),
+                "REPO_HOST_URL": str(tmp_path / "git"),
+                "ADAPTER_CACHE": str(tmp_path / "cache"),
+            },
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
         return Outcome(tmp_path, process)
+
     return run
 
 
@@ -87,3 +97,11 @@ def run_factory(tmp_path):
 def golden_transcript(request):
     """`golden_transcript(out)` asserts the scenario against tests/goldens/<test name>.txt."""
     return lambda out: golden.check(out, request.node.name)
+
+
+def pytest_runtest_makereport(item, call):
+    """In the quality gate (ASF_CHECK=1) a skipped test fails: a skip hides behaviour behind a green run."""
+    if os.environ.get("ASF_CHECK") and call.excinfo is not None and call.excinfo.errisinstance(pytest.skip.Exception):
+        call.excinfo = pytest.ExceptionInfo.from_exception(
+            AssertionError(f"skipped in check mode: {call.excinfo.value}")
+        )

@@ -1,11 +1,12 @@
 """The result files (`result`, `failed_check`, `output`) of the Integrator and of Acceptance Test Validation."""
+
 from .adapters import AdapterError
 
 VALIDATION_CHECKS = ("specs-not-red", "merge")
 INTEGRATION_CHECKS = ("conflict", "suite")
 
 
-def read(files, checks=INTEGRATION_CHECKS):
+def read(files: dict[str, str], checks: tuple[str, ...] = INTEGRATION_CHECKS) -> dict[str, str]:
     """Validate the text of a deterministic process's top-level result files; returns the verdict."""
     result = files.get("result", "").strip()
     if result not in ("green", "red"):

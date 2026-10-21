@@ -3,24 +3,32 @@ import json
 import os
 from pathlib import Path
 
-from .adapters import Adapter
+from .adapters import Adapter, Json
 from .factory import serve
 
-DEFAULTS = {"adapter_timeout": 60, "adapter_grace": 30, "agent_timeout": 3600, "integrator_timeout": 1800,
-            "build_timeout": 900, "max_runs": 2,
-            "writer_attempts": 2, "implementor_attempts": 2, "feedback_cap": 8000}
+DEFAULTS = {
+    "adapter_timeout": 60,
+    "adapter_grace": 30,
+    "agent_timeout": 3600,
+    "integrator_timeout": 1800,
+    "build_timeout": 900,
+    "max_runs": 2,
+    "writer_attempts": 2,
+    "implementor_attempts": 2,
+    "feedback_cap": 8000,
+}
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(prog="factory")
     parser.add_argument("--config", required=True)
-    with open(parser.parse_args().config) as f:
-        config = {**DEFAULTS, **json.load(f)}
+    config: Json = {**DEFAULTS, **json.loads(Path(parser.parse_args().config).read_text())}
     # the Runner mounts these paths into Environments, so both must see the same one
-    config.setdefault("context_root", str((Path(os.environ.get("RUNNER_ROOT") or
-                                                 Path.home() / ".local/share/asf/runner") / "contexts").resolve()))
-    adapters = {name: Adapter(name, command, config["adapter_timeout"])
-                for name, command in config["adapters"].items()}
+    config.setdefault(
+        "context_root",
+        str((Path(os.environ.get("RUNNER_ROOT") or Path.home() / ".local/share/asf/runner") / "contexts").resolve()),
+    )
+    adapters = {name: Adapter(name, command, config["adapter_timeout"]) for name, command in config["adapters"].items()}
     serve(adapters, config)
 
 

@@ -1,25 +1,26 @@
 """The long-running process: reacts to Event Source events and runs one Task at a time."""
+
 import queue
 import sys
 import threading
+from typing import Any
 
-from .adapters import AdapterError
+from .adapters import Adapter, AdapterError, Json
 from .contexts import ContextStore
 from .run import TaskRunner
 
-END = object()
+END: object = object()
 
 
-def serve(adapters, config):
-    events = queue.Queue()
+def serve(adapters: dict[str, Adapter], config: Json) -> None:
+    events: queue.Queue[Any] = queue.Queue()
+    failure: list[Exception] = []
 
-    failure = []
-
-    def pump():
+    def pump() -> None:
         try:
             for event in adapters["event-source"].stream("listen"):
                 events.put(event)
-        except Exception as error:
+        except (AdapterError, OSError) as error:
             failure.append(error)
         finally:
             events.put(END)

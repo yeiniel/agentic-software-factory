@@ -1,4 +1,5 @@
 """Task Store against real git: issues round-trip through refs/issues/* on a bare repository."""
+
 import json
 import subprocess
 import sys
@@ -7,8 +8,8 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "standins"))
-import gitissues  # noqa: E402
-import gitrepohost  # noqa: E402
+import gitissues
+import gitrepohost
 
 STORE = Path(__file__).parent.parent.parent / "adapters" / "task-store"
 
@@ -25,8 +26,10 @@ def store(tmp_path, server):
 
     def run(op, body=None, **args):
         argv = [str(STORE), op] + [x for k, v in args.items() for x in (f"--{k}", str(v))]
-        return subprocess.run(argv, input=json.dumps(body) if body is not None else "",
-                              capture_output=True, text=True, env=env)
+        return subprocess.run(
+            argv, input=json.dumps(body) if body is not None else "", capture_output=True, text=True, env=env
+        )
+
     return run
 
 
@@ -99,10 +102,13 @@ def test_blocked_keeps_the_history_in_the_issue(store, server):
 
 def test_status_changes_only_append(store, server):
     ident = gitissues.create_issue(server, "T")
-    before = subprocess.run(["git", "--git-dir", str(server), "rev-parse", f"refs/issues/{ident}"],
-                            capture_output=True, text=True).stdout.strip()
+    before = subprocess.run(
+        ["git", "--git-dir", str(server), "rev-parse", f"refs/issues/{ident}"], capture_output=True, text=True
+    ).stdout.strip()
     ok(store("set-status", task=f"r/{ident}", status="running"))
-    done = subprocess.run(["git", "--git-dir", str(server), "merge-base", "--is-ancestor", before, f"refs/issues/{ident}"])
+    done = subprocess.run(
+        ["git", "--git-dir", str(server), "merge-base", "--is-ancestor", before, f"refs/issues/{ident}"]
+    )
     assert done.returncode == 0
 
 

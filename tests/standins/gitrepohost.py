@@ -3,13 +3,18 @@
 
 Test infrastructure only; the Repo Host itself is `adapters/repo-host`.
 """
+
 import os
 import subprocess
 import tempfile
 from pathlib import Path
 
-IDENTITY = {"GIT_AUTHOR_NAME": "Factory", "GIT_AUTHOR_EMAIL": "factory@example.invalid",
-            "GIT_COMMITTER_NAME": "Factory", "GIT_COMMITTER_EMAIL": "factory@example.invalid"}
+IDENTITY = {
+    "GIT_AUTHOR_NAME": "Factory",
+    "GIT_AUTHOR_EMAIL": "factory@example.invalid",
+    "GIT_COMMITTER_NAME": "Factory",
+    "GIT_COMMITTER_EMAIL": "factory@example.invalid",
+}
 
 
 class GitError(Exception):
@@ -17,8 +22,7 @@ class GitError(Exception):
 
 
 def git(*args, cwd=None, check=True):
-    done = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True,
-                          env={**os.environ, **IDENTITY})
+    done = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, env={**os.environ, **IDENTITY})
     if check and done.returncode:
         raise GitError(f"git {' '.join(args)}: {done.stderr.strip()}")
     return done.stdout.strip() if done.returncode == 0 else None

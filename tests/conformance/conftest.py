@@ -5,6 +5,7 @@ ADAPTER_<PORT> to its command (e.g. ADAPTER_REPO_HOST='/opt/git-host --root /srv
 different identifiers, ADAPTER_<PORT>_FIXTURE to a JSON object overriding FIXTURE below.
 The suites need no Factory code: they check only the documented contract (docs/adapters/README.md).
 """
+
 import json
 import os
 import shlex
@@ -17,18 +18,18 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "standins"))
-import gitissues  # noqa: E402  (test infrastructure: seeds the real Adapters' fixtures)
-import gitrepohost  # noqa: E402
+import gitissues
+import gitrepohost
 
 ADAPTERS = Path(__file__).parent.parent.parent / "adapters"
 STANDIN = Path(__file__).parent.parent / "standins" / "standin.py"
 
 FIXTURE = {
-    "repo": "r",                    # a repository whose `main` has at least one commit
-    "task": "t1", "prompt": "add a greeting",  # a Task in the Task Store
-    "commit": "c0",                 # a commit of `repo`
-    "events": [{"type": "task", "task": "t1", "repo": "r"},
-               {"type": "main-push", "repo": "r", "commit": "c0"}],
+    "repo": "r",  # a repository whose `main` has at least one commit
+    "task": "t1",
+    "prompt": "add a greeting",  # a Task in the Task Store
+    "commit": "c0",  # a commit of `repo`
+    "events": [{"type": "task", "task": "t1", "repo": "r"}, {"type": "main-push", "repo": "r", "commit": "c0"}],
 }
 
 
@@ -40,8 +41,14 @@ class Target:
         argv = [*self.argv, op]
         for key, value in args.items():
             argv += [f"--{key.replace('_', '-')}", str(value)]
-        done = subprocess.run(argv, input=json.dumps(body) if body is not None else "",
-                              capture_output=True, text=True, env=self.env, timeout=self.timeout)
+        done = subprocess.run(
+            argv,
+            input=json.dumps(body) if body is not None else "",
+            capture_output=True,
+            text=True,
+            env=self.env,
+            timeout=self.timeout,
+        )
         return done
 
     def ok(self, op, body=None, **args):
@@ -74,10 +81,17 @@ def real_target(port, tmp_path):
     root = tmp_path / "git"
     gitrepohost.seed_repo(root, FIXTURE["repo"], {"README": "base", "Containerfile": CONTAINERFILE})
     head = gitrepohost.git("--git-dir", str(root / "r.git"), "rev-parse", "main")
-    env = {**os.environ, "REPO_HOST_URL": str(root), "ADAPTER_CACHE": str(tmp_path / "cache"),
-           "RECORDS_DIR": str(tmp_path / "records"), "RUNNER_ROOT": str(tmp_path / "runner"),
-           "ASF_IMAGES_DIR": str(STUB_IMAGES), "ASF_MODEL_ENDPOINT": "http://model/v1",
-           "ASF_MODEL_NAME": "m", "ASF_MODEL_CONTEXT_WINDOW": "1000"}
+    env = {
+        **os.environ,
+        "REPO_HOST_URL": str(root),
+        "ADAPTER_CACHE": str(tmp_path / "cache"),
+        "RECORDS_DIR": str(tmp_path / "records"),
+        "RUNNER_ROOT": str(tmp_path / "runner"),
+        "ASF_IMAGES_DIR": str(STUB_IMAGES),
+        "ASF_MODEL_ENDPOINT": "http://model/v1",
+        "ASF_MODEL_NAME": "m",
+        "ASF_MODEL_CONTEXT_WINDOW": "1000",
+    }
     fixture = {**FIXTURE, "commit": head}
     exe = [str(ADAPTERS / port)]
     if port == "task-store":
@@ -89,12 +103,13 @@ def real_target(port, tmp_path):
         pytest.skip("needs Podman")
     target = Target(exe, env, fixture, timeout=600 if port == "runner" else 120)
     if port == "event-source":
-        post = ("import sys,time,urllib.request as u\n"
-                "for line in ('%s %s refs/issues/abc', '%s %s refs/heads/main'):\n"
-                "    for _ in range(50):\n"
-                "        try: u.urlopen(u.Request('http://127.0.0.1:%s/push?repo=r', data=(line %% ()).encode())); break\n"
-                "        except OSError: time.sleep(0.1)\n") % ("0" * 40, "1" * 40, "1" * 40, "2" * 40,
-                                                              env["EVENT_SOURCE_PORT"])
+        post = (
+            "import sys,time,urllib.request as u\n"
+            "for line in ('%s %s refs/issues/abc', '%s %s refs/heads/main'):\n"
+            "    for _ in range(50):\n"
+            "        try: u.urlopen(u.Request('http://127.0.0.1:%s/push?repo=r', data=(line %% ()).encode())); break\n"
+            "        except OSError: time.sleep(0.1)\n"
+        ) % ("0" * 40, "1" * 40, "1" * 40, "2" * 40, env["EVENT_SOURCE_PORT"])
         target.trigger = f"{shlex.quote(sys.executable)} -c {shlex.quote(post)}"
     return target
 
@@ -110,9 +125,12 @@ def adapter(tmp_path, request):
         fixture = {**FIXTURE, **json.loads(os.environ.get(var + "_FIXTURE", "{}"))}
         if os.environ.get(var):
             return Target(shlex.split(os.environ[var]), dict(os.environ), fixture)
-        scenario = {"repo": {"README": "base"}, "tasks": {fixture["task"]: fixture["prompt"]},
-                    "events": fixture["events"]}
+        scenario = {
+            "repo": {"README": "base"},
+            "tasks": {fixture["task"]: fixture["prompt"]},
+            "events": fixture["events"],
+        }
         (tmp_path / "scenario.json").write_text(json.dumps(scenario))
-        return Target([sys.executable, str(STANDIN), port],
-                      {**os.environ, "FIXTURE_DIR": str(tmp_path)}, fixture)
+        return Target([sys.executable, str(STANDIN), port], {**os.environ, "FIXTURE_DIR": str(tmp_path)}, fixture)
+
     return make

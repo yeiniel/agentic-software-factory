@@ -1,4 +1,5 @@
 """The Acceptance Test Validation script against real git and a tiny real `make test`."""
+
 import os
 import subprocess
 
@@ -26,8 +27,7 @@ def validate(ctx):
     done = subprocess.run(["sh", str(SCRIPT)], cwd=ctx, capture_output=True, text=True, env=env)
     assert done.returncode == 0, done.stderr
     out = ctx.parent / "out"
-    return {name: (out / name).read_text() for name in ("result", "output", "failed_check")
-            if (out / name).exists()}
+    return {name: (out / name).read_text() for name in ("result", "output", "failed_check") if (out / name).exists()}
 
 
 def test_specs_that_fail_on_base_are_green_with_the_acceptance_report(context):

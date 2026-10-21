@@ -4,6 +4,7 @@
 Behaviour is scripted by $FIXTURE_DIR/scenario.json; every call is logged to
 calls.jsonl and state lives in state.json. Test infrastructure only.
 """
+
 import fcntl
 import json
 import os
@@ -27,17 +28,30 @@ def locked():
         if path.exists():
             state = json.loads(path.read_text())
         else:
-            state = {"main": "c0", "n": 0, "commits": {"c0": SCENARIO.get("repo", {})},
-                     "branches": {}, "status": {}, "status_body": {}, "counters": {},
-                     "agent_spans": [], "agent_runs": [], "integrator_runs": [], "validation_runs": []}
+            state = {
+                "main": "c0",
+                "n": 0,
+                "commits": {"c0": SCENARIO.get("repo", {})},
+                "branches": {},
+                "status": {},
+                "status_body": {},
+                "counters": {},
+                "agent_spans": [],
+                "agent_runs": [],
+                "integrator_runs": [],
+                "validation_runs": [],
+            }
         yield state
         path.write_text(json.dumps(state))
 
 
 def read_tree(root):
     root = Path(root)
-    return {str(p.relative_to(root)): p.read_text() for p in sorted(root.rglob("*"))
-            if p.is_file() and ".git" not in p.relative_to(root).parts}
+    return {
+        str(p.relative_to(root)): p.read_text()
+        for p in sorted(root.rglob("*"))
+        if p.is_file() and ".git" not in p.relative_to(root).parts
+    }
 
 
 def write_tree(root, files):
@@ -67,9 +81,13 @@ def bump(state, key):
     return state["counters"][key]
 
 
-OPS = {"event-source": {"listen"}, "task-store": {"get-prompt", "set-status"},
-       "repo-host": {"main-head", "create-branch", "checkout", "record", "fast-forward-main"},
-       "runner": {"run"}, "records": {"append"}}
+OPS = {
+    "event-source": {"listen"},
+    "task-store": {"get-prompt", "set-status"},
+    "repo-host": {"main-head", "create-branch", "checkout", "record", "fast-forward-main"},
+    "runner": {"run"},
+    "records": {"append"},
+}
 
 
 def reject(message):
@@ -137,13 +155,18 @@ def do_repo_host(op, args, body):
             state["branches"][args["name"]] = args["base"]
             return {"commit": args["base"]}
         if op == "checkout":
-            commit = args["commit"] if "commit" in args else (
-                state["main"] if args["branch"] == "main" else state["branches"][args["branch"]])
+            commit = (
+                args["commit"]
+                if "commit" in args
+                else (state["main"] if args["branch"] == "main" else state["branches"][args["branch"]])
+            )
             write_tree(args["dest"], state["commits"][commit])
             return {"commit": commit}
         if op == "record":
             files = read_tree(args["from"])
-            previous = state["commits"][state["branches"][args["branch"]]] if args["branch"] in state["branches"] else None
+            previous = (
+                state["commits"][state["branches"][args["branch"]]] if args["branch"] in state["branches"] else None
+            )
             commit = new_commit(state, files)
             state["branches"][args["branch"]] = commit
             return {"commit": commit, "changed": files != previous}
@@ -166,11 +189,17 @@ def run_agent(args, ctx):
     role = ctx.name
     with locked() as state:
         n = bump(state, f"agent/{role}") - 1
-        state["agent_runs"].append({"role": role, "context": str(ctx), "prompt": (ctx / "prompt").read_text(),
-                                    "system_prompt": (ctx / "system-prompt").read_text() if (ctx / "system-prompt").exists() else "",
-                                    "skills": sorted(p.name for p in (ctx / "skills").iterdir()),
-                                    "resumed": (ctx / "session" / "session.jsonl").exists(),
-                                    "cwd": sorted(read_tree(ctx / "cwd"))})
+        state["agent_runs"].append(
+            {
+                "role": role,
+                "context": str(ctx),
+                "prompt": (ctx / "prompt").read_text(),
+                "system_prompt": (ctx / "system-prompt").read_text() if (ctx / "system-prompt").exists() else "",
+                "skills": sorted(p.name for p in (ctx / "skills").iterdir()),
+                "resumed": (ctx / "session" / "session.jsonl").exists(),
+                "cwd": sorted(read_tree(ctx / "cwd")),
+            }
+        )
     plan = (SCENARIO.get("agent", {}).get(role, []) + [{}] * (n + 1))[n]
     start = time.time()
     hang = plan.get("hang", 0)
@@ -182,17 +211,19 @@ def run_agent(args, ctx):
     (ctx / "session" / "session.jsonl").write_text('{"stub": true}\n')
     with locked() as state:
         state["agent_spans"].append({"role": role, "start": start, "end": time.time()})
-    return {"exit_status": None if timed_out else plan.get("exit_status", 0),
-            "timed_out": timed_out, "output": plan.get("output", f"{role} output"),
-            "transcript": str(ctx / "session" / "session.jsonl")}
+    return {
+        "exit_status": None if timed_out else plan.get("exit_status", 0),
+        "timed_out": timed_out,
+        "output": plan.get("output", f"{role} output"),
+        "transcript": str(ctx / "session" / "session.jsonl"),
+    }
 
 
 def run_script(ctx):
     """Any other deterministic Context: just execute its `run` in its `cwd` (no isolation here)."""
     done = subprocess.run([str(ctx / "run")], cwd=ctx / "cwd", capture_output=True, text=True)
     files = {p.name: p.read_text() for p in sorted((ctx / "out").glob("*")) if p.is_file()}
-    return {"exit_status": done.returncode, "timed_out": False, "output": done.stdout + done.stderr,
-            "files": files}
+    return {"exit_status": done.returncode, "timed_out": False, "output": done.stdout + done.stderr, "files": files}
 
 
 def run_integrator(args, ctx):
@@ -202,8 +233,13 @@ def run_integrator(args, ctx):
         return run_validation(ctx)
     with locked() as state:
         n = bump(state, "integrator") - 1
-        state["integrator_runs"].append({"context": str(ctx), "run": (ctx / "run").read_text(),
-                                         "cwd": sorted(p.name for p in (ctx / "cwd").iterdir())})
+        state["integrator_runs"].append(
+            {
+                "context": str(ctx),
+                "run": (ctx / "run").read_text(),
+                "cwd": sorted(p.name for p in (ctx / "cwd").iterdir()),
+            }
+        )
     plan = (SCENARIO.get("integrator", []) + [{}] * (n + 1))[n]
     if plan.get("timed_out"):
         return {"exit_status": None, "timed_out": True, "output": "", "files": {}}
@@ -220,8 +256,14 @@ def run_integrator(args, ctx):
 def run_validation(ctx):
     with locked() as state:
         n = bump(state, "validation") - 1
-        state["validation_runs"].append({"at": time.time(), "context": str(ctx), "run": (ctx / "run").read_text(),
-                                         "cwd": sorted(p.name for p in (ctx / "cwd").iterdir())})
+        state["validation_runs"].append(
+            {
+                "at": time.time(),
+                "context": str(ctx),
+                "run": (ctx / "run").read_text(),
+                "cwd": sorted(p.name for p in (ctx / "cwd").iterdir()),
+            }
+        )
     plan = (SCENARIO.get("validation", []) + [{}] * (n + 1))[n]
     if plan.get("timed_out"):
         return {"exit_status": None, "timed_out": True, "output": "", "files": {}}
@@ -248,8 +290,10 @@ def run_real_integrator(ctx):
 def human_push():
     if SCENARIO.get("integrator_impl") == "real":
         import gitrepohost
-        gitrepohost.commit_files(Path(os.environ["FACTORY_TEST_GIT_ROOT"]) / "r.git",
-                                 {"human.txt": "pushed by a human"}, "Human push")
+
+        gitrepohost.commit_files(
+            Path(os.environ["FACTORY_TEST_GIT_ROOT"]) / "r.git", {"human.txt": "pushed by a human"}, "Human push"
+        )
         return
     with locked() as state:
         files = dict(state["commits"][state["main"]])

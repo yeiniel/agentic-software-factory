@@ -1,21 +1,21 @@
 """Role resources (instruction, skills, Integrator `run`) and prompt composition. Versioned with the core."""
+
 from pathlib import Path
 
 RESOURCES = Path(__file__).parent / "resources"
 
-CHECK_AGAINST_TASK = ("If it is unclear whether the implementation or the spec is wrong, "
-                      "check against the Task.")
+CHECK_AGAINST_TASK = "If it is unclear whether the implementation or the spec is wrong, check against the Task."
 
 
-def instruction(role):
+def instruction(role: str) -> str:
     return (RESOURCES / "roles" / role / "instruction.md").read_text().strip()
 
 
-def system_prompt(role):
+def system_prompt(role: str) -> str:
     return (RESOURCES / "roles" / role / "system-prompt.md").read_text().strip()
 
 
-def skills(role):
+def skills(role: str) -> Path:
     return RESOURCES / "roles" / role / "skills"
 
 
@@ -33,19 +33,19 @@ WHY_IT_FAILED = {
 DISCARDED = "Your previous changes were discarded and you start again from the original code."
 
 
-def truncate(text, cap):
+def truncate(text: str, cap: int) -> str:
     """Keep the tail of the output, where failures are reported."""
     if len(text) <= cap:
         return text
     return "[... output truncated ...]\n" + text[-cap:]
 
 
-def feedback(kind, output, cap):
+def feedback(kind: str, output: str, cap: int) -> str:
     """The Feedback after a failed attempt: why, that the changes are gone, then the raw output."""
     return f"{WHY_IT_FAILED[kind]}\n{DISCARDED}\n\n{truncate(output, cap)}"
 
 
-def compose(role, task_prompt, feedback=None):
+def compose(role: str, task_prompt: str, feedback: str | None = None) -> str:
     parts = [instruction(role), "# Task\n" + task_prompt]
     if feedback:
         parts.append("# Feedback from the previous attempt\n" + feedback + "\n\n" + CHECK_AGAINST_TASK)

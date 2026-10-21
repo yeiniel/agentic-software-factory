@@ -1,4 +1,5 @@
 """An Adapter that misbehaves is an infrastructure error: the Task blocks visibly and the Factory carries on."""
+
 TASK_EVENT = {"type": "task", "task": "t1", "repo": "r"}
 SCENARIO = {"tasks": {"t1": "x"}, "events": [TASK_EVENT]}
 
@@ -11,8 +12,9 @@ def test_an_adapter_that_cannot_be_started_blocks_the_task(run_factory, golden_t
 
 
 def test_an_adapter_that_exceeds_its_deadline_blocks_the_task(run_factory, golden_transcript):
-    out = run_factory({**SCENARIO, "fail": [{"port": "repo-host", "op": "main-head", "call": 1, "sleep": 5}]},
-                      adapter_timeout=1)
+    out = run_factory(
+        {**SCENARIO, "fail": [{"port": "repo-host", "op": "main-head", "call": 1, "sleep": 5}]}, adapter_timeout=1
+    )
 
     assert out.exit_code == 0, out.stderr
     golden_transcript(out)
@@ -33,8 +35,15 @@ def test_an_adapter_that_prints_invalid_json_blocks_the_task(run_factory, golden
 
 
 def test_an_infrastructure_error_that_cannot_be_reported_is_said_on_stderr(run_factory, golden_transcript):
-    out = run_factory({**SCENARIO, "fail": [{"port": "repo-host", "op": "main-head", "call": 1},
-                                            {"port": "task-store", "op": "set-status", "call": 1}]})
+    out = run_factory(
+        {
+            **SCENARIO,
+            "fail": [
+                {"port": "repo-host", "op": "main-head", "call": 1},
+                {"port": "task-store", "op": "set-status", "call": 1},
+            ],
+        }
+    )
 
     assert out.exit_code == 0
     assert "could not report infrastructure error for t1" in out.stderr
@@ -42,7 +51,8 @@ def test_an_infrastructure_error_that_cannot_be_reported_is_said_on_stderr(run_f
 
 
 def test_main_moving_on_every_integration_attempt_blocks_the_task_when_the_factory_gives_up(
-        run_factory, golden_transcript):
+    run_factory, golden_transcript
+):
     out = run_factory({**SCENARIO, "main_moves_after_integrator": [1, 2, 3, 4, 5]})
 
     assert out.exit_code == 0, out.stderr
@@ -82,8 +92,9 @@ def test_an_event_of_an_unknown_type_is_ignored(run_factory, golden_transcript):
 
 def test_a_main_push_that_cannot_be_recorded_is_said_on_stderr_and_serving_continues(run_factory):
     push = {"type": "main-push", "repo": "r", "commit": "abc"}
-    out = run_factory({**SCENARIO, "events": [push, TASK_EVENT],
-                       "fail": [{"port": "records", "op": "append", "call": 1}]})
+    out = run_factory(
+        {**SCENARIO, "events": [push, TASK_EVENT], "fail": [{"port": "records", "op": "append", "call": 1}]}
+    )
 
     assert out.exit_code == 0
     assert "could not record main push" in out.stderr
@@ -91,7 +102,8 @@ def test_a_main_push_that_cannot_be_recorded_is_said_on_stderr_and_serving_conti
 
 
 def test_a_repository_with_a_containerfile_has_it_in_the_validation_and_integration_contexts(
-        run_factory, golden_transcript):
+    run_factory, golden_transcript
+):
     out = run_factory({**SCENARIO, "repo": {"README": "base", "Containerfile": "FROM scratch\n"}})
 
     assert out.exit_code == 0, out.stderr
@@ -110,5 +122,3 @@ def test_an_integrator_that_times_out_sends_feedback_to_the_implementor(run_fact
 
     assert out.exit_code == 0, out.stderr
     golden_transcript(out)
-
-

@@ -2,6 +2,7 @@
 
 Podman is replaced by a script standing in for the container: it appends to the session as an Agent would.
 """
+
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -29,10 +30,15 @@ def message(role, content, stamp="2026-10-21T10:00:01.500Z", **extra):
     return json.dumps({"type": "message", "timestamp": stamp, "message": {"role": role, "content": content, **extra}})
 
 
-LINES = [message("assistant", [{"type": "text", "text": "reading"}, {"type": "toolCall", "name": "read"}],
-                 usage={"input": 100, "output": 20}),
-         message("toolResult", [{"type": "text", "text": "file"}]),
-         message("assistant", [{"type": "text", "text": "done"}], usage={"input": 150, "output": 30})]
+LINES = [
+    message(
+        "assistant",
+        [{"type": "text", "text": "reading"}, {"type": "toolCall", "name": "read"}],
+        usage={"input": 100, "output": 20},
+    ),
+    message("toolResult", [{"type": "text", "text": "file"}]),
+    message("assistant", [{"type": "text", "text": "done"}], usage={"input": 150, "output": 30}),
+]
 
 
 @pytest.fixture
@@ -74,8 +80,9 @@ def ctx(tmp_path):
 
 
 def forwarded(got):
-    records = [r for path, body in got if path == "/v1/logs"
-               for r in body["resourceLogs"][0]["scopeLogs"][0]["logRecords"]]
+    records = [
+        r for path, body in got if path == "/v1/logs" for r in body["resourceLogs"][0]["scopeLogs"][0]["logRecords"]
+    ]
     return records
 
 
@@ -103,6 +110,7 @@ def test_entries_arrive_while_the_environment_is_still_running(runner, ctx, rece
 
     def watch():
         import time
+
         for _ in range(40):
             time.sleep(0.1)
             if forwarded(got):
