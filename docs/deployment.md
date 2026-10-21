@@ -3,6 +3,12 @@
 The concrete Adapters for one machine (spec `specs/0002-deployment-adapters.md`). Contracts are in
 `adapters/README.md`; this page is how to wire the implementations in this repository.
 
+## Where the code lives
+
+`adapters/<name>` are one-line launchers; the logic is the typed `asf_adapters` package (`adapters/asf_adapters/`),
+so the command lines below are unchanged. The Console's receiver and TUI start through `asf_console.serve` and
+`asf_console.tui` (`bin/console` runs the latter). Tests exercise all of them only through those command lines (ADR 0018).
+
 ## Parts
 
 | Part | Where | Notes |

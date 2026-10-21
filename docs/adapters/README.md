@@ -14,7 +14,7 @@ verdicts, Agent failures, timeouts reported by the Runner) are returned as data.
 
 ## Implementations
 
-The real Adapters are in `adapters/` and are wired up in `../deployment.md`. Task ids are `<repo>/<issue id>`.
+The real Adapters are executables in `adapters/` (launchers over the `asf_adapters` package) and are wired up in `../deployment.md`. Task ids are `<repo>/<issue id>`.
 
 ## Conformance
 
