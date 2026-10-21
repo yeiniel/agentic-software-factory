@@ -34,6 +34,8 @@ FIXTURE = {
 
 
 class Target:
+    trigger: str | None = None
+
     def __init__(self, argv, env, fixture, timeout=30):
         self.argv, self.env, self.fixture, self.timeout = argv, env, fixture, timeout
 
@@ -41,7 +43,7 @@ class Target:
         argv = [*self.argv, op]
         for key, value in args.items():
             argv += [f"--{key.replace('_', '-')}", str(value)]
-        done = subprocess.run(
+        return subprocess.run(
             argv,
             input=json.dumps(body) if body is not None else "",
             capture_output=True,
@@ -49,7 +51,6 @@ class Target:
             env=self.env,
             timeout=self.timeout,
         )
-        return done
 
     def ok(self, op, body=None, **args):
         """Call an op that must succeed and print a JSON object."""
@@ -103,13 +104,14 @@ def real_target(port, tmp_path):
         pytest.skip("needs Podman")
     target = Target(exe, env, fixture, timeout=600 if port == "runner" else 120)
     if port == "event-source":
+        lines = (f"{'0' * 40} {'1' * 40} refs/issues/abc", f"{'1' * 40} {'2' * 40} refs/heads/main")
         post = (
-            "import sys,time,urllib.request as u\n"
-            "for line in ('%s %s refs/issues/abc', '%s %s refs/heads/main'):\n"
+            "import time,urllib.request as u\n"
+            f"for line in {lines!r}:\n"
             "    for _ in range(50):\n"
-            "        try: u.urlopen(u.Request('http://127.0.0.1:%s/push?repo=r', data=(line %% ()).encode())); break\n"
+            f"        try: u.urlopen(u.Request('http://127.0.0.1:{env['EVENT_SOURCE_PORT']}/push?repo=r', data=line.encode())); break\n"
             "        except OSError: time.sleep(0.1)\n"
-        ) % ("0" * 40, "1" * 40, "1" * 40, "2" * 40, env["EVENT_SOURCE_PORT"])
+        )
         target.trigger = f"{shlex.quote(sys.executable)} -c {shlex.quote(post)}"
     return target
 

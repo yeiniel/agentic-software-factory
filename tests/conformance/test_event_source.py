@@ -12,10 +12,10 @@ def first_events(source, count=1, wait=15):
     process = subprocess.Popen(
         [*source.argv, "listen"], stdout=subprocess.PIPE, text=True, stdin=subprocess.DEVNULL, env=source.env
     )
+    stdout = process.stdout
+    assert stdout is not None
     lines = queue.Queue()
-    threading.Thread(
-        target=lambda: [lines.put(line) for line in process.stdout] or lines.put(None), daemon=True
-    ).start()
+    threading.Thread(target=lambda: [lines.put(line) for line in stdout] or lines.put(None), daemon=True).start()
     trigger = getattr(source, "trigger", None) or os.environ.get("ADAPTER_EVENT_SOURCE_TRIGGER")
     if trigger:  # a real source needs something to report
         subprocess.run(trigger, shell=True, check=True)
@@ -33,7 +33,7 @@ def first_events(source, count=1, wait=15):
     finally:
         process.kill()
         process.wait()
-        process.stdout.close()
+        stdout.close()
     return events
 
 

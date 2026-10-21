@@ -1,4 +1,5 @@
 """Model server state, seen through the receiver: scraped only while a client is connected."""
+
 import json
 import threading
 import time
@@ -19,15 +20,21 @@ def llama():
         def do_GET(self):
             hits.append(self.path)
             scrapes = hits.count("/metrics")
-            body = (f"# HELP llamacpp:requests_deferred x\nllamacpp:requests_deferred 2\n"
+            body = (
+                (
+                    f"# HELP llamacpp:requests_deferred x\nllamacpp:requests_deferred 2\n"
                     f"llamacpp:tokens_predicted_total {100 + 60 * scrapes}\n"
                     f"llamacpp:tokens_predicted_seconds_total {10 + 4 * scrapes}\n"
-                    "not a metric line\nllamacpp:broken abc\n") if self.path == "/metrics" else json.dumps(SLOTS)
+                    "not a metric line\nllamacpp:broken abc\n"
+                )
+                if self.path == "/metrics"
+                else json.dumps(SLOTS)
+            )
             self.send_response(200)
             self.end_headers()
             self.wfile.write(body.encode())
 
-        def log_message(self, *args):
+        def log_message(self, format, *args):  # noqa: A002
             pass
 
     server = HTTPServer(("127.0.0.1", 0), Handler)

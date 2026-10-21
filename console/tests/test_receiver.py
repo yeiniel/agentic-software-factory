@@ -1,4 +1,5 @@
 """The receiver's API against recorded fixtures: a green Task, one Blocked by an exhausted loop, a retry."""
+
 import json
 import threading
 import time
@@ -30,7 +31,10 @@ def test_the_task_list_shows_status_run_and_age(replay, api):
 
     tasks = by_task(api)
     assert {k: (v["status"], v["run"]) for k, v in tasks.items()} == {
-        "r/green": ("done", 1), "r/blocked": ("blocked", 1), "r/retried": ("done", 2)}
+        "r/green": ("done", 1),
+        "r/blocked": ("blocked", 1),
+        "r/retried": ("done", 2),
+    }
     assert tasks["r/blocked"]["reason"] == "loop-exhausted"
     assert tasks["r/green"]["repo"] == "r" and tasks["r/green"]["age"] >= 0
     assert tasks["r/green"]["last_event"] >= tasks["r/green"]["received"]
@@ -67,7 +71,13 @@ def test_a_tasks_tree_nests_runs_loops_attempts_and_activities_with_durations_an
 
     tree = api("/api/task?id=r/green")["spans"]
     (run,) = tree
-    assert (run["span"], run["name"], run["outcome"], run["duration"], run["state"]) == ("run", "1", "green", 30, "finished")
+    assert (run["span"], run["name"], run["outcome"], run["duration"], run["state"]) == (
+        "run",
+        "1",
+        "green",
+        30,
+        "finished",
+    )
     loops = {n["name"]: n for n in run["children"] if n["span"] == "loop"}
     assert set(loops) == {"writer", "implementor"}
     attempt = loops["implementor"]["children"][0]
@@ -93,7 +103,7 @@ def test_the_log_merges_factory_events_with_the_feedback_shown_at_each_retry(rep
 
     texts = [e["text"] for e in api("/api/task/log?id=r/blocked")["log"]]
     assert any("Your last attempt crashed: boom" in t for t in texts)
-    assert not any(t.startswith("started") or t.startswith("finished") for t in texts)
+    assert not any(t.startswith(("started", "finished")) for t in texts)
     assert any("the suite failed: greeting is empty" in e["text"] for e in api("/api/task/log?id=r/retried")["log"])
 
 
@@ -102,23 +112,49 @@ def test_transcript_entries_are_merged_into_the_log_by_their_attempt(replay, rec
     s.event("task-received", repo="r")
     run = s.open("run", "1", None, 1)
     agent = s.open("activity", "agent", run, 1, role="implementor")
-    entries = [{"type": "message", "timestamp": "2026-10-21T10:00:01.000Z", "message": {
-        "role": "assistant", "content": [{"type": "text", "text": "I will read the file"},
-                                         {"type": "toolCall", "name": "read", "arguments": {"path": "a.py"}}]}},
-               {"type": "message", "timestamp": "2026-10-21T10:00:02.000Z", "message": {
-                   "role": "toolResult", "toolName": "read", "content": [{"type": "text", "text": "print(1)"}]}}]
-    records = [{"timeUnixNano": "1792576801000000000", "body": {"stringValue": json.dumps(e)},
-                "traceId": s.trace, "spanId": agent,
-                "attributes": [{"key": "asf.source", "value": {"stringValue": "transcript"}}]} for e in entries]
+    entries = [
+        {
+            "type": "message",
+            "timestamp": "2026-10-21T10:00:01.000Z",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "I will read the file"},
+                    {"type": "toolCall", "name": "read", "arguments": {"path": "a.py"}},
+                ],
+            },
+        },
+        {
+            "type": "message",
+            "timestamp": "2026-10-21T10:00:02.000Z",
+            "message": {"role": "toolResult", "toolName": "read", "content": [{"type": "text", "text": "print(1)"}]},
+        },
+    ]
+    records = [
+        {
+            "timeUnixNano": "1792576801000000000",
+            "body": {"stringValue": json.dumps(e)},
+            "traceId": s.trace,
+            "spanId": agent,
+            "attributes": [{"key": "asf.source", "value": {"stringValue": "transcript"}}],
+        }
+        for e in entries
+    ]
     body = {"resourceLogs": [{"scopeLogs": [{"logRecords": records}]}]}
-    request = urllib.request.Request(f"http://127.0.0.1:{receiver.otlp_port}/v1/logs",
-                                     data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{receiver.otlp_port}/v1/logs",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+    )
     urllib.request.urlopen(request).read()
 
     agent_lines = [e for e in api("/api/task/log?id=r/talk")["log"] if e["source"] == "agent"]
     assert [(e["role"], e["run"]) for e in agent_lines] == [("implementor", 1)] * 3
-    assert [e["text"] for e in agent_lines] == ["says: I will read the file", 'calls read {"path": "a.py"}',
-                                                "read returned: print(1)"]
+    assert [e["text"] for e in agent_lines] == [
+        "says: I will read the file",
+        'calls read {"path": "a.py"}',
+        "read returned: print(1)",
+    ]
 
 
 def test_the_log_can_be_read_from_a_point(replay, api):
@@ -127,7 +163,8 @@ def test_the_log_can_be_read_from_a_point(replay, api):
     everything = api("/api/task/log?id=r/blocked")
     after = everything["log"][2]["seq"]
     assert [e["seq"] for e in api(f"/api/task/log?id=r/blocked&after={after}")["log"]] == [
-        e["seq"] for e in everything["log"] if e["seq"] > after]
+        e["seq"] for e in everything["log"] if e["seq"] > after
+    ]
 
 
 def test_metrics_report_task_timings_and_factory_performance(replay, api):

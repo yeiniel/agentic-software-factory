@@ -79,7 +79,7 @@ ignore = [
 # Tests are scenarios: asserts, subprocesses, fixtures and helpers without annotations.
 "{tests,console/tests}/**" = ["ANN", "ARG", "S101", "S603", "S607", "S310", "PLR2004", "PLR0913", "PLR0917",
                               "PT018", "PLW1510", "INP001", "T201", "FBT", "E741", "PTH", "SIM", "BLE001",
-                              "S108", "S104", "S602", "PLC0415", "E402", "I001", "S110", "S311", "C901"]
+                              "S108", "S104", "S602", "PLC0415", "E402", "I001", "S110", "S311", "C901", "PLR0911", "E501"]
 
 [tool.pyright]
 pythonVersion = "3.12"
@@ -91,5 +91,6 @@ include = [
     "adapters/repo-host", "adapters/runner", "adapters/task-store",
 ]
 exclude = ["**/.venv", "**/__pycache__"]
+extraPaths = ["adapters", "tests", "tests/standins", "tests/adapters", "console/tests"]
 venvPath = "."
 venv = ".venv"

@@ -143,6 +143,7 @@ def do_task_store(op, args, body):
             state["status"].setdefault(args["task"], []).append(args["status"])
             state["status_body"].setdefault(args["task"], []).append(body)
         return {}
+    return None
 
 
 def do_repo_host(op, args, body):
@@ -175,6 +176,7 @@ def do_repo_host(op, args, body):
                 return {"advanced": False, "head": state["main"]}
             state["main"] = state["branches"][args["branch"]]
             return {"advanced": True, "head": state["main"]}
+    return None
 
 
 def do_runner(op, args, body):

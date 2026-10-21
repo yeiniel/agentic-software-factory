@@ -129,7 +129,7 @@ def test_a_context_without_a_containerfile_is_reported(runner, tmp_path, type_):
 
 
 @pytest.mark.parametrize(
-    "missing, containerfile",
+    ("missing", "containerfile"),
     [
         ("make", "FROM docker.io/library/alpine\nRUN apk add --no-cache git\n"),
         ("git", "FROM docker.io/library/alpine\nRUN apk add --no-cache make\n"),

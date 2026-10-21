@@ -22,7 +22,7 @@ def receiver():
             self.end_headers()
             self.wfile.write(b"{}")
 
-        def log_message(self, *args):
+        def log_message(self, format, *args):  # noqa: A002
             pass
 
     server = HTTPServer(("127.0.0.1", 0), Handler)

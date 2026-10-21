@@ -1,16 +1,20 @@
 """Turning the Factory's events and Pi's session entries into one line of text each."""
+
 import json
+from typing import Any, cast
+
+Json = dict[str, Any]
 
 CLIP = 2000
 HIDDEN = ("kind", "trace", "run", "stream", "task", "output")
 
 
-def clip(text, n=CLIP):
+def clip(text: object, n: int = CLIP) -> str:
     text = " ".join(str(text).split())
     return text if len(text) <= n else text[:n] + "..."
 
 
-def render_event(kind, attrs):
+def render_event(kind: str, attrs: Json) -> str:
     """`kind key=value ...`; the Feedback text is the point of its events, so it is shown whole."""
     fields = {k: v for k, v in attrs.items() if k not in HIDDEN}
     feedback = fields.pop("feedback", None)
@@ -22,20 +26,20 @@ def render_event(kind, attrs):
     return f"{text}: {feedback}" if feedback else text
 
 
-def render_transcript(line):
+def render_transcript(line: str) -> list[str]:
     """Pi session entry -> readable lines; anything but a message is skipped."""
     try:
         entry = json.loads(line)
-        message = entry["message"] if entry.get("type") == "message" else None
+        message = cast("Json", entry["message"] if entry.get("type") == "message" else None)
         content = message["content"]
     except (ValueError, KeyError, TypeError, AttributeError):
         return []
-    if not isinstance(content, list):
-        content = [{"type": "text", "text": content}]
-    out = []
-    for part in content:
-        if not isinstance(part, dict):
+    parts = cast("list[object]", content) if isinstance(content, list) else [{"type": "text", "text": content}]
+    out: list[str] = []
+    for item in parts:
+        if not isinstance(item, dict):
             continue
+        part = cast("Json", item)
         if part.get("type") == "text" and message.get("role") == "assistant":
             out.append(f"says: {clip(part.get('text', ''))}")
         elif part.get("type") == "text" and message.get("role") == "toolResult":

@@ -40,13 +40,15 @@ def server(tmp_path):
         stderr=subprocess.PIPE,
         text=True,
     )
+    stdout = source.stdout
+    assert stdout is not None and source.stderr is not None
     source.stderr.readline()  # "listening on port ..."
     lines = queue.Queue()
-    threading.Thread(target=lambda: [lines.put(json.loads(l)) for l in source.stdout], daemon=True).start()
+    threading.Thread(target=lambda: [lines.put(json.loads(l)) for l in stdout], daemon=True).start()
     yield tmp_path / "srv" / "r.git", env, lines
     source.kill()
     source.wait()
-    source.stdout.close()
+    stdout.close()
     source.stderr.close()
 
 

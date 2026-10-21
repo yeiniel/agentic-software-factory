@@ -3,12 +3,18 @@
 A `started` event arrives as a log record and a `finished` one as a complete span; both name the same span id,
 so a span is one row that is running until its `finished` arrives.
 """
+
 import json
 import sqlite3
 import threading
 import time
+from collections.abc import Callable, Iterable
+from pathlib import Path
+from typing import Any
 
 from .transcript import render_event, render_transcript
+
+Json = dict[str, Any]
 
 SCHEMA = """
 create table if not exists spans (
@@ -23,9 +29,9 @@ create index if not exists logs_task on logs (task, seq);
 """
 
 
-def attributes(items):
+def attributes(items: list[Json] | None) -> Json:
     """OTLP attributes as a dict; `asf.` is dropped and integer values come back as integers."""
-    out = {}
+    out: Json = {}
     for item in items or []:
         value = item.get("value", {})
         if "intValue" in value:
@@ -35,39 +41,41 @@ def attributes(items):
         else:
             parsed = next(iter(value.values()), None)
         key = item["key"]
-        out[key[4:] if key.startswith("asf.") else key] = parsed
+        out[key.removeprefix("asf.")] = parsed
     return out
 
 
-def as_int(value):
+def as_int(value: str | float | None) -> int | None:
+    if value is None:
+        return None
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except ValueError:
         return None
 
 
 class Store:
-    def __init__(self, path):
+    def __init__(self, path: str | Path) -> None:
         self.db = sqlite3.connect(str(path), check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.lock = threading.RLock()
-        self.listeners = []  # called with the task id after every write
+        self.listeners: list[Callable[[str | None], None]] = []  # called with the task id after every write
         with self.lock:
             self.db.executescript(SCHEMA)
 
-    def query(self, sql, *args):
+    def query(self, sql: str, *args: object) -> list[Json]:
         with self.lock:
             return [dict(row) for row in self.db.execute(sql, args)]
 
-    def notify(self, tasks):
+    def notify(self, tasks: Iterable[str | None]) -> None:
         for task in sorted(tasks, key=str):
             for listener in list(self.listeners):
                 listener(task)
 
     # ---- ingestion
 
-    def ingest_logs(self, body):
-        tasks = set()
+    def ingest_logs(self, body: Json) -> None:
+        tasks: set[str | None] = set()
         with self.lock, self.db:
             for resource in body.get("resourceLogs", []):
                 for scope in resource.get("scopeLogs", []):
@@ -75,7 +83,7 @@ class Store:
                         tasks.add(self.add_log(record))
         self.notify(tasks)
 
-    def add_log(self, record):
+    def add_log(self, record: Json) -> str | None:
         attrs = attributes(record.get("attributes"))
         trace, span = record.get("traceId"), record.get("spanId")
         source = attrs.pop("source", "factory")
@@ -90,94 +98,174 @@ class Store:
         body = record.get("body", {}).get("stringValue", "")
         if kind == "started":
             self.upsert_span(trace, span, task, run, attrs, start=ts, started=True)
-        self.db.execute("insert into logs (ts_ns, task, run, trace, span, source, kind, body, attrs)"
-                        " values (?,?,?,?,?,?,?,?,?)",
-                        (ts, task, run, trace, span, source, kind, body, json.dumps(attrs)))
+        self.db.execute(
+            "insert into logs (ts_ns, task, run, trace, span, source, kind, body, attrs) values (?,?,?,?,?,?,?,?,?)",
+            (ts, task, run, trace, span, source, kind, body, json.dumps(attrs)),
+        )
         return task
 
-    def ingest_traces(self, body):
-        tasks = set()
+    def ingest_traces(self, body: Json) -> None:
+        tasks: set[str | None] = set()
         with self.lock, self.db:
             for resource in body.get("resourceSpans", []):
                 for scope in resource.get("scopeSpans", []):
                     for span in scope.get("spans", []):
                         attrs = attributes(span.get("attributes"))
                         start, end = int(span["startTimeUnixNano"]), int(span["endTimeUnixNano"])
-                        self.upsert_span(span["traceId"], span["spanId"], attrs.get("task"),
-                                         as_int(attrs.get("run")), attrs, start=start, end=end,
-                                         parent=span.get("parentSpanId"))
+                        self.upsert_span(
+                            span["traceId"],
+                            span["spanId"],
+                            attrs.get("task"),
+                            as_int(attrs.get("run")),
+                            attrs,
+                            start=start,
+                            end=end,
+                            parent=span.get("parentSpanId"),
+                        )
                         tasks.add(attrs.get("task"))
         self.notify(tasks)
 
-    def span_row(self, trace, span):
+    def span_row(self, trace: str | None, span: str | None) -> Json | None:
         rows = self.db.execute("select * from spans where trace = ? and id = ?", (trace, span)).fetchall()
         return dict(rows[0]) if rows else None
 
-    def upsert_span(self, trace, span, task, run, attrs, start, end=None, parent=None, started=False):
+    def upsert_span(
+        self,
+        trace: str | None,
+        span: str | None,
+        task: str | None,
+        run: int | None,
+        attrs: Json,
+        start: int,
+        end: int | None = None,
+        parent: str | None = None,
+        *,
+        started: bool = False,
+    ) -> None:
         previous = self.span_row(trace, span)
         kind, name = attrs.get("span"), attrs.get("name")
         parent = parent or attrs.get("parent")
         if previous is None:
-            self.db.execute("insert into spans (trace, id, parent, task, run, kind, name, start_ns, end_ns,"
-                            " duration, outcome, attrs, started_seen) values (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                            (trace, span, parent, task, run, kind, name, start, end,
-                             None if end is None else (end - start) / 1e9, attrs.get("outcome"),
-                             json.dumps(attrs), int(started)))
+            self.db.execute(
+                "insert into spans (trace, id, parent, task, run, kind, name, start_ns, end_ns,"
+                " duration, outcome, attrs, started_seen) values (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    trace,
+                    span,
+                    parent,
+                    task,
+                    run,
+                    kind,
+                    name,
+                    start,
+                    end,
+                    None if end is None else (end - start) / 1e9,
+                    attrs.get("outcome"),
+                    json.dumps(attrs),
+                    int(started),
+                ),
+            )
             return
-        sets = {"parent": parent or previous["parent"], "task": task or previous["task"],
-                "run": run if run is not None else previous["run"], "kind": kind or previous["kind"],
-                "name": name or previous["name"], "attrs": json.dumps({**json.loads(previous["attrs"]), **attrs})}
+        sets: Json = {
+            "parent": parent or previous["parent"],
+            "task": task or previous["task"],
+            "run": run if run is not None else previous["run"],
+            "kind": kind or previous["kind"],
+            "name": name or previous["name"],
+            "attrs": json.dumps({**json.loads(previous["attrs"]), **attrs}),
+        }
         if started:
             sets.update(start_ns=start, started_seen=1)
         elif not previous["started_seen"]:
             sets["start_ns"] = start  # no `started` yet: the span's own start is the best there is
         if end is not None:
             sets.update(end_ns=end, duration=(end - start) / 1e9, outcome=attrs.get("outcome"))
-        self.db.execute(f"update spans set {', '.join(f'{k} = ?' for k in sets)} where trace = ? and id = ?",
-                        (*sets.values(), trace, span))
+        self.db.execute(
+            f"update spans set {', '.join(f'{k} = ?' for k in sets)} where trace = ? and id = ?",  # noqa: S608
+            (*sets.values(), trace, span),
+        )
 
     # ---- views
 
-    def tasks(self, now=None):
+    def tasks(self, now: float | None = None) -> list[Json]:
         now = now or time.time()
-        out = []
-        for row in self.query("select task, min(ts_ns) as received, max(ts_ns) as last from logs"
-                              " where task is not null group by task order by received desc"):
+        out: list[Json] = []
+        for row in self.query(
+            "select task, min(ts_ns) as received, max(ts_ns) as last from logs"
+            " where task is not null group by task order by received desc"
+        ):
             task = row["task"]
-            received = self.query("select attrs, ts_ns from logs where task = ? and kind = 'task-received'"
-                                  " order by seq limit 1", task)
-            status = self.query("select attrs from logs where task = ? and kind = 'task-status'"
-                                " order by seq desc limit 1", task)
-            current = self.query("select name from spans where task = ? and kind = 'activity'"
-                                 " and end_ns is null order by start_ns desc limit 1", task)
+            received = self.query(
+                "select attrs, ts_ns from logs where task = ? and kind = 'task-received' order by seq limit 1", task
+            )
+            status = self.query(
+                "select attrs from logs where task = ? and kind = 'task-status' order by seq desc limit 1", task
+            )
+            current = self.query(
+                "select name from spans where task = ? and kind = 'activity'"
+                " and end_ns is null order by start_ns desc limit 1",
+                task,
+            )
             runs = self.query("select max(run) as run from spans where task = ?", task)[0]["run"]
-            state = json.loads(status[0]["attrs"]) if status else {}
+            state: Json = json.loads(status[0]["attrs"]) if status else {}
             start = (received[0]["ts_ns"] if received else row["received"]) / 1e9
-            out.append({"task": task, "repo": json.loads(received[0]["attrs"]).get("repo") if received else None,
-                        "status": state.get("status", "todo"), "reason": state.get("reason"),
-                        "run": runs, "activity": current[0]["name"] if current else None,
-                        "received": start, "last_event": row["last"] / 1e9, "age": max(0.0, now - start)})
+            out.append(
+                {
+                    "task": task,
+                    "repo": json.loads(received[0]["attrs"]).get("repo") if received else None,
+                    "status": state.get("status", "todo"),
+                    "reason": state.get("reason"),
+                    "run": runs,
+                    "activity": current[0]["name"] if current else None,
+                    "received": start,
+                    "last_event": row["last"] / 1e9,
+                    "age": max(0.0, now - start),
+                }
+            )
         return out
 
-    def tree(self, task):
+    def tree(self, task: str) -> list[Json]:
         rows = self.query("select * from spans where task = ? order by start_ns, rowid", task)
-        nodes = {r["id"]: {"id": r["id"], "span": r["kind"], "name": r["name"], "parent": r["parent"],
-                           "state": "running" if r["end_ns"] is None else "finished", "start": r["start_ns"] / 1e9,
-                           "duration": r["duration"], "outcome": r["outcome"],
-                           "attrs": json.loads(r["attrs"]), "children": []} for r in rows}
-        roots = []
+        nodes: dict[str, Json] = {
+            r["id"]: {
+                "id": r["id"],
+                "span": r["kind"],
+                "name": r["name"],
+                "parent": r["parent"],
+                "state": "running" if r["end_ns"] is None else "finished",
+                "start": r["start_ns"] / 1e9,
+                "duration": r["duration"],
+                "outcome": r["outcome"],
+                "attrs": json.loads(r["attrs"]),
+                "children": [],
+            }
+            for r in rows
+        }
+        roots: list[Json] = []
         for node in nodes.values():
             (nodes[node["parent"]]["children"] if node["parent"] in nodes else roots).append(node)
         return roots
 
-    def log(self, task, after=0):
-        entries = []
-        for row in self.query("select * from logs where task = ? and seq > ? and kind not in ('started', 'finished')"
-                              " order by seq", task, after):
+    def log(self, task: str, after: int = 0) -> list[Json]:
+        entries: list[Json] = []
+        for row in self.query(
+            "select * from logs where task = ? and seq > ? and kind not in ('started', 'finished') order by seq",
+            task,
+            after,
+        ):
             attrs = json.loads(row["attrs"])
-            texts = render_transcript(row["body"]) if row["source"] == "transcript" else [render_event(row["kind"], attrs)]
-            for text in texts:
-                entries.append({"seq": row["seq"], "ts": row["ts_ns"] / 1e9,
-                                "source": "agent" if row["source"] == "transcript" else "factory",
-                                "role": attrs.get("role"), "run": row["run"], "text": text})
+            texts = (
+                render_transcript(row["body"]) if row["source"] == "transcript" else [render_event(row["kind"], attrs)]
+            )
+            entries += [
+                {
+                    "seq": row["seq"],
+                    "ts": row["ts_ns"] / 1e9,
+                    "source": "agent" if row["source"] == "transcript" else "factory",
+                    "role": attrs.get("role"),
+                    "run": row["run"],
+                    "text": text,
+                }
+                for text in texts
+            ]
         return entries
