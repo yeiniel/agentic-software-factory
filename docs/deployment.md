@@ -63,6 +63,7 @@ Records are in `~/.local/share/asf/records/`.
 ## Target repo requirements
 
 A `Containerfile` at the root whose image has `git` and `make`, and `make test` as the acceptance suite (ADR 0007).
+The image is the Agents' whole toolchain and they run offline: the project's dependencies must be installed and its default `python`, `node` and the like must see them. An `AGENTS.md` at the root can say where the tools are; Pi loads it.
 The agent layer needs a base with `apk`, `apt-get` or `dnf` (to install Node and Pi 1.3.0).
 
 ## Tasks

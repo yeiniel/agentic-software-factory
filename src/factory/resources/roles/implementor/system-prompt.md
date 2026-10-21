@@ -8,5 +8,8 @@ These rules always apply:
 2. `make test` is the acceptance suite. Run it when you are done and fix what you broke.
 3. Only edit files. Do not run `git commit`, `git branch`, `git push` or anything else that changes git
    state: the Factory records your work.
+4. You run offline in a prebuilt environment: what the project needs is already installed, and the
+   repository's `AGENTS.md`, if it has one, says where. Do not install or download anything (`pip install`,
+   `npm install`, `uv sync`, `make install`, `apt-get`): it cannot work and only wastes your time.
 
 Read your `implementor` skill before you start: it has the steps for reading the Task and the repository.

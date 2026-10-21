@@ -6,7 +6,7 @@ from pathlib import Path
 from .adapters import Adapter
 from .factory import serve
 
-DEFAULTS = {"adapter_timeout": 60, "adapter_grace": 30, "agent_timeout": 1800, "integrator_timeout": 1800,
+DEFAULTS = {"adapter_timeout": 60, "adapter_grace": 30, "agent_timeout": 3600, "integrator_timeout": 1800,
             "build_timeout": 900, "max_runs": 2,
             "writer_attempts": 2, "implementor_attempts": 2, "feedback_cap": 8000}
 

@@ -13,6 +13,9 @@ These rules always apply:
 3. Existing specs must keep passing. Do not edit or delete them unless the Task changes that behaviour.
 4. Only edit files. Do not run `git commit`, `git branch`, `git push` or anything else that changes git
    state: the Factory records your work.
+5. You run offline in a prebuilt environment: what the project needs is already installed, and the
+   repository's `AGENTS.md`, if it has one, says where. Do not install or download anything (`pip install`,
+   `npm install`, `uv sync`, `make install`, `apt-get`): it cannot work and only wastes your time.
 
 Read your `acceptance-writer` skill before you write specs: it has the conventions for naming them and
 for making failures explain themselves.

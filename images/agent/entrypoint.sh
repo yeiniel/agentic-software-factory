@@ -9,7 +9,7 @@ mkdir -p /root/.pi/agent
 cat > /root/.pi/agent/models.json <<JSON
 {"providers": {"local": {"baseUrl": "$ASF_MODEL_ENDPOINT", "api": "openai-completions", "apiKey": "none",
   "models": [{"id": "$ASF_MODEL_NAME", "name": "$ASF_MODEL_NAME", "input": ["text"], "reasoning": true,
-    "contextWindow": $ASF_MODEL_CONTEXT_WINDOW, "maxTokens": 16384,
+    "contextWindow": $ASF_MODEL_CONTEXT_WINDOW, "maxTokens": 8192,
     "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
     "compat": {"thinkingFormat": "qwen-chat-template"}}]}}}
 JSON
