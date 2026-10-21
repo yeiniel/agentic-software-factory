@@ -1,0 +1,3 @@
+# The model relay's way to the host's model server; no Agent is attached to it.
+[Network]
+NetworkName=asf-relay

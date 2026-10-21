@@ -1,0 +1,16 @@
+[Unit]
+Description=Model relay: Agents reach the model server only through it
+
+[Container]
+ContainerName=model-relay
+Image=model-relay.build
+# On both networks: the Agents' internal one, and one that can reach the host's model server.
+Network=asf-agents.network
+Network=asf-relay.network
+Environment=MODEL_SERVER=host.containers.internal:8080
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

@@ -1,3 +1,4 @@
-# Where Agents run: it reaches the model server on the host, and nothing of ours is attached to it.
+# Where Agents run: internal, so no route to the host or the internet; the only way out is the model relay.
 [Network]
 NetworkName=asf-agents
+Internal=true

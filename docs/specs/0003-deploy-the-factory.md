@@ -29,9 +29,9 @@ Quadlet units (systemd-managed Podman) for the one-machine deployment, a Factory
 
 - Units live in `deploy/quadlet/`; `deploy/install` renders them (substituting the checkout's path) into `~/.config/containers/systemd`, creates `~/.config/asf/factory.env` from `deploy/factory.env.example` if absent, and enables `podman.socket`.
 - The Factory image is `deploy/factory.Containerfile`: Python, `git` and `podman-remote` (selected with `PODMAN=podman-remote`), the core, the Adapters, the image layers and `deploy/config.json`. The build context is the repository root.
-- Networks `asf-net` (Factory and git server) and `asf-agents` (Agents, via `RUNNER_AGENT_NETWORK`). The model server is the host's `llama-server` listening on all addresses, reached as `host.containers.internal`.
+- Networks `asf-net` (Factory and git server) and `asf-agents` (Agents, via `RUNNER_AGENT_NETWORK`; internal, ADR 0019), plus `asf-relay` for the model relay. The model server is the host's `llama-server` listening on all addresses; the `model-relay` container (on `asf-agents` and `asf-relay`) forwards to it as `host.containers.internal`, and Agents reach it as `model-relay`.
 - The git server publishes 9418 on `127.0.0.1` only. It has no authentication (spec 0002).
-- Out of scope: restricting Agent egress beyond the network, reconciling missed events, running the model server as a Quadlet unit.
+- Out of scope: reconciling missed events, running the model server as a Quadlet unit.
 
 ## Testing Decisions
 
