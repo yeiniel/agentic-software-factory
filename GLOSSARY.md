@@ -57,6 +57,10 @@ One step in a Run's fixed graph: assemble the Run Contexts, run the Agents, vali
 **Adapter**:
 A swappable external executable through which the Factory performs an effect: events, Task Store, Repo Host, running an Environment on a Run Context, and records.
 
+**Console**:
+The read-only view onto Tasks, their Runs and the Factory's metrics, kept current as work happens. It never changes the Factory.
+_Avoid_: Dashboard, Monitor
+
 **Run**:
 One attempt to complete a Task: each Agent is launched in its own Environment with its own Run Context, the Acceptance Writer's work is validated, and the Integrator is applied to their results. An Agent that crashes, or an Acceptance Writer whose specs fail validation, is retried within the Run up to a limit per role.
 
