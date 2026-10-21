@@ -3,7 +3,7 @@
   run --type agentic|deterministic --context DIR --timeout S [--build-timeout S] [--traceparent T]
 
 The Context is mounted at /ctx (the same path on the host and in the Factory container, since mounts are
-resolved by the host). The image is built from `cwd/Containerfile` (see _environment.py). The Runner knows
+resolved by the host). The image is built from `cwd/Containerfile` (see environment.py). The Runner knows
 no roles and none of the input or result names; its own state is `session/` in an agentic Context.
 
   agentic: working directory /ctx/cwd, on $RUNNER_AGENT_NETWORK (which must reach the model server),
