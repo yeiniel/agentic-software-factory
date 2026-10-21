@@ -1,0 +1,4 @@
+[Build]
+ImageTag=localhost/asf-console
+File=@REPO@/deploy/console.Containerfile
+SetWorkingDirectory=@REPO@

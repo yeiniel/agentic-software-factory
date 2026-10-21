@@ -1,5 +1,5 @@
 #!/bin/sh
 # Usage: bin/restart
-# Restart the Factory, which rebuilds its image: use after changing the core, Adapters or layers.
+# Restart the Console and the Factory, which rebuild their images: use after changing the core, Adapters or layers.
 set -eu
-systemctl --user restart factory && echo "restarted: factory"
+systemctl --user restart console factory && echo "restarted: console factory"

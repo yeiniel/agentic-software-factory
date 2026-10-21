@@ -1,6 +1,6 @@
 # Design: Agentic Software Factory
 
-Status: agreed design from a grilling session, nothing implemented yet. Vocabulary is in `../GLOSSARY.md`; use those terms exactly. The fixed decisions are in `adr/`: `0001-agents-are-agnostic-to-task-delivery-and-change-delivery.md` and `0002-algorithmic-work-runs-outside-the-agents.md`, and, for this experiment branch, ADRs 0003 to 0016 (blind parallel Agents, the Deliverable, Pi, container Environments, `make test`, local inference, Tasks as git-native issues on a self-hosted git server, the Factory as a container with the Podman socket, the core agnostic of implementations, the Runner knowing agentic or deterministic only, roles and the Integrator as core resources, Acceptance Test Validation apart from integration with nested retry loops). The **Experiment** markers below are now settled by those ADRs where one applies. Everything marked **Experiment** is the initial approach to be tested and may be replaced.
+Status: agreed design from a grilling session, nothing implemented yet. Vocabulary is in `../GLOSSARY.md`; use those terms exactly. The fixed decisions are in `adr/`: `0001-agents-are-agnostic-to-task-delivery-and-change-delivery.md` and `0002-algorithmic-work-runs-outside-the-agents.md`, and, for this experiment branch, ADRs 0003 to 0017 (blind parallel Agents, the Deliverable, Pi, container Environments, `make test`, local inference, Tasks as git-native issues on a self-hosted git server, the Factory as a container with the Podman socket, the core agnostic of implementations, the Runner knowing agentic or deterministic only, roles and the Integrator as core resources, Acceptance Test Validation apart from integration with nested retry loops, observability data as OTLP). The **Experiment** markers below are now settled by those ADRs where one applies. Everything marked **Experiment** is the initial approach to be tested and may be replaced.
 
 ## Principle
 
@@ -32,7 +32,7 @@ A Task is done when the full acceptance suite passes on `main`. (**Experiment**:
 5. On failure, `main` is untouched. A failed integration starts a new Run for the same Task (see Retries and Feedback).
 6. Only one Run is in flight at a time for now: the local model server has a fixed number of slots (ADR 0008). Parallel Tasks are future work and depend on more capacity.
 
-Every actor, agentic and deterministic, leaves a record: each Run writes a structured event log (every Integrator command with its exit code and output, branch and merge results, the Feedback produced) plus the Agents' Pi session transcripts, stored outside the repo.
+Every actor, agentic and deterministic, leaves a record: each Run writes a structured event log (every Integrator command with its exit code and output, branch and merge results, the Feedback produced) plus the Agents' Pi session transcripts, stored outside the repo. The Console (spec 0006, ADR 0017) makes them observable: the events travel as OTLP to its receiver, which is the system of record in the deployment.
 
 ## Retries and Feedback
 

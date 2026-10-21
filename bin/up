@@ -1,9 +1,9 @@
 #!/bin/sh
 # Usage: bin/up [--model]
-# Install the units for this checkout (idempotent) and start the Factory and the git server;
+# Install the units for this checkout (idempotent) and start the Console, the Factory and the git server;
 # --model also starts the model server (bin/model).
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 "$here/../deploy/install" >/dev/null
 [ "${1:-}" != --model ] || "$here/model"
-systemctl --user start factory git-server && echo "up: factory git-server"
+systemctl --user start console factory git-server && echo "up: console factory git-server"

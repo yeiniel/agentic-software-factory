@@ -1,7 +1,8 @@
 [Unit]
 Description=Agentic Software Factory
 Requires=podman.socket
-After=podman.socket asf-agents-network.service
+After=podman.socket asf-agents-network.service console.service
+Wants=console.service
 Requires=asf-agents-network.service
 
 [Container]

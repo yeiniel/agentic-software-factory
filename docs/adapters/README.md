@@ -49,9 +49,9 @@ The Repo Host suite mutates its repository, so use a disposable one. A real Even
 One operation (ADR 0014). The Run Context is a folder the core assembles in the Run Context Store (ADR 0013)
 and hands over by path; the Runner knows no roles and none of the names inside `cwd`.
 
-- `run --type agentic|deterministic --context DIR --timeout S [--build-timeout S]` →
+- `run --type agentic|deterministic --context DIR --timeout S [--build-timeout S] [--traceparent T]` →
   `{"exit_status","timed_out","output"}` plus, for `agentic`, `"transcript"` (the newest session transcript
-  of this run) and, for `deterministic`, `"files"` (the text of each top-level regular file in `out/`, size-capped).
+  of this run), `"usage"` (`{"turns","tool_calls","input_tokens","output_tokens"}` of this run, when the session had a model turn) and, for `deterministic`, `"files"` (the text of each top-level regular file in `out/`, size-capped).
 
 The Context's layout:
 
@@ -67,6 +67,11 @@ runs it. A build failure or exceeding `--build-timeout` is an infrastructure err
 network, no git credentials, session state added to the Context and resumed when the same Context is handed
 back. Deterministic: no network. A timeout is reported as data (`timed_out`).
 
+`--traceparent` (W3C, agentic only) is optional and opaque to the Runner: while the Environment runs and
+`$OTEL_EXPORTER_OTLP_ENDPOINT` is set, it forwards each new Pi session entry as an OTLP log record
+(`asf.source=transcript`, body the raw JSONL line) linked to that trace context. An unreachable endpoint never
+fails the run (spec 0006).
+
 ## Run Context Store
 
 Not a port: local files in the core (`src/factory/contexts.py`). The core owns the names inside a Context
@@ -79,3 +84,31 @@ Not a port: local files in the core (`src/factory/contexts.py`). The core owns t
 ## Records
 
 - `append --stream S [--run N]`, body: one JSON event → `{}`. Streams: `task/<id>` and `factory`.
+
+Implementations: `adapters/records` (JSON lines under `$RECORDS_DIR`, for tests and running without the Console)
+and `adapters/records-otlp` (OTLP/HTTP JSON to `$OTEL_EXPORTER_OTLP_ENDPOINT`, ADR 0017). The OTLP one is
+stateless: a `started` event becomes a log record and a `finished` one a complete span (start = now - `duration`),
+both with the event's `trace`, `id` and `parent`, so the receiver pairs them; every other event is a log record
+whose attributes are the event's fields (`asf.<field>`, nested objects as `asf.<field>.<key>`). An unreachable
+receiver is an error, hence an infrastructure error for the Task.
+
+### Events
+
+Every event of a `task/<id>` stream has `kind`, `run` (or null) and `trace` (32 hex characters, one per Task).
+Spec 0006 added the following; earlier kinds and fields are unchanged (`run-started`, `attempt`, `agent`,
+`branch-recorded`, `validation`, `integrator`, `fast-forward`, `run-finished`, `feedback`, `loop-exhausted`,
+`infrastructure-error`).
+
+- `task-received` `{repo}`: the Event Source reported the Task.
+- `task-status` `{status, reason?, commit?}`: after every status written to the Task Store. `reason` for
+  `blocked` is `loop-exhausted`, `max-runs` or `infrastructure`.
+- `started` / `finished` `{id, parent, span, name, ...}`: a stretch of work. `id` is 16 hex characters, `parent`
+  is the enclosing span's `id` (null for a Run), `span` is `run`, `loop`, `attempt` or `activity`, and `name` is
+  the Run number, `writer`/`implementor`, the attempt number, or `assemble`, `agent`, `validate`, `integrate`,
+  `publish`. An `agent` Activity also has `role`. `finished` adds `duration` (seconds) and `outcome`: Run
+  `green`/`red`, loop `succeeded`/`exhausted`, attempt `green` or the failed check, Activity `ok`, `green`, `crashed`,
+  `timed-out`, the failed check, `advanced` or `main-moved`; `error` if the block raised.
+- `loop-feedback` `{loop, attempt, feedback}`: the Feedback an inner loop's next attempt starts with.
+- The `agent` event carries the Runner's `usage` when it reports one.
+
+The `traceparent` the core passes the Runner for an agentic Environment is `00-<trace>-<id of the agent Activity>-01`.

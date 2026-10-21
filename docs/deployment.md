@@ -13,7 +13,8 @@ The concrete Adapters for one machine (spec `specs/0002-deployment-adapters.md`)
 | Task Store | `adapters/task-store` | git-native issues over `$REPO_HOST_URL`. `running`/`blocked` are labels on an open issue; `done` closes it with `Fixed-By: <commit>`; the prompt is title and body |
 | Repo Host | `adapters/repo-host` | git over `$REPO_HOST_URL` (`<url>/<repo>.git`); local mirrors under `$ADAPTER_CACHE` |
 | Runner | `adapters/runner` | builds `cwd/Containerfile` of a Run Context (must provide `git` and `make`; `images/agent/` on top for Agents; images cached by content) and `podman run`s it through the host socket (`CONTAINER_HOST`) |
-| Records | `adapters/records` | JSON lines in `$RECORDS_DIR/<stream>.jsonl` |
+| Records | `adapters/records-otlp` (deployed), `adapters/records` | OTLP to the Console's receiver (ADR 0017), or JSON lines in `$RECORDS_DIR/<stream>.jsonl` |
+| Console | `console/` (container `console`, TUI `bin/console`) | receiver: OTLP on `asf-net:4318`, API on host `127.0.0.1:4319`; store `~/.local/share/asf/console/console.db`; see below |
 
 ## Configuration (environment)
 
@@ -27,6 +28,8 @@ The concrete Adapters for one machine (spec `specs/0002-deployment-adapters.md`)
 - `ASF_MODEL_ENDPOINT`, `ASF_MODEL_NAME`, `ASF_MODEL_CONTEXT_WINDOW`: the model server (`model-server.md`), passed
   into Agent containers; the harness entrypoint writes Pi's `models.json` from them.
 - `ASF_IMAGES_DIR`: alternative layers (the tests use stubs).
+- `OTEL_EXPORTER_OTLP_ENDPOINT`: the Console's receiver (`http://console:4318`, in `factory.env`). With `records-otlp` an unreachable receiver blocks Tasks with reason `infrastructure`; the Runner also forwards Pi transcripts there and carries on if it is down.
+- `CONSOLE_MODEL_URL` (Console container): the model server whose `/metrics` and `/slots` it scrapes while a TUI is connected (`bin/model` starts `llama-server` with `--metrics`).
 - `PODMAN`: the podman executable.
 - Agent and Integrator time limits are the Factory's `agent_timeout` and `integrator_timeout` (the latter also bounds Acceptance Test Validation). `writer_attempts` and `implementor_attempts` (2 by default) are the per-Run attempt budgets next to `max_runs`.
 
@@ -37,6 +40,7 @@ Quadlet units in `deploy/quadlet/` (spec `specs/0003-deploy-the-factory.md`):
 | Unit | What |
 |---|---|
 | `git-server` | the git server image; port 9418 on `127.0.0.1` for you to push; volume `asf-git` |
+| `console` | `deploy/console.Containerfile`: the receiver, standard library only; OTLP for the Factory on `asf-net`, the API on `127.0.0.1:4319`; store `~/.local/share/asf/console/console.db` |
 | `factory` | `deploy/factory.Containerfile`; the host's Podman socket, Run Contexts and Records under `~/.local/share/asf/`; volume `asf-cache` |
 | `asf-net`, `asf-agents` | networks: Factory and git server; Agents |
 
@@ -44,9 +48,14 @@ Quadlet units in `deploy/quadlet/` (spec `specs/0003-deploy-the-factory.md`):
 deploy/install                       # render the units for this checkout, enable podman.socket
 $EDITOR ~/.config/asf/factory.env    # model endpoint, name, context window
 bin/model                            # start llama-server on the host (port 8080, all addresses)
-systemctl --user start factory git-server
+systemctl --user start console factory git-server    # or bin/up
 journalctl --user -u factory -f
+bin/console                          # the TUI: Tasks, a Task's Run tree and log, Metrics (needs uv)
 ```
+
+The Console replaced `bin/follow`. Back up its store by copying `console.db`; there is no rotation. An existing
+`~/.config/asf/factory.env` needs `OTEL_EXPORTER_OTLP_ENDPOINT=http://console:4318` added (see `deploy/factory.env.example`);
+to run without the Console point `deploy/config.json` back at `adapters/records`. Restart `llama-server` (`bin/model stop; bin/model`) to get `--metrics`.
 
 Set up a target repo (it needs a `Containerfile` and `make test`), then push a Task:
 
@@ -58,7 +67,7 @@ git issue create ...; git push origin 'refs/issues/*'
 ```
 
 After changing the Factory, Adapters or layers, `systemctl --user restart factory` rebuilds the image.
-Records are in `~/.local/share/asf/records/`.
+The audit trail is the Console's store; `~/.local/share/asf/records/` only fills when `adapters/records` is configured.
 
 ## Target repo requirements
 

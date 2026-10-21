@@ -1,0 +1,20 @@
+[Unit]
+Description=Console: OTLP receiver and API for the Factory
+
+[Container]
+ContainerName=console
+Image=console.build
+Network=asf-net.network
+# OTLP is reachable on asf-net only (the Factory and its Runner); the API is on host loopback only.
+PublishPort=127.0.0.1:4319:4319
+Environment=CONSOLE_MODEL_URL=http://host.containers.internal:8080
+# The store is one file, console.db, under the Factory's data folder.
+Volume=%h/.local/share/asf/console:/var/lib/asf/console
+SecurityLabelDisable=true
+
+[Service]
+Restart=always
+ExecStartPre=/usr/bin/mkdir -p %h/.local/share/asf/console
+
+[Install]
+WantedBy=default.target

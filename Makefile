@@ -2,3 +2,4 @@
 .PHONY: test
 test:
 	uv run --locked pytest
+	cd console && uv run --locked pytest

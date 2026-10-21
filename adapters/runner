@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Runner Adapter: runs an Environment on a Run Context as a Podman container through the host's socket.
 
-  run --type agentic|deterministic --context DIR --timeout S [--build-timeout S]
+  run --type agentic|deterministic --context DIR --timeout S [--build-timeout S] [--traceparent T]
 
 The Context is mounted at /ctx (the same path on the host and in the Factory container, since mounts are
 resolved by the host). The image is built from `cwd/Containerfile` (see _environment.py). The Runner knows
@@ -9,7 +9,9 @@ no roles and none of the input or result names; its own state is `session/` in a
 
   agentic: working directory /ctx/cwd, on $RUNNER_AGENT_NETWORK (which must reach the model server),
   configured by ASF_MODEL_ENDPOINT, ASF_MODEL_NAME and ASF_MODEL_CONTEXT_WINDOW. No git credentials are
-  passed. Pi reads /ctx/prompt and /ctx/skills and keeps its session in /ctx/session.
+  passed. Pi reads /ctx/prompt and /ctx/skills and keeps its session in /ctx/session. While it runs, new
+  session entries are forwarded to $OTEL_EXPORTER_OTLP_ENDPOINT, linked to the optional --traceparent; the
+  result's `usage` counts the turns, tool calls and tokens of this run.
   deterministic: no network; executes /ctx/run in /ctx/cwd. Its results are the files in /ctx/out.
 """
 import os
@@ -19,6 +21,7 @@ from pathlib import Path
 
 import _common
 import _environment
+import _session
 from _common import Failure, podman, require_env, slug
 
 MODEL_ENV = ("ASF_MODEL_ENDPOINT", "ASF_MODEL_NAME", "ASF_MODEL_CONTEXT_WINDOW")
@@ -71,11 +74,17 @@ def run(a):
     started = time.time()
     env = [x for var in MODEL_ENV for x in ("-e", f"{var}={require_env(var)}")]
     network = ["--network", os.environ["RUNNER_AGENT_NETWORK"]] if os.environ.get("RUNNER_AGENT_NETWORK") else []
-    status, output, timed_out = run_container(name, [*network, "-v", f"{ctx}:/ctx", *env, image], timeout)
+    watched = _session.Session(session)
+    with _session.Forwarder(watched, a.get("traceparent")):
+        status, output, timed_out = run_container(name, [*network, "-v", f"{ctx}:/ctx", *env, image], timeout)
+    watched.poll()  # whatever the last interval left, for the counts
     transcripts = sorted((p for p in session.rglob("*.jsonl") if p.stat().st_mtime >= started),
                          key=lambda p: p.stat().st_mtime)  # this run's, not an earlier one's
-    return {"exit_status": status, "timed_out": timed_out, "output": output,
-            "transcript": str(transcripts[-1]) if transcripts else ""}
+    result = {"exit_status": status, "timed_out": timed_out, "output": output,
+              "transcript": str(transcripts[-1]) if transcripts else ""}
+    if watched.usage():
+        result["usage"] = watched.usage()
+    return result
 
 
 if __name__ == "__main__":
