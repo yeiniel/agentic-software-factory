@@ -11,7 +11,7 @@ from asf_console.model import ModelServer
 METRICS = """# HELP llamacpp:requests_deferred x
 llamacpp:requests_processing 1
 llamacpp:requests_deferred 2
-llamacpp:predicted_tokens_seconds 41.5
+llamacpp:predicted_tokens_seconds 0
 """
 SLOTS = [{"id": 0, "is_processing": True}, {"id": 1, "is_processing": False}]
 
@@ -49,7 +49,7 @@ def test_slots_queue_and_speed_are_read_from_the_model_server(llama):
     model = ModelServer(llama[0])
     model.scrape()
     assert model.state["slots"] == {"total": 2, "busy": 1}
-    assert model.state["queue_depth"] == 2 and model.state["tokens_per_second"] == 41.5
+    assert model.state["queue_depth"] == 2
 
 
 def test_an_unreachable_model_server_is_unavailable(llama):
@@ -68,3 +68,15 @@ def test_nothing_is_scraped_until_a_client_connects(llama):
     assert wait(lambda: model.state.get("available"))
     model.connected(-1)
     model.stop()
+
+
+def test_speed_is_the_decode_rate_between_scrapes_not_the_servers_gauge():
+    texts = iter(["llamacpp:tokens_predicted_total 100\nllamacpp:tokens_predicted_seconds_total 10\n"
+                  "llamacpp:predicted_tokens_seconds 0\n",
+                  "llamacpp:tokens_predicted_total 160\nllamacpp:tokens_predicted_seconds_total 14\n"
+                  "llamacpp:predicted_tokens_seconds 0\n"])
+    model = ModelServer("http://x", get=lambda url: next(texts) if url.endswith("/metrics") else "[]")
+    model.scrape()
+    assert model.state["tokens_per_second"] is None
+    model.scrape()
+    assert model.state["tokens_per_second"] == 15.0

@@ -1,7 +1,9 @@
 #!/bin/sh
 # Usage: bin/down [--model]
-# Stop the Factory, the git server and the Console (state in the asf-git volume and ~/.local/share/asf is kept);
+# Stop the Factory, the git server and the Console, and any Agent containers it left running (state in the asf-git volume and ~/.local/share/asf is kept);
 # --model also stops the model server.
 set -eu
 systemctl --user stop factory git-server console && echo "down: factory git-server console"
+# Agent containers (asf-<repo>-<task>-<role>-<pid>) outlive the Factory and would keep the model busy
+podman ps --format '{{.Names}}' | grep -E '^asf-.+-[0-9]+$' | xargs -r podman stop >/dev/null || true
 [ "${1:-}" != --model ] || "$(dirname "$0")/model" stop

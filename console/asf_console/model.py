@@ -28,6 +28,8 @@ class ModelServer:
     def __init__(self, url, interval=3.0, get=fetch):
         self.url, self.interval, self.get = (url or "").rstrip("/"), interval, get
         self.state = {"available": False}
+        self.counters = None  # (predicted tokens, decode seconds) at the previous scrape
+        self.rate = None
         self.clients = 0
         self.lock = threading.Lock()
         self.wake = threading.Event()
@@ -54,10 +56,21 @@ class ModelServer:
         except (OSError, ValueError):
             self.state = {"available": False}
             return
+        self.rate = self.decode_rate(values)
         self.state = {"available": True, "updated": time.time(),
                       "slots": {"total": len(slots), "busy": sum(1 for s in slots if s.get("is_processing"))},
                       "queue_depth": int(values.get("llamacpp:requests_deferred", 0)),
-                      "tokens_per_second": values.get("llamacpp:predicted_tokens_seconds")}
+                      "tokens_per_second": self.rate}
+
+    def decode_rate(self, values):
+        """Tokens per second of decoding since the last scrape, per slot. llama-server's own
+        `predicted_tokens_seconds` gauge reads 0 whenever it is sampled mid-request, so use the counters."""
+        now = (values.get("llamacpp:tokens_predicted_total"), values.get("llamacpp:tokens_predicted_seconds_total"))
+        before, self.counters = self.counters, now
+        if None in now or before is None or None in before:
+            return self.rate
+        tokens, seconds = now[0] - before[0], now[1] - before[1]
+        return tokens / seconds if seconds > 0 and tokens >= 0 else self.rate
 
     def loop(self):
         while not self.stopped:
