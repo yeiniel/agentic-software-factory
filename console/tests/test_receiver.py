@@ -4,7 +4,7 @@ import threading
 import time
 import urllib.request
 
-from conftest import Script, blocked_task, green_task, retried_task
+from replay import Script, blocked_task, green_task, retried_task
 
 
 def by_task(api):

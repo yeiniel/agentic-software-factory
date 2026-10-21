@@ -1,5 +1,5 @@
 """The Factory against a real git Repo Host and the real Integrator, with a tiny real `make test`."""
-from test_runs import TASK_EVENT, agent_runs, prompts
+TASK_EVENT = {"type": "task", "task": "t1", "repo": "r"}
 
 PROJECT = {
     "README": "base\n",
@@ -10,6 +10,14 @@ PROJECT = {
 GREETING_SPEC = "grep -q hello src/greeting.txt\n"
 IMPLEMENTED = {"src/greeting.txt": "hello\n"}
 SCENARIO = {"tasks": {"t1": "add a greeting"}, "events": [TASK_EVENT]}
+
+
+def agent_runs(out):
+    return [r["role"] for r in out.state["agent_runs"]]
+
+
+def prompts(out, role):
+    return [r["prompt"] for r in out.state["agent_runs"] if r["role"] == role]
 
 
 def factory(run_factory, agent=None, **extra):

@@ -35,6 +35,7 @@ def llama():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{server.server_port}", hits
     server.shutdown()
+    server.server_close()
 
 
 def wait(condition):
