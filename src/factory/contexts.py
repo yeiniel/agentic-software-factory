@@ -63,7 +63,4 @@ class ContextStore:
 
     def get(self, *key):
         """The same Context an earlier `create` made, with everything the Runner added to it."""
-        path = self.location(*key)
-        if not path.is_dir():
-            raise FileNotFoundError(f"no Run Context at {path}")
-        return Context(path)
+        return Context(self.location(*key))

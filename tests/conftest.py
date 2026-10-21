@@ -64,7 +64,7 @@ def run_factory(tmp_path):
         scenario.setdefault("repo", {"README": "base"})
         (tmp_path / "scenario.json").write_text(json.dumps(scenario))
         config["context_root"] = str(tmp_path / "contexts")
-        config["adapters"] = {p: [sys.executable, str(STANDIN), p] for p in PORTS}
+        config["adapters"] = {**{p: [sys.executable, str(STANDIN), p] for p in PORTS}, **config.get("adapters", {})}
         if real_git is not None:  # real git Repo Host and the real Integrator script
             root = tmp_path / "git"
             gitrepohost.seed_repo(root, "r", real_git)

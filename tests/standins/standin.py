@@ -90,6 +90,12 @@ def main():
         nth = bump(state, f"{port}/{op}")
     for fail in SCENARIO.get("fail", []):
         if fail["port"] == port and fail["op"] == op and fail["call"] == nth:
+            if "sleep" in fail:  # misbehave by being slow, then carry on
+                time.sleep(fail["sleep"])
+                break
+            if "stdout" in fail:  # misbehave by printing something else than a result
+                print(fail["stdout"])
+                return
             print("injected failure", file=sys.stderr)
             sys.exit(1)
     result = globals()["do_" + port.replace("-", "_")](op, args, body)
@@ -101,6 +107,10 @@ def do_event_source(op, args, body):
     for event in SCENARIO.get("events", []):
         if "sleep" in event:
             time.sleep(event["sleep"])
+        elif "raw" in event:  # a line that is not an event, verbatim
+            print(event["raw"], flush=True)
+        elif "exit" in event:
+            sys.exit(event["exit"])
         else:
             print(json.dumps(event), flush=True)
 
@@ -195,6 +205,8 @@ def run_integrator(args, ctx):
         state["integrator_runs"].append({"context": str(ctx), "run": (ctx / "run").read_text(),
                                          "cwd": sorted(p.name for p in (ctx / "cwd").iterdir())})
     plan = (SCENARIO.get("integrator", []) + [{}] * (n + 1))[n]
+    if plan.get("timed_out"):
+        return {"exit_status": None, "timed_out": True, "output": "", "files": {}}
     if SCENARIO.get("integrator_impl") == "real":
         status = run_real_integrator(ctx)
     else:
@@ -211,6 +223,8 @@ def run_validation(ctx):
         state["validation_runs"].append({"at": time.time(), "context": str(ctx), "run": (ctx / "run").read_text(),
                                          "cwd": sorted(p.name for p in (ctx / "cwd").iterdir())})
     plan = (SCENARIO.get("validation", []) + [{}] * (n + 1))[n]
+    if plan.get("timed_out"):
+        return {"exit_status": None, "timed_out": True, "output": "", "files": {}}
     if SCENARIO.get("integrator_impl") == "real":
         run_real_integrator(ctx)
     else:

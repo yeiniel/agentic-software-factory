@@ -49,7 +49,7 @@ sigterm = true
 relative_files = true
 source_pkgs = ["factory", "asf_console"]
 source_dirs = ["adapters"]
-disable_warnings = ["no-data-collected"]
+disable_warnings = ["no-data-collected", "module-not-imported"]
 
 [tool.coverage.report]
 fail_under = 100
