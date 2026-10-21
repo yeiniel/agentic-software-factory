@@ -215,6 +215,8 @@ def run_validation(ctx):
         run_real_integrator(ctx)
     else:
         files = {"result": plan.get("result", "green"), "output": plan.get("output", "specs red")}
+        if plan.get("no_output"):
+            del files["output"]
         if files["result"] == "red":
             files["failed_check"] = plan.get("failed_check", "specs-not-red")
         write_tree(ctx / "out", files)
@@ -245,6 +247,8 @@ def scripted_verdict(plan, ctx):
     out = ctx / "out"
     result = plan.get("result", "green")
     files = {"result": result, "output": plan.get("output", "suite green")}
+    if plan.get("no_output"):
+        del files["output"]
     if result == "red":
         if "failed_check" in plan:
             files["failed_check"] = plan["failed_check"]

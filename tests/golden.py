@@ -99,7 +99,7 @@ def normalise(text, fixture):
 def check(out, name):
     """Assert the scenario's transcript equals its golden file, or write it when UPDATE_GOLDENS=1."""
     actual = normalise(transcript(out), out.fixture)
-    path = GOLDENS / f"{name}.txt"
+    path = GOLDENS / f"{re.sub(r'[^\w.-]+', '-', name).strip('-')}.txt"
     if os.environ.get("UPDATE_GOLDENS"):
         path.parent.mkdir(exist_ok=True)
         path.write_text(actual)

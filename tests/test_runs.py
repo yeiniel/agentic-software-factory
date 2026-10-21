@@ -1,4 +1,6 @@
 """The Factory as a black-box process: each scenario's assertion is its golden transcript (tests/goldens)."""
+import pytest
+
 
 TASK_EVENT = {"type": "task", "task": "t1", "repo": "r"}
 OTHER_TASK_EVENT = {"type": "task", "task": "t2", "repo": "r"}
@@ -178,4 +180,53 @@ def test_a_malformed_verdict_is_an_infrastructure_error(run_factory, golden_tran
 
     assert out.exit_code == 0, out.stderr
     assert out.main == {"README": "base"}
+    golden_transcript(out)
+
+
+def test_a_green_verdict_carries_the_acceptance_report_into_the_run_record(run_factory, golden_transcript):
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "integrator": [{"output": "42 specs green"}]})
+
+    assert out.exit_code == 0, out.stderr
+    golden_transcript(out)
+
+
+@pytest.mark.parametrize("check", ["conflict", "suite"])
+def test_a_red_integration_verdict_names_the_failed_check(run_factory, golden_transcript, check):
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "integrator": [red(check, "out")]})
+
+    assert out.exit_code == 0, out.stderr
+    golden_transcript(out)
+
+
+@pytest.mark.parametrize("check", ["specs-not-red", "merge"])
+def test_a_red_validation_verdict_names_the_failed_check(run_factory, golden_transcript, check):
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "validation": [red(check, "out")]})
+
+    assert out.exit_code == 0, out.stderr
+    golden_transcript(out)
+
+
+@pytest.mark.parametrize("integrator", [
+    {"result": "red", "failed_check": "specs-not-red", "output": "x"},  # a check of the validation process
+    {"result": "red", "failed_check": "vibes", "output": "x"},
+    {"result": "maybe", "output": "x"},
+    {"result": "green", "no_output": True},
+], ids=["other-process-check", "unknown-check", "unknown-result", "no-output"])
+def test_a_malformed_integration_verdict_is_an_infrastructure_error(run_factory, golden_transcript, integrator):
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "integrator": [integrator]})
+
+    assert out.exit_code == 0, out.stderr
+    assert out.main == {"README": "base"}
+    golden_transcript(out)
+
+
+@pytest.mark.parametrize("validation", [
+    {"result": "red", "failed_check": "suite", "output": "x"},  # a check of the integration process
+    {"result": "maybe", "output": "x"},
+    {"result": "green", "no_output": True},
+], ids=["other-process-check", "unknown-result", "no-output"])
+def test_a_malformed_validation_verdict_is_an_infrastructure_error(run_factory, golden_transcript, validation):
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "validation": [validation]})
+
+    assert out.exit_code == 0, out.stderr
     golden_transcript(out)
