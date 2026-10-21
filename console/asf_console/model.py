@@ -33,16 +33,11 @@ class ModelServer:
         self.clients = 0
         self.lock = threading.Lock()
         self.wake = threading.Event()
-        self.stopped = False
         self.thread = threading.Thread(target=self.loop, daemon=True)
 
     def start(self):
         if self.url:
             self.thread.start()
-
-    def stop(self):
-        self.stopped = True
-        self.wake.set()
 
     def connected(self, delta):
         with self.lock:
@@ -73,7 +68,7 @@ class ModelServer:
         return tokens / seconds if seconds > 0 and tokens >= 0 else self.rate
 
     def loop(self):
-        while not self.stopped:
+        while True:
             if self.clients > 0:
                 self.scrape()
             self.wake.wait(self.interval)

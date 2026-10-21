@@ -129,12 +129,6 @@ class Receiver:
             threading.Thread(target=server.serve_forever, daemon=True).start()
         self.model.start()
 
-    def stop(self):
-        self.model.stop()
-        for server in (self.otlp_server, self.api_server):
-            server.shutdown()
-            server.server_close()
-
 
 def main():
     data = Path(os.environ.get("CONSOLE_DATA", "console-data"))

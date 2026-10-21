@@ -1,22 +1,41 @@
-"""Fixtures: a live receiver and the real OTLP Records Adapter replaying Factory events into it."""
+"""Fixtures: the receiver as a process, and the real OTLP Records Adapter replaying Factory events into it."""
 import json
+import re
+import signal
+import subprocess
+import sys
 import urllib.request
+from types import SimpleNamespace
 
 import pytest
 from replay import Replay
 
-from asf_console.receiver import Receiver
-from asf_console.store import Store
+
+@pytest.fixture
+def start_receiver(tmp_path):
+    """`start_receiver(model_url=None)` runs `python -m asf_console.receiver` on free ports."""
+    processes = []
+
+    def start(model_url=None):
+        command = [sys.executable, "-m", "asf_console.receiver", "--db", str(tmp_path / f"console{len(processes)}.db"),
+                   "--otlp-host", "127.0.0.1", "--otlp-port", "0", "--api-port", "0"]
+        process = subprocess.Popen(command + (["--model-url", model_url] if model_url else []),
+                                   stdout=subprocess.PIPE, text=True)
+        processes.append(process)
+        ports = re.search(r"OTLP on \S+:(\d+), API on \S+:(\d+)", process.stdout.readline())
+        assert ports, "the receiver did not announce its ports"
+        return SimpleNamespace(otlp_port=int(ports[1]), api_port=int(ports[2]))
+
+    yield start
+    for process in processes:
+        process.send_signal(signal.SIGTERM)
+        process.wait(timeout=10)
+        process.stdout.close()
 
 
 @pytest.fixture
-def receiver(tmp_path):
-    store = Store(tmp_path / "console.db")
-    server = Receiver(store, ("127.0.0.1", 0), ("127.0.0.1", 0))
-    server.start()
-    yield server
-    server.stop()
-    store.close()
+def receiver(start_receiver):
+    return start_receiver()
 
 
 @pytest.fixture
