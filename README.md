@@ -27,7 +27,7 @@ Read [`GLOSSARY.md`](GLOSSARY.md) for the vocabulary (used exactly throughout) a
 
 | Path | What |
 |---|---|
-| `src/factory/` | the Factory core: pure orchestration, talks to the world only through Adapter ports |
+| `src/factory/` | the Factory core: the Graph interpreter (the default Graph is `resources/graph.json`, shaped by `graph.schema.json`); talks to the world only through Adapter ports |
 | `adapters/` | the Adapters: launchers (`event-source`, `task-store`, `repo-host`, `runner`, `records`, `records-otlp`) over the typed `asf_adapters` package. Contracts in [`docs/adapters/`](docs/adapters/README.md) |
 | `console/` | the Console: OTLP receiver, SQLite store and TUI (`asf_console`) |
 | `git-server/` | the git server image, its hooks and `create-repo` |

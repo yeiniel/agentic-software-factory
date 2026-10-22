@@ -96,17 +96,18 @@ receiver is an error, hence an infrastructure error for the Task.
 
 Every event of a `task/<id>` stream has `kind`, `run` (or null) and `trace` (32 hex characters, one per Task).
 Spec 0006 added the following; earlier kinds and fields are unchanged (`run-started`, `attempt`, `agent`,
-`branch-recorded`, `validation`, `integrator`, `fast-forward`, `run-finished`, `feedback`, `loop-exhausted`,
+`branch-recorded`, `validate`, `integrate`, `fast-forward`, `run-finished`, `feedback`, `loop-exhausted`,
 `infrastructure-error`).
 
-- `task-received` `{repo}`: the Event Source reported the Task.
+- `task-received` `{repo, graph}`: the Event Source reported the Task; `graph` is the version of the Graph it runs (spec 0008).
 - `task-status` `{status, reason?, commit?}`: after every status written to the Task Store. `reason` for
-  `blocked` is `loop-exhausted`, `max-runs` or `infrastructure`.
+  `blocked` is the one the Graph's status state gives: in the default Graph `loop-exhausted`, `max-runs`,
+  `main-moved` or `infrastructure`.
 - `started` / `finished` `{id, parent, span, name, ...}`: a stretch of work. `id` is 16 hex characters, `parent`
   is the enclosing span's `id` (null for a Run), `span` is `run`, `loop`, `attempt` or `activity`, and `name` is
-  the Run number, `writer`/`implementor`, the attempt number, or `assemble`, `agent`, `validate`, `integrate`,
-  `publish`. An `agent` Activity also has `role`. `finished` adds `duration` (seconds) and `outcome`: Run
-  `green`/`red`, loop `succeeded`/`exhausted`, attempt `green` or the failed check, Activity `ok`, `green`, `crashed`,
+  the Run number, a loop's name in the Graph (`writer`/`implementor` in the default one), the attempt number, or
+  `assemble`, `agent`, the name of a deterministic state (`validate`, `integrate`) or `publish`. An `agent` Activity also has `role`. `finished` adds `duration` (seconds) and `outcome`: Run
+  `green`/`red`, loop `succeeded`/`exhausted`/`left`, attempt `green` or the failed check, Activity `ok`, `green`, `crashed`,
   `timed-out`, the failed check, `advanced` or `main-moved`; `error` if the block raised.
 - `loop-feedback` `{loop, attempt, feedback}`: the Feedback an inner loop's next attempt starts with.
 - The `agent` event carries the Runner's `usage` when it reports one.

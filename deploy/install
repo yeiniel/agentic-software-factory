@@ -5,8 +5,11 @@ set -eu
 repo=$(cd "$(dirname "$0")/.." && pwd)
 units=${XDG_CONFIG_HOME:-$HOME/.config}/containers/systemd
 mkdir -p "$units" "$HOME/.config/asf"
+# The Graph is versioned by the commit it is loaded from; uncommitted changes to it mark the version.
+version=$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo unversioned)
+[ -z "$(git -C "$repo" status --porcelain -- src/factory/resources 2>/dev/null)" ] || version=$version-dirty
 for f in "$repo"/deploy/quadlet/*; do
-	sed "s|@REPO@|$repo|g" "$f" >"$units/$(basename "$f")"
+	sed -e "s|@REPO@|$repo|g" -e "s|@GRAPH_VERSION@|$version|g" "$f" >"$units/$(basename "$f")"
 done
 [ -e "$HOME/.config/asf/factory.env" ] || cp "$repo/deploy/factory.env.example" "$HOME/.config/asf/factory.env"
 systemctl --user daemon-reload

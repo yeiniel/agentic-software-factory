@@ -37,7 +37,8 @@ so the command lines below are unchanged. The Console's receiver and TUI start t
 - `OTEL_EXPORTER_OTLP_ENDPOINT`: the Console's receiver (`http://console:4318`, in `factory.env`). With `records-otlp` an unreachable receiver blocks Tasks with reason `infrastructure`; the Runner also forwards Pi transcripts there and carries on if it is down.
 - `CONSOLE_MODEL_URL` (Console container): the model server whose `/metrics` and `/slots` it scrapes while a TUI is connected (`bin/model` starts `llama-server` with `--metrics`).
 - `PODMAN`: the podman executable.
-- Agent and Integrator time limits are the Factory's `agent_timeout` and `integrator_timeout` (the latter also bounds Acceptance Test Validation). `writer_attempts` and `implementor_attempts` (2 by default) are the per-Run attempt budgets next to `max_runs`.
+- Agent and Integrator time limits are the Factory's `agent_timeout` and `integrator_timeout` (the latter also bounds Acceptance Test Validation). The attempt budgets (the Run cap, the Writer and Implementor loops) are fields of the Graph, not of the config.
+- `graph` (config): the Graph folder, `src/factory/resources/` by default. The Factory validates it against `graph.schema.json` and checks it once, at start, and exits non-zero with the reason on an invalid one; a changed Graph takes a restart. Its version is the commit of this repository it was loaded from: `graph_version` in the config, else `ASF_GRAPH_VERSION` (`deploy/install` renders the current commit into the Quadlet unit and `bin/restart` renders it again; uncommitted changes under `src/factory/resources/` add `-dirty`), else `unversioned`. The `task-received` Record carries it.
 
 ## Running it
 

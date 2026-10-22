@@ -49,7 +49,7 @@ The stdout and stderr of `make test`, made informative on failure by a good spec
 What the Factory hands back to a retriggered Agent after a failure: why it failed, the spec run output, conflicts, or both, a note that its previous changes were discarded, and a reminder to check against the Task when it is unclear whether the implementation or the test is at fault. It never discloses the other Agent's branch.
 
 **Blocked**:
-The status of a Task that reached its Run cap (2 Runs by default), or whose Acceptance Writer or Implementor used up its attempts within a Run, without a Deliverable and now waits for a human.
+The status of a Task that ended without a Deliverable and now waits for a human, with a reason the Graph gives: in the default Graph it reached its Run cap (2 Runs), an Agent's loop used up its attempts, the fast-forward of `main` was refused, or there was an infrastructure error.
 
 **Graph**:
 The description of how a Run proceeds: its Activities, which of them run in parallel, the retry loops around them, and which failure retriggers whom with what Feedback, together with the prompts and skills of its roles. It is the same for every Task, is versioned, and the Factory ships a default. Only a human changes it; an Agent never sees or edits it.
@@ -65,7 +65,7 @@ The read-only view onto Tasks, their Runs and the Factory's metrics, kept curren
 _Avoid_: Dashboard, Monitor
 
 **Run**:
-One attempt to complete a Task; in the default Graph, each Agent is launched in its own Environment with its own Run Context, the Acceptance Writer's work is validated, and the Integrator is applied to their results. An Agent that crashes, or an Acceptance Writer whose specs fail validation, is retried within the Run up to a limit per role.
+One attempt to complete a Task: one pass through the Graph's start loop, which ends in a status of the Task or in another Run. In the default Graph, each Agent is launched in its own Environment with its own Run Context, the Acceptance Writer's work is validated, and the Integrator is applied to their results. An Agent that crashes, or an Acceptance Writer whose specs fail validation, is retried within the Run up to a limit per role.
 
 **Deliverable**:
 The outcome that makes a Task done: the acceptance test suite passes on `main`.
