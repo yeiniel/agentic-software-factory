@@ -25,3 +25,19 @@ def test_the_factory_starts_on_the_shipped_graph(run_factory):
 
     assert out.exit_code == 0, out.stderr
     assert out.status("t1") == ["running", "done"]
+
+
+def test_the_factory_refuses_a_cycle_that_no_attempt_budget_bounds(run_factory, graph_variant):
+    def validation_back_to_the_writer(data):
+        green = data["states"]["validate"]["transitions"][0]
+        assert green["on"] == "green"
+        green["to"] = "write"  # write -> validate -> write, and no loop is entered again
+
+    out = run_factory(SCENARIO, graph=graph_variant(validation_back_to_the_writer))
+
+    assert out.exit_code == 1
+    assert "factory: invalid Graph" in out.stderr
+    assert "cycle" in out.stderr
+    assert "write" in out.stderr
+    assert "validate" in out.stderr
+    assert out.calls == []

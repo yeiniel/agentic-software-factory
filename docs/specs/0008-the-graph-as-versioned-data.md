@@ -33,7 +33,8 @@ The Factory loads and checks the Graph once, at start, and refuses to start on a
 - a state no transition reaches, a loop without `attempts`, or a name that resolves to no file in the folder;
 - an outcome that has no transition, so no outcome is unhandled;
 - a path into `done` that does not come from publish, or a Feedback message with a placeholder other than `{check}` and `{output}`;
-- an Activity input that is not `base` or `branch-of` a role the Graph runs.
+- an Activity input that is not `base` or `branch-of` a role the Graph runs;
+- a cycle that no attempt budget bounds: a transition to an enclosing loop is the next attempt of that loop and its attempts are finite, so the transitions that remain (not to an enclosing loop, not `$exit`) must form no cycle.
 
 `make check` runs the same load on the shipped Graph.
 
