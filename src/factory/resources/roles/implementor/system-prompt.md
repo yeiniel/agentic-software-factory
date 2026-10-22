@@ -5,7 +5,10 @@ specification. The Task is the source of truth.
 These rules always apply:
 
 1. Make the smallest change that fulfils the Task. Do not reformat or refactor unrelated code.
-2. `make test` is the acceptance suite. Run it when you are done and fix what you broke.
+2. `make test` runs the existing specs, not the ones written for this Task (you cannot see those). Run it
+   when you are done to catch regressions. If an existing spec fails because the Task changes the behaviour
+   it checks, leave both the spec and the code alone: the spec is updated elsewhere. Fix only the failures
+   the Task does not call for.
 3. Only edit files. Do not run `git commit`, `git branch`, `git push` or anything else that changes git
    state: the Factory records your work.
 4. You run offline in a prebuilt environment: what the project needs is already installed, and the

@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/yeiniel/agentic-software-factory/src/factory/graph.schema.json",
+  "title": "Factory Graph",
+  "description": "graph.json: states and transitions. The shape only; the cross-references (reachability, targets, branches, files, placeholders) are the load-time checks of spec 0008.",
+  "type": "object",
+  "required": ["start", "error", "states"],
+  "additionalProperties": false,
+  "properties": {
+    "start": { "$ref": "#/$defs/name", "description": "The loop whose attempts are the Runs." },
+    "error": { "$ref": "#/$defs/name", "description": "The blocked status an Adapter error or a malformed verdict leads to." },
+    "states": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": { "$ref": "#/$defs/state" }
+    }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "path": {
+      "description": "Relative to the Graph folder; never absolute, never leaving it.",
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$"
+    },
+    "timeout": {
+      "description": "Seconds, or the name of a Factory config key.",
+      "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }]
+    },
+    "trigger": {
+      "description": "An outcome from the closed list the core owns; red:<check> names a failed check.",
+      "type": "string",
+      "pattern": "^(green|red|crashed|timed-out|exhausted|advanced|main-moved|red:[a-z][a-z0-9-]*)$"
+    },
+    "target": {
+      "description": "A state; an enclosing loop (the next attempt); or $exit, which leaves the enclosing compound state, succeeded.",
+      "type": "string",
+      "pattern": "^(\\$exit|[a-z][a-z0-9-]*)$"
+    },
+    "source": {
+      "description": "What a checkout is of: the base, or the branch an Activity output made.",
+      "oneOf": [
+        { "const": "base" },
+        {
+          "type": "object",
+          "required": ["branch-of"],
+          "additionalProperties": false,
+          "properties": { "branch-of": { "$ref": "#/$defs/name" } }
+        }
+      ]
+    },
+    "feedback": {
+      "type": "object",
+      "required": ["for", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "for": { "$ref": "#/$defs/name", "description": "The role that receives it." },
+        "message": { "$ref": "#/$defs/path", "description": "May use only {check} and {output}." }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "required": ["on", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "$ref": "#/$defs/trigger" },
+        "to": { "$ref": "#/$defs/target" },
+        "reset": { "description": "Loops that run again although they succeeded.", "type": "array", "items": { "$ref": "#/$defs/name" }, "uniqueItems": true },
+        "feedback": { "$ref": "#/$defs/feedback" }
+      }
+    },
+    "transitions": { "type": "array", "items": { "$ref": "#/$defs/transition" } },
+    "state": {
+      "oneOf": [
+        { "$ref": "#/$defs/agentic" },
+        { "$ref": "#/$defs/deterministic" },
+        { "$ref": "#/$defs/loop" },
+        { "$ref": "#/$defs/parallel" },
+        { "$ref": "#/$defs/publish" },
+        { "$ref": "#/$defs/status" }
+      ]
+    },
+    "agentic": {
+      "description": "Runs a role in an agentic Environment; everything handed to the executor is here.",
+      "type": "object",
+      "required": ["type", "role", "instruction", "system-prompt", "skills", "prompt", "workspace", "timeout", "session", "output", "transitions"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "agentic" },
+        "role": { "$ref": "#/$defs/name" },
+        "instruction": { "$ref": "#/$defs/path" },
+        "system-prompt": { "$ref": "#/$defs/path" },
+        "skills": { "$ref": "#/$defs/path", "description": "A folder, copied into the Context outside cwd." },
+        "prompt": {
+          "description": "The sections of the prompt, in order.",
+          "type": "array",
+          "items": { "enum": ["instruction", "task", "feedback"] },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "workspace": { "$ref": "#/$defs/source", "description": "What cwd is a checkout of." },
+        "timeout": { "$ref": "#/$defs/timeout" },
+        "session": { "enum": ["resume", "fresh"], "description": "Whether a retry keeps the Pi session in the Context." },
+        "output": {
+          "type": "object",
+          "required": ["branch"],
+          "additionalProperties": false,
+          "properties": { "branch": { "$ref": "#/$defs/name", "description": "Where the result of cwd is recorded." } }
+        },
+        "transitions": { "$ref": "#/$defs/transitions" }
+      }
+    },
+    "deterministic": {
+      "description": "Runs a script in a deterministic Environment (no network); everything handed to the executor is here.",
+      "type": "object",
+      "required": ["type", "script", "inputs", "environment", "checks", "timeout", "transitions"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "deterministic" },
+        "script": { "$ref": "#/$defs/path", "description": "Written into the Context as `run`." },
+        "inputs": {
+          "description": "Folder of cwd -> what is checked out there.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/name" },
+          "additionalProperties": { "$ref": "#/$defs/source" }
+        },
+        "environment": { "$ref": "#/$defs/name", "description": "The input whose Containerfile the Environment is built from." },
+        "checks": { "description": "The failed checks the script may report.", "type": "array", "items": { "$ref": "#/$defs/name" }, "minItems": 1, "uniqueItems": true },
+        "timeout": { "$ref": "#/$defs/timeout" },
+        "output": {
+          "type": "object",
+          "required": ["branch", "path"],
+          "additionalProperties": false,
+          "properties": {
+            "branch": { "$ref": "#/$defs/name" },
+            "path": { "$ref": "#/$defs/path", "description": "Inside the Context; recorded as the branch when green." }
+          }
+        },
+        "transitions": { "$ref": "#/$defs/transitions" }
+      }
+    },
+    "loop": {
+      "type": "object",
+      "required": ["type", "attempts", "entry", "contains", "transitions"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "loop" },
+        "attempts": { "type": "integer", "minimum": 1, "description": "Fresh on each entry." },
+        "runs": { "type": "boolean", "description": "Each attempt is a Run. Only the start loop." },
+        "entry": { "$ref": "#/$defs/name" },
+        "contains": { "type": "array", "items": { "$ref": "#/$defs/name" }, "minItems": 1, "uniqueItems": true },
+        "transitions": { "$ref": "#/$defs/transitions" }
+      }
+    },
+    "parallel": {
+      "description": "Regions run together; green fires when all have succeeded.",
+      "type": "object",
+      "required": ["type", "regions", "transitions"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "parallel" },
+        "regions": { "type": "array", "items": { "$ref": "#/$defs/name" }, "minItems": 1, "uniqueItems": true },
+        "transitions": { "$ref": "#/$defs/transitions" }
+      }
+    },
+    "publish": {
+      "description": "The core's effect: record the named output and fast-forward main from the base. Outcomes: advanced, main-moved.",
+      "type": "object",
+      "required": ["type", "branch", "transitions"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "publish" },
+        "branch": { "$ref": "#/$defs/name" },
+        "transitions": { "$ref": "#/$defs/transitions" }
+      }
+    },
+    "status": {
+      "description": "A Task status, the only ones Adapters and the Console see. blocked is terminal; done is reached only through publish.",
+      "type": "object",
+      "required": ["type", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "status" },
+        "status": { "enum": ["done", "blocked"] },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "if": { "properties": { "status": { "const": "blocked" } } },
+      "then": { "required": ["reason"] }
+    }
+  }
+}
