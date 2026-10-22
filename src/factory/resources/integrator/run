@@ -1,7 +1,7 @@
 #!/bin/sh
 # The Integrator (a pure function from a Run Context to a verdict plus a branch).
 #
-# Runs with the Context's `cwd` as its working directory. `cwd` holds clones `base`, `main`,
+# Runs with the Context's `cwd` as its working directory. `cwd` holds clones `base`,
 # `implementor` and `acceptance-writer`. It writes the verdict to ../out/{result,failed_check,
 # output} and, on green, the integrated clone to ../out/integrated. `output` is the
 # Acceptance Report or the merge output, verbatim. Exit status is non-zero only when the Integrator
@@ -26,8 +26,8 @@ red() { # failed_check, output file
 	exit 0
 }
 
-# 1. Combine the branches on top of the latest main. A conflict fails the Run.
-git clone -q "$cwd/main" "$out/integrated" || exit 1
+# 1. Combine the branches on top of the base (which is `main`: Tasks run in sequence). A conflict fails the Run.
+git clone -q "$cwd/base" "$out/integrated" || exit 1
 identity "$out/integrated"
 for role in implementor acceptance-writer; do
 	git -C "$out/integrated" fetch -q "$cwd/$role" HEAD || exit 1

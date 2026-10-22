@@ -29,13 +29,13 @@ def commit(path, files, message="change"):
 
 @pytest.fixture
 def context(tmp_path):
-    """A Run Context's `cwd`: base, main (same as base) and a clone per role; results go to ../out."""
+    """A Run Context's `cwd`: base and a clone per role; results go to ../out."""
     ctx = tmp_path / "ctx" / "cwd"
     base = ctx / "base"
     base.mkdir(parents=True)
     git(base, "init", "-q", "-b", "main")
     commit(base, {"Makefile": MAKEFILE, "check.sh": CHECK, "code.txt": "one\n"}, "base")
-    for name in ("main", "implementor", "acceptance-writer"):
+    for name in ("implementor", "acceptance-writer"):
         subprocess.run(["git", "clone", "-q", str(base), str(ctx / name)], check=True)
     return ctx
 
@@ -53,17 +53,15 @@ def integrate(ctx):
 def test_branches_that_merge_and_pass_are_green_and_the_result_is_returned(context):
     commit(context / "acceptance-writer", {"spec_feature": ""})
     commit(context / "implementor", {"feature.txt": "feature\n"})
-    commit(context / "main", {"unrelated.txt": "moved\n"}, "main moved")
     verdict = integrate(context)
     assert verdict["result"].strip() == "green"
     result = context.parent / "out" / "integrated"
-    assert all((result / name).exists() for name in ("feature.txt", "spec_feature", "unrelated.txt"))
+    assert all((result / name).exists() for name in ("feature.txt", "spec_feature", "code.txt"))
 
 
 def test_a_conflict_fails_the_second_check_with_git_output(context):
-    commit(context / "acceptance-writer", {"spec_feature": ""})
+    commit(context / "acceptance-writer", {"code.txt": "three\n"})
     commit(context / "implementor", {"code.txt": "two\n"})
-    commit(context / "main", {"code.txt": "three\n"}, "main moved")
     verdict = integrate(context)
     assert verdict["result"].strip() == "red" and verdict["failed_check"] == "conflict"
     assert "code.txt" in verdict["output"]

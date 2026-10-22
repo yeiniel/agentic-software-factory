@@ -1,6 +1,6 @@
 ## calls
 {"args": {}, "body": null, "op": "listen", "port": "event-source"}
-{"args": {"stream": "task/t1"}, "body": {"kind": "task-received", "repo": "r", "run": null, "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}
+{"args": {"stream": "task/t1"}, "body": {"graph": "unversioned", "kind": "task-received", "repo": "r", "run": null, "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}
 {"args": {"task": "t1"}, "body": null, "op": "get-prompt", "port": "task-store"}
 {"args": {"repo": "r"}, "body": null, "op": "main-head", "port": "repo-host"}
 {"args": {"stream": "task/t1"}, "body": {"error": "repo-host main-head: Command '['/home/yeiniel/Projects/github.com/yeiniel/agentic-software-factory/.venv/bin/python', '/home/yeiniel/Projects/github.com/yeiniel/agentic-software-factory/tests/standins/standin.py', 'repo-host', 'main-head', '--repo', 'r']' timed out after 1 seconds", "kind": "infrastructure-error", "run": null, "runs_used": 0, "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}

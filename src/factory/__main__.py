@@ -29,12 +29,13 @@ def main() -> None:
         "context_root",
         str((Path(os.environ.get("RUNNER_ROOT") or Path.home() / ".local/share/asf/runner") / "contexts").resolve()),
     )
+    version = config.get("graph_version") or os.environ.get("ASF_GRAPH_VERSION") or "unversioned"
     try:
-        load(Path(config.get("graph", RESOURCES)))  # checked once, here: the Factory does not start on an invalid Graph
+        graph = load(Path(config.get("graph", RESOURCES)), version)  # checked once: no start on an invalid Graph
     except GraphError as error:
         raise SystemExit(f"factory: invalid Graph: {error}") from error
     adapters = {name: Adapter(name, command, config["adapter_timeout"]) for name, command in config["adapters"].items()}
-    serve(adapters, config)
+    serve(adapters, config, graph)
 
 
 main()

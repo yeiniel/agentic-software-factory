@@ -2,12 +2,9 @@
 
 from .adapters import AdapterError
 
-VALIDATION_CHECKS = ("specs-not-red", "merge")
-INTEGRATION_CHECKS = ("conflict", "suite")
 
-
-def read(files: dict[str, str], checks: tuple[str, ...] = INTEGRATION_CHECKS) -> dict[str, str]:
-    """Validate the text of a deterministic process's top-level result files; returns the verdict."""
+def read(files: dict[str, str], checks: tuple[str, ...]) -> dict[str, str]:
+    """Validate a deterministic Activity's result files; `checks` are the failed checks its Graph state declares."""
     result = files.get("result", "").strip()
     if result not in ("green", "red"):
         raise AdapterError(f"a deterministic process left a malformed verdict: result is {result!r}")

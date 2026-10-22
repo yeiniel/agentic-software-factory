@@ -7,12 +7,13 @@ from typing import Any
 
 from .adapters import Adapter, AdapterError, Json
 from .contexts import ContextStore
-from .run import TaskRunner
+from .graph import Graph
+from .interpreter import TaskRunner
 
 END: object = object()
 
 
-def serve(adapters: dict[str, Adapter], config: Json) -> None:
+def serve(adapters: dict[str, Adapter], config: Json, graph: Graph) -> None:
     events: queue.Queue[Any] = queue.Queue()
     failure: list[Exception] = []
 
@@ -26,7 +27,7 @@ def serve(adapters: dict[str, Adapter], config: Json) -> None:
             events.put(END)
 
     threading.Thread(target=pump, daemon=True).start()
-    runner = TaskRunner(adapters, config, ContextStore(config["context_root"]))
+    runner = TaskRunner(adapters, config, ContextStore(config["context_root"]), graph)
     while (event := events.get()) is not END:
         if event["type"] == "task":
             runner.execute(event["task"], event["repo"])

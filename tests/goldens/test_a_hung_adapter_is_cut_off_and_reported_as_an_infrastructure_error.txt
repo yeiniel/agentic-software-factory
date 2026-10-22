@@ -1,6 +1,6 @@
 ## calls
 {"args": {}, "body": null, "op": "listen", "port": "event-source"}
-{"args": {"stream": "task/t1"}, "body": {"kind": "task-received", "repo": "r", "run": null, "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}
+{"args": {"stream": "task/t1"}, "body": {"graph": "unversioned", "kind": "task-received", "repo": "r", "run": null, "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}
 {"args": {"task": "t1"}, "body": null, "op": "get-prompt", "port": "task-store"}
 {"args": {"repo": "r"}, "body": null, "op": "main-head", "port": "repo-host"}
 {"args": {"base": "commit-1", "name": "factory/t1/acceptance-writer", "repo": "r"}, "body": null, "op": "create-branch", "port": "repo-host"}
@@ -26,7 +26,7 @@
 {"args": {"run": "1", "stream": "task/t1"}, "body": {"duration": "<duration>", "id": "span-6", "kind": "finished", "name": "assemble", "outcome": "ok", "parent": "span-3", "run": 1, "span": "activity", "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}
 {"args": {"run": "1", "stream": "task/t1"}, "body": {"id": "span-7", "kind": "started", "name": "validate", "parent": "span-3", "run": 1, "span": "activity", "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}
 {"args": {"build-timeout": "0", "context": "<contexts>/t1/validate-1-1", "timeout": "1800", "type": "deterministic"}, "body": null, "op": "run", "port": "runner"}
-{"args": {"run": "1", "stream": "task/t1"}, "body": {"exit_status": 0, "files": {"output": "specs red", "result": "green"}, "kind": "validation", "output": "", "run": 1, "timed_out": false, "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}
+{"args": {"run": "1", "stream": "task/t1"}, "body": {"exit_status": 0, "files": {"output": "specs red", "result": "green"}, "kind": "validate", "output": "", "run": 1, "timed_out": false, "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}
 {"args": {"run": "1", "stream": "task/t1"}, "body": {"duration": "<duration>", "id": "span-7", "kind": "finished", "name": "validate", "outcome": "green", "parent": "span-3", "run": 1, "span": "activity", "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}
 {"args": {"run": "1", "stream": "task/t1"}, "body": {"duration": "<duration>", "id": "span-3", "kind": "finished", "name": "1", "outcome": "green", "parent": "span-2", "run": 1, "span": "attempt", "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}
 {"args": {"run": "1", "stream": "task/t1"}, "body": {"attempt": 1, "kind": "attempt", "loop": "writer", "result": "green", "run": 1, "trace": "628b49d96dcde97a430dd4f597705899"}, "op": "append", "port": "records"}

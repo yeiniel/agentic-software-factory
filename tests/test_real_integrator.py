@@ -90,10 +90,10 @@ def test_a_persisting_merge_conflict_blocks_the_task_and_leaves_main_untouched(r
     assert "CONFLICT" in str(out.state["status_body"]["t1"][-1]["history"])
 
 
-def test_a_human_push_between_verdict_and_push_means_a_fresh_integrator_run(run_factory):
+def test_a_human_push_between_verdict_and_push_blocks_the_task_with_main_as_the_human_left_it(run_factory):
     out = factory(run_factory, main_moves_after_integrator=[1])
 
-    assert len(out.state["integrator_runs"]) == 2
+    assert len(out.state["integrator_runs"]) == 1
     assert out.git_main("human.txt") == "pushed by a human"
-    assert out.git_main("src/greeting.txt") == "hello\n"
-    assert out.status("t1") == ["running", "done"]
+    assert out.git_main("src/greeting.txt") is None
+    assert out.status("t1") == ["running", "blocked"]

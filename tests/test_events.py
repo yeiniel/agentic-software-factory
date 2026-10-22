@@ -111,8 +111,8 @@ def test_existing_event_kinds_are_unchanged(run_factory):
         "attempt",
         "agent",
         "branch-recorded",
-        "validation",
-        "integrator",
+        "validate",
+        "integrate",
         "fast-forward",
         "run-finished",
     } <= kinds
