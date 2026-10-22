@@ -133,12 +133,14 @@ def test_feedback_is_truncated_to_the_size_cap(run_factory, golden_transcript):
     golden_transcript(out)
 
 
-def test_main_moving_between_verdict_and_push_triggers_a_fresh_integrator_run(run_factory, golden_transcript):
+def test_main_moving_between_verdict_and_push_blocks_the_task_with_reason_main_moved(run_factory):
     out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "main_moves_after_integrator": [1]})
 
     assert out.exit_code == 0, out.stderr
     assert out.main["human.txt"] == "pushed by a human"
-    golden_transcript(out)
+    assert out.status("t1") == ["running", "blocked"]
+    assert out.events("task/t1", "task-status")[-1]["reason"] == "main-moved"
+    assert len(out.calls_to("runner", "run")) == 4  # two Agents, validation and one Integrator run
 
 
 def test_two_tasks_run_one_after_the_other(run_factory, golden_transcript):

@@ -50,16 +50,6 @@ def test_an_infrastructure_error_that_cannot_be_reported_is_said_on_stderr(run_f
     golden_transcript(out)
 
 
-def test_main_moving_on_every_integration_attempt_blocks_the_task_when_the_factory_gives_up(
-    run_factory, golden_transcript
-):
-    out = run_factory({**SCENARIO, "main_moves_after_integrator": [1, 2, 3, 4, 5]})
-
-    assert out.exit_code == 0, out.stderr
-    assert out.status("t1") == ["running", "blocked"]
-    golden_transcript(out)
-
-
 def test_a_streaming_event_source_that_prints_invalid_json_stops_the_factory_and_is_stopped(run_factory):
     out = run_factory({"events": [{"raw": "{oops"}, {"sleep": 30}]}, timeout=20)
 

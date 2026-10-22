@@ -162,7 +162,22 @@ def check_targets(states: dict[str, Json]) -> None:
                 raise GraphError(f"{where}, which is not a loop and has no attempts")
 
 
-def load(folder: Path) -> Json:
+class Graph:
+    """A checked Graph: what the interpreter reads."""
+
+    def __init__(self, folder: Path, version: str, data: Json) -> None:
+        self.folder = folder
+        self.version = version
+        self.start: str = data["start"]
+        self.error: str = data["error"]  # the blocked status an Adapter error or a malformed verdict leads to
+        self.states: dict[str, Json] = data["states"]
+        self.roles = list(dict.fromkeys(s["role"] for s in self.states.values() if s["type"] == "agentic"))
+
+    def read(self, relative: str) -> str:
+        return (self.folder / relative).read_text().strip()
+
+
+def load(folder: Path, version: str) -> Graph:
     data: Json = json.loads((folder / "graph.json").read_text())
     check_schema(data)
     if orphans := unreached(data):
@@ -174,4 +189,4 @@ def load(folder: Path) -> Json:
     check_targets(data["states"])
     if cycle := find_cycle(data["states"]):
         raise GraphError("a cycle that no attempt budget bounds: " + " -> ".join(cycle))
-    return data
+    return Graph(folder, version, data)

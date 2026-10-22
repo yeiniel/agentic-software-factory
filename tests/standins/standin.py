@@ -231,7 +231,7 @@ def run_script(ctx):
 def run_integrator(args, ctx):
     if not (ctx / "cwd" / "base").is_dir():
         return run_script(ctx)
-    if not (ctx / "cwd" / "main").is_dir():
+    if not (ctx / "cwd" / "implementor").is_dir():
         return run_validation(ctx)
     with locked() as state:
         n = bump(state, "integrator") - 1
@@ -314,7 +314,8 @@ def scripted_verdict(plan, ctx):
             files["failed_check"] = plan["failed_check"]
     else:
         cwd = ctx / "cwd"
-        base, merged = read_tree(cwd / "base"), read_tree(cwd / "main")
+        base = read_tree(cwd / "base")
+        merged = dict(base)
         for role in ("implementor", "acceptance-writer"):
             tree = read_tree(cwd / role)
             merged.update({k: v for k, v in tree.items() if base.get(k) != v})

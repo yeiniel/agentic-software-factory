@@ -45,7 +45,7 @@ def lane_of(call, spans):
             return body["role"]
         if body["kind"] in ("attempt", "loop-feedback"):
             return LANES[body["loop"] == "implementor"]
-        return LANES[0] if body["kind"] == "validation" else None
+        return LANES[0] if body["kind"] == "validate" else None
     if call["port"] in ("repo-host", "runner"):
         return next(filter(None, (role_in(str(v)) for v in args.values())), None)
     return None
