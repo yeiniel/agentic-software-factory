@@ -49,7 +49,7 @@ The stdout and stderr of `make test`, made informative on failure by a good spec
 What the Factory hands back to a retriggered Agent after a failure: why it failed, the spec run output, conflicts, or both, a note that its previous changes were discarded, and a reminder to check against the Task when it is unclear whether the implementation or the test is at fault. It never discloses the other Agent's branch.
 
 **Blocked**:
-The status of a Task that ended without a Deliverable and now waits for a human, with a reason the Graph gives: in the default Graph it reached its Run cap (2 Runs), an Agent's loop used up its attempts, the fast-forward of `main` was refused, or there was an infrastructure error.
+The status of a Task that ended without a Deliverable and now waits for a human, with a reason the Graph gives: in the default Graph it reached its Run cap, an Agent's loop used up its attempts, the fast-forward of `main` was refused, or there was an infrastructure error.
 
 **Graph**:
 The description of how a Run proceeds: its Activities, which of them run in parallel, the retry loops around them, and which failure retriggers whom with what Feedback, together with the prompts and skills of its roles. It is the same for every Task, is versioned, and the Factory ships a default. Only a human changes it; an Agent never sees or edits it.
