@@ -41,3 +41,18 @@ def test_the_factory_refuses_a_cycle_that_no_attempt_budget_bounds(run_factory, 
     assert "write" in out.stderr
     assert "validate" in out.stderr
     assert out.calls == []
+
+
+def test_the_factory_refuses_a_retry_of_something_that_is_not_a_loop(run_factory, graph_variant):
+    def crash_retries_the_parallel_state(data):
+        crashed = next(t for t in data["states"]["implement"]["transitions"] if t["on"] == "crashed")
+        crashed["to"] = "work"  # `work` encloses `implement`, but it has no attempts to spend
+
+    out = run_factory(SCENARIO, graph=graph_variant(crash_retries_the_parallel_state))
+
+    assert out.exit_code == 1
+    assert "factory: invalid Graph" in out.stderr
+    assert "implement" in out.stderr  # where
+    assert "work" in out.stderr  # what it goes to
+    assert "not a loop" in out.stderr
+    assert out.calls == []
