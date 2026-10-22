@@ -3,6 +3,7 @@
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +18,7 @@ import gitrepohost
 
 STANDIN = Path(__file__).parent / "standins" / "standin.py"
 ADAPTERS = Path(__file__).parent.parent / "adapters"
+DEFAULT_GRAPH = Path(__file__).parent.parent / "src" / "factory" / "resources"
 PORTS = ["event-source", "task-store", "repo-host", "runner", "records"]
 
 
@@ -92,6 +94,25 @@ def run_factory(tmp_path):
         return Outcome(tmp_path, process)
 
     return run
+
+
+@pytest.fixture
+def graph_variant(tmp_path):
+    """`graph_variant(change, files)`: a copy of the shipped Graph with `graph.json` changed and files added."""
+
+    def make(change=None, files=None):
+        folder = tmp_path / "graph"
+        shutil.copytree(DEFAULT_GRAPH, folder, ignore=shutil.ignore_patterns("__pycache__"))
+        data = json.loads((folder / "graph.json").read_text())
+        if change:
+            change(data)
+        (folder / "graph.json").write_text(json.dumps(data))
+        for name, text in (files or {}).items():
+            (folder / name).parent.mkdir(parents=True, exist_ok=True)
+            (folder / name).write_text(text)
+        return str(folder)
+
+    return make
 
 
 @pytest.fixture

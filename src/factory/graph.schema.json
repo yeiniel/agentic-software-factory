@@ -71,13 +71,17 @@
     },
     "transitions": { "type": "array", "items": { "$ref": "#/$defs/transition" } },
     "state": {
-      "oneOf": [
-        { "$ref": "#/$defs/agentic" },
-        { "$ref": "#/$defs/deterministic" },
-        { "$ref": "#/$defs/loop" },
-        { "$ref": "#/$defs/parallel" },
-        { "$ref": "#/$defs/publish" },
-        { "$ref": "#/$defs/status" }
+      "description": "The kind is chosen by `type`, so a mistake is reported against that kind.",
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "enum": ["agentic", "deterministic", "loop", "parallel", "publish", "status"] } },
+      "allOf": [
+        { "if": { "required": ["type"], "properties": { "type": { "const": "agentic" } } }, "then": { "$ref": "#/$defs/agentic" } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "deterministic" } } }, "then": { "$ref": "#/$defs/deterministic" } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "loop" } } }, "then": { "$ref": "#/$defs/loop" } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "parallel" } } }, "then": { "$ref": "#/$defs/parallel" } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "publish" } } }, "then": { "$ref": "#/$defs/publish" } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "status" } } }, "then": { "$ref": "#/$defs/status" } }
       ]
     },
     "agentic": {

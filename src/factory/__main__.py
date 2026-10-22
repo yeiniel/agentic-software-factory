@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .adapters import Adapter, Json
 from .factory import serve
+from .graph import RESOURCES, GraphError, load
 
 DEFAULTS = {
     "adapter_timeout": 60,
@@ -28,6 +29,10 @@ def main() -> None:
         "context_root",
         str((Path(os.environ.get("RUNNER_ROOT") or Path.home() / ".local/share/asf/runner") / "contexts").resolve()),
     )
+    try:
+        load(Path(config.get("graph", RESOURCES)))  # checked once, here: the Factory does not start on an invalid Graph
+    except GraphError as error:
+        raise SystemExit(f"factory: invalid Graph: {error}") from error
     adapters = {name: Adapter(name, command, config["adapter_timeout"]) for name, command in config["adapters"].items()}
     serve(adapters, config)
 
