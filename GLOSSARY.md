@@ -51,8 +51,11 @@ What the Factory hands back to a retriggered Agent after a failure: why it faile
 **Blocked**:
 The status of a Task that reached its Run cap (2 Runs by default), or whose Acceptance Writer or Implementor used up its attempts within a Run, without a Deliverable and now waits for a human.
 
+**Graph**:
+The description of how a Run proceeds: its Activities, which of them run in parallel, the retry loops around them, and which failure retriggers whom with what Feedback, together with the prompts and skills of its roles. It is the same for every Task, is versioned, and the Factory ships a default. Only a human changes it; an Agent never sees or edits it.
+
 **Activity**:
-One step in a Run's fixed graph: assemble the Run Contexts, run the Agents, validate, integrate, publish.
+One step in a Graph: assemble the Run Contexts, run the Agents, validate, integrate, publish.
 
 **Adapter**:
 A swappable external executable through which the Factory performs an effect: events, Task Store, Repo Host, running an Environment on a Run Context, and records.
@@ -62,7 +65,7 @@ The read-only view onto Tasks, their Runs and the Factory's metrics, kept curren
 _Avoid_: Dashboard, Monitor
 
 **Run**:
-One attempt to complete a Task: each Agent is launched in its own Environment with its own Run Context, the Acceptance Writer's work is validated, and the Integrator is applied to their results. An Agent that crashes, or an Acceptance Writer whose specs fail validation, is retried within the Run up to a limit per role.
+One attempt to complete a Task; in the default Graph, each Agent is launched in its own Environment with its own Run Context, the Acceptance Writer's work is validated, and the Integrator is applied to their results. An Agent that crashes, or an Acceptance Writer whose specs fail validation, is retried within the Run up to a limit per role.
 
 **Deliverable**:
 The outcome that makes a Task done: the acceptance test suite passes on `main`.
