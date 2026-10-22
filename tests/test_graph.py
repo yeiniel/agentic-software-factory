@@ -83,3 +83,20 @@ def test_the_factory_refuses_an_outcome_that_has_no_transition(run_factory, grap
     assert "integrate" in out.stderr  # where
     assert "red:suite" in out.stderr  # which outcome
     assert out.calls == []
+
+
+def test_the_factory_refuses_a_path_into_done_that_does_not_come_from_publish(run_factory, graph_variant):
+    def a_failed_suite_is_done(data):
+        failed = next(t for t in data["states"]["integrate"]["transitions"] if t["on"] == "red:suite")
+        failed["to"] = "done"
+        failed.pop("feedback")
+        failed.pop("reset")
+
+    out = run_factory(SCENARIO, graph=graph_variant(a_failed_suite_is_done))
+
+    assert out.exit_code == 1
+    assert "factory: invalid Graph" in out.stderr
+    assert "integrate" in out.stderr  # where
+    assert "done" in out.stderr
+    assert "publish" in out.stderr  # who may
+    assert out.calls == []

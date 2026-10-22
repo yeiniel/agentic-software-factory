@@ -92,29 +92,41 @@ def unreached(data: Json) -> list[str]:
     return [name for name in states if name not in reached]
 
 
-def load(folder: Path) -> Json:
-    data: Json = json.loads((folder / "graph.json").read_text())
+def check_schema(data: Json) -> None:
     errors = list(Draft202012Validator(SCHEMA).iter_errors(data))  # pyright: ignore[reportUnknownMemberType]
     error = cast("Violation | None", best_match(errors))
     if error:
         where = ".".join(str(part) for part in error.absolute_path)
         raise GraphError(f"{where}: {error.message}")
-    if orphans := unreached(data):
-        raise GraphError(f"{orphans[0]}: no transition reaches this state")
-    states: dict[str, Json] = data["states"]
+
+
+def check_outcomes(states: dict[str, Json]) -> None:
     for name, state in states.items():
         handled = {t["on"] for t in state.get("transitions", [])}
         for outcome in outcomes(state):
             if outcome not in handled and outcome.split(":")[0] not in handled:
                 raise GraphError(f"{name}: no transition for {outcome}")
+
+
+def check_targets(states: dict[str, Json]) -> None:
     holders = enclosing(states)
     for name, state in states.items():
         for transition in state.get("transitions", []):
             target = transition["to"]
+            where = f"{name}: {transition['on']} goes to {target}"
+            if states.get(target, {}).get("status") == "done" and state["type"] != "publish":
+                raise GraphError(f"{where}, which is done; only publish may")
             if target in holders[name] and states[target]["type"] != "loop":
-                raise GraphError(
-                    f"{name}: {transition['on']} goes to {target}, which is not a loop and has no attempts"
-                )
+                raise GraphError(f"{where}, which is not a loop and has no attempts")
+
+
+def load(folder: Path) -> Json:
+    data: Json = json.loads((folder / "graph.json").read_text())
+    check_schema(data)
+    if orphans := unreached(data):
+        raise GraphError(f"{orphans[0]}: no transition reaches this state")
+    check_outcomes(data["states"])
+    check_targets(data["states"])
     if cycle := find_cycle(data["states"]):
         raise GraphError("a cycle that no attempt budget bounds: " + " -> ".join(cycle))
     return data
