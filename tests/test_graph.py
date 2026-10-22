@@ -3,6 +3,8 @@
 It is checked when the Factory starts, and a second Graph changes how a Task proceeds without a change in the core.
 """
 
+import pytest
+
 TASK_EVENT = {"type": "task", "task": "t1", "repo": "r"}
 SCENARIO = {"tasks": {"t1": "add a greeting"}, "events": [TASK_EVENT]}
 
@@ -124,4 +126,30 @@ def test_the_factory_refuses_a_feedback_message_with_a_placeholder_other_than_ch
     assert "factory: invalid Graph" in out.stderr
     assert "feedback/suite.md" in out.stderr  # where
     assert "{diff}" in out.stderr  # what
+    assert out.calls == []
+
+
+def test_the_factory_refuses_an_input_that_is_the_branch_of_nothing(run_factory, graph_variant):
+    def validate_the_branch_of_nobody(data):
+        data["states"]["validate"]["inputs"]["acceptance-writer"] = {"branch-of": "nobody"}
+
+    out = run_factory(SCENARIO, graph=graph_variant(validate_the_branch_of_nobody))
+
+    assert out.exit_code == 1
+    assert "factory: invalid Graph" in out.stderr
+    assert "validate" in out.stderr  # where
+    assert "nobody" in out.stderr  # what
+    assert out.calls == []
+
+
+@pytest.mark.parametrize(("state", "key"), [("implement", "workspace"), ("publish", "branch")])
+def test_the_factory_refuses_a_workspace_or_a_publish_of_a_branch_nothing_makes(run_factory, graph_variant, state, key):
+    def read_nobody(data):
+        data["states"][state][key] = {"branch-of": "nobody"} if key == "workspace" else "nobody"
+
+    out = run_factory(SCENARIO, graph=graph_variant(read_nobody))
+
+    assert out.exit_code == 1
+    assert state in out.stderr  # where
+    assert "nobody" in out.stderr  # what
     assert out.calls == []
