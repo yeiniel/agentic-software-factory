@@ -8,7 +8,7 @@ generator=${QUADLET_GENERATOR:-/usr/lib/systemd/system-generators/podman-system-
 units=$(mktemp -d)
 trap 'rm -rf "$units"' EXIT
 for f in "$repo"/deploy/quadlet/*; do
-	sed "s|@REPO@|$repo|g" "$f" >"$units/$(basename "$f")"
+	sed -e "s|@REPO@|$repo|g" -e "s|@GRAPH_VERSION@|test|g" "$f" >"$units/$(basename "$f")"
 done
 if ! output=$(QUADLET_UNIT_DIRS=$units "$generator" --user --dryrun 2>&1); then
 	printf '%s\n' "$output" >&2

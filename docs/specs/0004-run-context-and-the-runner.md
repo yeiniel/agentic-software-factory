@@ -28,7 +28,7 @@ A folder. The Runner creates nothing in it except its own state.
 ```
 
 - Agentic: `cwd` is the project clone on the role's branch.
-- Deterministic (the Integrator): `cwd` holds `base`, `main`, `implementor`, `acceptance-writer` (names are the core's), plus a copy of `main`'s `Containerfile` at its root.
+- Deterministic (the Integrator): `cwd` holds `base`, `implementor`, `acceptance-writer` (names are the Graph's), plus a copy of the base's `Containerfile` at its root.
 - Context paths: `contexts/<task>/implementor`, `contexts/<task>/acceptance-writer`, `contexts/<task>/validate-<run>-<attempt>`, `contexts/<task>/integrate-<run>-<attempt>`. Agent Contexts live across the Task's Runs; the Integrator gets a fresh Context per attempt. Contexts are kept after the Task for analysis.
 
 ## Runner contract

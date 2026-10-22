@@ -2,4 +2,6 @@
 # Usage: bin/restart
 # Restart the Console and the Factory, which rebuild their images: use after changing the core, Adapters or layers.
 set -eu
+# render the units again so the Factory's Graph version is the current commit
+"$(dirname "$0")/../deploy/install" >/dev/null
 systemctl --user restart console factory && echo "restarted: console factory"

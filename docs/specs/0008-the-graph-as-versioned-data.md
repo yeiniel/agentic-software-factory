@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: implemented
 ---
 
 # The Graph as versioned data
@@ -14,17 +14,17 @@ The Graph becomes a folder in the Factory repository that a small interpreter in
 
 ## The Graph
 
-- A folder holding `graph.json` and everything it names by relative path: role instructions, system prompts and skills, Activity `run` scripts and Feedback messages. The version of a Graph is the commit of the Factory repository it was loaded from; a Task pins it at `task-received` and the Records carry it.
-- States of `graph.json`:
-  - an **agentic** Activity: a role, and its Run Context inputs and output;
-  - a **deterministic** Activity: a script, and its inputs and output;
-  - a **loop**: a body, `attempts`, and transitions on the body's outcomes and on `exhausted`. The core defines that the budget resets on each entry and that a succeeded loop is kept when an enclosing loop re-enters; a transition may name loops to `reset`;
+- A folder holding `graph.json` and everything it names by relative path: role instructions, system prompts and skills, Activity `run` scripts and Feedback messages. The shape of `graph.json` is `src/factory/graph.schema.json`. The version of a Graph is the commit of the Factory repository it was loaded from; a Task pins it at `task-received` and the Records carry it.
+- A Graph is states and transitions, and the file says everything the core needs: nothing is implied by the order of a list or by a convention of the core. Every state lists its `transitions`, `{on, to}`, where `on` is an outcome from a closed list owned by the core (`green`, `red` or `red:<check>`, `crashed`, `timed-out`, `exhausted`, `advanced`, `main-moved`) and `to` is a state, `$exit` (leave the enclosing compound state, succeeded) or an enclosing loop (its next attempt). A transition may `reset` loops, and carry a Feedback message `{for: <role>, message: <file>}` that uses only `{check}` and `{output}` (raw, truncated to the Factory's cap).
+- Kinds of state:
+  - an **agentic** Activity carries everything handed to its executor: the role, the files of its instruction, system prompt and skills, the sections of its prompt, its workspace (`base`, or the branch of another Activity), its timeout, whether a retry keeps the Pi session, and the branch its result is recorded to;
+  - a **deterministic** Activity: the script, its inputs (what is checked out into which folder), which input holds the Containerfile of its Environment, the failed checks it may report, its timeout and the branch it records when green;
+  - a **loop**: `attempts`, an `entry` and the states it `contains`; the core defines that the budget resets on each entry and that a succeeded loop is kept when an enclosing loop re-enters unless a transition resets it. The start loop, marked `runs`, has the Runs as its attempts;
   - a **parallel** state: regions that run together and join when all have succeeded;
-  - **publish**: the core's effect that records the integrated branch and fast-forwards `main`; its outcomes are `advanced` and `main-moved`;
-  - **status** states: each maps to one of `running`, `done`, `blocked` plus a reason, the only statuses Adapters and the Console see. `blocked` is terminal; a human re-adds the Task.
-- Run Context inputs are `base` and `branch-of: <role>`; an output is "record this branch". `main` is not an input: it equals `base` for the whole Task.
-- Transitions match an outcome from a closed list owned by the core: `green`, `red` (optionally a failed check name), `crashed`, `timed-out`, `exhausted`, `error`, `advanced`, `main-moved`. A transition may carry a Feedback message for the role it retriggers, using only `{check}` and `{output}` (raw, truncated to the Factory's cap).
-- The default Graph is today's flow: the Run loop (2 attempts) around a parallel state of the Writer loop (2: Acceptance Writer, then Acceptance Test Validation) and the Implementor loop (2), then the Integrator, then publish. A failed integration leaves the Integrator and re-enters the Run loop with `reset` on the Implementor loop and the Integrator's output as Feedback. `error` goes to `blocked` with reason `infrastructure`; `main-moved` goes to `blocked` with reason `main-moved`.
+  - **publish**: the core's effect that fast-forwards `main` from the base to a recorded branch; its outcomes are `advanced` and `main-moved`;
+  - **status** states: `done` or `blocked` plus a reason; `running` is written by the core at the start of each Run. `blocked` is terminal; a human re-adds the Task.
+- `main` is not an input: it equals `base` for the whole Task.
+- The default Graph is today's flow: the Run loop (2 attempts) around a parallel state of the Writer loop (2: Acceptance Writer, then Acceptance Test Validation) and the Implementor loop (2), then the Integrator, then publish. A failed integration leaves the Integrator and re-enters the Run loop with `reset` on the Implementor loop and the Integrator's output as Feedback. The top-level `error` names the `blocked` status (reason `infrastructure`) an Adapter error or a malformed verdict leads to; `main-moved` goes to `blocked` with reason `main-moved`.
 
 ## Load-time checks
 

@@ -11,6 +11,8 @@ Image=factory.build
 Network=asf-net.network
 EnvironmentFile=%h/.config/asf/factory.env
 Environment=REPO_HOST_URL=git://git-server
+# The commit of this repository the Graph is loaded from; deploy/install renders it.
+Environment=ASF_GRAPH_VERSION=@GRAPH_VERSION@
 Environment=ADAPTER_CACHE=/var/cache/asf
 Environment=RECORDS_DIR=/var/lib/asf/records
 Environment=CONTAINER_HOST=unix:///run/podman.sock
