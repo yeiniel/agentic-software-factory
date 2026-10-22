@@ -4,6 +4,7 @@ Every rejection is a `GraphError` raised by `load`, so the Factory refuses to st
 """
 
 import json
+import re
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Protocol, cast
@@ -108,6 +109,32 @@ def check_outcomes(states: dict[str, Json]) -> None:
                 raise GraphError(f"{name}: no transition for {outcome}")
 
 
+def named_files(state: Json) -> list[str]:
+    """The paths a state names: what it hands to its executor, and the Feedback messages of its transitions."""
+    own = [state[key] for key in ("instruction", "system-prompt", "skills", "script") if key in state]
+    return own + [t["feedback"]["message"] for t in state.get("transitions", []) if "feedback" in t]
+
+
+def check_files(folder: Path, states: dict[str, Json]) -> None:
+    for name, state in states.items():
+        for relative in named_files(state):
+            if not (folder / relative).exists():
+                raise GraphError(f"{name}: {relative} is not in the Graph folder")
+
+
+def check_messages(folder: Path, states: dict[str, Json]) -> None:
+    """A Feedback message may use only `{check}` and `{output}`: it can never name another Agent's branch."""
+    for state in states.values():
+        for transition in state.get("transitions", []):
+            if "feedback" in transition:
+                message = transition["feedback"]["message"]
+                for placeholder in re.findall(r"\{([^{}]*)\}", (folder / message).read_text()):
+                    if placeholder not in ("check", "output"):
+                        raise GraphError(
+                            f"{message}: {{{placeholder}}} is not a placeholder; use {{check}} and {{output}}"
+                        )
+
+
 def check_targets(states: dict[str, Json]) -> None:
     holders = enclosing(states)
     for name, state in states.items():
@@ -125,6 +152,8 @@ def load(folder: Path) -> Json:
     check_schema(data)
     if orphans := unreached(data):
         raise GraphError(f"{orphans[0]}: no transition reaches this state")
+    check_files(folder, data["states"])
+    check_messages(folder, data["states"])
     check_outcomes(data["states"])
     check_targets(data["states"])
     if cycle := find_cycle(data["states"]):
