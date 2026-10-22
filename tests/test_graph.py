@@ -100,3 +100,28 @@ def test_the_factory_refuses_a_path_into_done_that_does_not_come_from_publish(ru
     assert "done" in out.stderr
     assert "publish" in out.stderr  # who may
     assert out.calls == []
+
+
+def test_the_factory_refuses_a_name_that_resolves_to_no_file_in_the_folder(run_factory, graph_variant):
+    def a_role_without_instruction(data):
+        data["states"]["implement"]["instruction"] = "roles/nobody/instruction.md"
+
+    out = run_factory(SCENARIO, graph=graph_variant(a_role_without_instruction))
+
+    assert out.exit_code == 1
+    assert "factory: invalid Graph" in out.stderr
+    assert "implement" in out.stderr  # where
+    assert "roles/nobody/instruction.md" in out.stderr  # what
+    assert out.calls == []
+
+
+def test_the_factory_refuses_a_feedback_message_with_a_placeholder_other_than_check_and_output(
+    run_factory, graph_variant
+):
+    out = run_factory(SCENARIO, graph=graph_variant(files={"feedback/suite.md": "The {diff} failed.\n\n{output}\n"}))
+
+    assert out.exit_code == 1
+    assert "factory: invalid Graph" in out.stderr
+    assert "feedback/suite.md" in out.stderr  # where
+    assert "{diff}" in out.stderr  # what
+    assert out.calls == []
