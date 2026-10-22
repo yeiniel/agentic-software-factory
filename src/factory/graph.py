@@ -135,6 +135,21 @@ def check_messages(folder: Path, states: dict[str, Json]) -> None:
                         )
 
 
+def branches_read(state: Json) -> list[str]:
+    """The branches a state reads: a workspace or an input that is the branch of another output, or a publish."""
+    sources = [state["workspace"]] if "workspace" in state else list(state.get("inputs", {}).values())
+    named = [source["branch-of"] for source in sources if source != "base"]
+    return named + ([state["branch"]] if state["type"] == "publish" else [])
+
+
+def check_branches(states: dict[str, Json]) -> None:
+    made = {s["output"]["branch"] for s in states.values() if "output" in s}
+    for name, state in states.items():
+        for branch in branches_read(state):
+            if branch not in made:
+                raise GraphError(f"{name}: reads the branch {branch}, which no Activity makes")
+
+
 def check_targets(states: dict[str, Json]) -> None:
     holders = enclosing(states)
     for name, state in states.items():
@@ -154,6 +169,7 @@ def load(folder: Path) -> Json:
         raise GraphError(f"{orphans[0]}: no transition reaches this state")
     check_files(folder, data["states"])
     check_messages(folder, data["states"])
+    check_branches(data["states"])
     check_outcomes(data["states"])
     check_targets(data["states"])
     if cycle := find_cycle(data["states"]):
