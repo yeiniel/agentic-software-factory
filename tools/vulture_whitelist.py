@@ -24,3 +24,5 @@ handler.do_POST
 format
 active = None  # TabbedContent.active
 active
+Violation = None  # factory.graph.Violation, used in a cast
+Violation

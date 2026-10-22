@@ -1,7 +1,7 @@
 # The Factory: the core and the Adapters, with a Podman client for the host's socket (ADR 0010).
 # Build context: the repository root.
 FROM docker.io/library/python:3.12-alpine
-RUN apk add --no-cache git podman-remote
+RUN apk add --no-cache git podman-remote && pip install --no-cache-dir jsonschema==4.25.1
 COPY src /opt/asf/src
 COPY adapters /opt/asf/adapters
 COPY images /opt/asf/images
