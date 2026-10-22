@@ -60,6 +60,38 @@ def find_cycle(states: dict[str, Json]) -> list[str] | None:
     return next(filter(None, (walk(name, []) for name in states)), None)
 
 
+def outcomes(state: Json) -> list[str]:
+    """What a state can end with: `red:<check>` is a failed check, which a plain `red` transition also covers."""
+    match state["type"]:
+        case "agentic":
+            return ["green", "crashed", "timed-out"]
+        case "deterministic":
+            return ["green", "timed-out", *(f"red:{check}" for check in state["checks"])]
+        case "loop":
+            return ["exhausted"]
+        case "parallel":
+            return ["green"]
+        case "publish":
+            return ["advanced", "main-moved"]
+        case _:
+            return []
+
+
+def unreached(data: Json) -> list[str]:
+    """The states that neither `start` nor `error` leads to, through containment or a transition."""
+    states: dict[str, Json] = data["states"]
+    reached: set[str] = set()
+    todo = [data["start"], data["error"]]
+    while todo:
+        name = todo.pop()
+        if name not in reached:
+            reached.add(name)
+            state = states.get(name, {})
+            todo += [*state.get("contains", []), *state.get("regions", [])]
+            todo += [t["to"] for t in state.get("transitions", []) if t["to"] != "$exit"]
+    return [name for name in states if name not in reached]
+
+
 def load(folder: Path) -> Json:
     data: Json = json.loads((folder / "graph.json").read_text())
     errors = list(Draft202012Validator(SCHEMA).iter_errors(data))  # pyright: ignore[reportUnknownMemberType]
@@ -67,7 +99,14 @@ def load(folder: Path) -> Json:
     if error:
         where = ".".join(str(part) for part in error.absolute_path)
         raise GraphError(f"{where}: {error.message}")
+    if orphans := unreached(data):
+        raise GraphError(f"{orphans[0]}: no transition reaches this state")
     states: dict[str, Json] = data["states"]
+    for name, state in states.items():
+        handled = {t["on"] for t in state.get("transitions", [])}
+        for outcome in outcomes(state):
+            if outcome not in handled and outcome.split(":")[0] not in handled:
+                raise GraphError(f"{name}: no transition for {outcome}")
     holders = enclosing(states)
     for name, state in states.items():
         for transition in state.get("transitions", []):

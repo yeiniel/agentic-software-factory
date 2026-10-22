@@ -56,3 +56,30 @@ def test_the_factory_refuses_a_retry_of_something_that_is_not_a_loop(run_factory
     assert "work" in out.stderr  # what it goes to
     assert "not a loop" in out.stderr
     assert out.calls == []
+
+
+def test_the_factory_refuses_a_state_no_transition_reaches(run_factory, graph_variant):
+    def add_an_orphan(data):
+        data["states"]["orphan"] = {"type": "status", "status": "blocked", "reason": "nobody gets here"}
+
+    out = run_factory(SCENARIO, graph=graph_variant(add_an_orphan))
+
+    assert out.exit_code == 1
+    assert "factory: invalid Graph" in out.stderr
+    assert "orphan" in out.stderr
+    assert "no transition reaches" in out.stderr
+    assert out.calls == []
+
+
+def test_the_factory_refuses_an_outcome_that_has_no_transition(run_factory, graph_variant):
+    def forget_the_failed_suite(data):
+        transitions = data["states"]["integrate"]["transitions"]
+        transitions[:] = [t for t in transitions if t["on"] != "red:suite"]
+
+    out = run_factory(SCENARIO, graph=graph_variant(forget_the_failed_suite))
+
+    assert out.exit_code == 1
+    assert "factory: invalid Graph" in out.stderr
+    assert "integrate" in out.stderr  # where
+    assert "red:suite" in out.stderr  # which outcome
+    assert out.calls == []
