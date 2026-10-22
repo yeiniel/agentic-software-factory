@@ -67,6 +67,15 @@ def load(folder: Path) -> Json:
     if error:
         where = ".".join(str(part) for part in error.absolute_path)
         raise GraphError(f"{where}: {error.message}")
+    states: dict[str, Json] = data["states"]
+    holders = enclosing(states)
+    for name, state in states.items():
+        for transition in state.get("transitions", []):
+            target = transition["to"]
+            if target in holders[name] and states[target]["type"] != "loop":
+                raise GraphError(
+                    f"{name}: {transition['on']} goes to {target}, which is not a loop and has no attempts"
+                )
     if cycle := find_cycle(data["states"]):
         raise GraphError("a cycle that no attempt budget bounds: " + " -> ".join(cycle))
     return data
