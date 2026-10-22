@@ -13,9 +13,6 @@ DEFAULTS = {
     "agent_timeout": 3600,
     "integrator_timeout": 1800,
     "build_timeout": 900,
-    "max_runs": 2,
-    "writer_attempts": 2,
-    "implementor_attempts": 2,
     "feedback_cap": 8000,
 }
 

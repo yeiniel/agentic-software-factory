@@ -40,8 +40,8 @@ Retries are nested loops (ADR 0016, spec 0005).
 
 - The outer loop is the Run, capped at **2 Runs per Task**. A failed integration costs a Run. After that the Task is **Blocked** and the history of each Run (inputs, Feedback, outcome) goes to a human.
 - Inside a Run, two inner loops run in parallel, each with its own attempt budget that is reset every time a Run enters it, so two Runs can run an Agent four times:
-  - **Writer loop** (`writer_attempts`, 2 by default): the Acceptance Writer, then Acceptance Test Validation. An attempt fails if the Agent crashes or times out, or if its specs are not red on base.
-  - **Implementor loop** (`implementor_attempts`, 2 by default): the Implementor. An attempt fails only if the Agent crashes or times out; whether the code is right is judged at integration.
+  - **Writer loop** (`attempts` in the Graph, 2 in the default one): the Acceptance Writer, then Acceptance Test Validation. An attempt fails if the Agent crashes or times out, or if its specs are not red on base.
+  - **Implementor loop** (`attempts` in the Graph, 2 in the default one): the Implementor. An attempt fails only if the Agent crashes or times out; whether the code is right is judged at integration.
 - If either inner loop uses up its budget the Task is Blocked and nothing is integrated; the history names the loop.
 - A loop that succeeded keeps its branch in the next Run and is not re-entered.
 - Blame is coarse, because `make test` gives only an exit code (ADR 0007). In the default Graph a failed integration (a conflict or a red suite) is the Implementor's, with the output as Feedback. The Acceptance Writer is retriggered only through Acceptance Test Validation. Specs that are red on base but wrong end the Task Blocked: a known gap.
