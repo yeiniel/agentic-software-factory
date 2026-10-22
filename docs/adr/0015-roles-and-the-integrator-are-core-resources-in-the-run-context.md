@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0020 (where the resources live and who owns them)
 ---
 
 # Roles and the Integrator are core resources provisioned in the Run Context
