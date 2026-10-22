@@ -31,7 +31,9 @@ def main() -> None:
     )
     version = config.get("graph_version") or os.environ.get("ASF_GRAPH_VERSION") or "unversioned"
     try:
-        graph = load(Path(config.get("graph", RESOURCES)), version)  # checked once: no start on an invalid Graph
+        graph = load(
+            Path(config.get("graph", RESOURCES)), version, config
+        )  # checked once: no start on an invalid Graph
     except GraphError as error:
         raise SystemExit(f"factory: invalid Graph: {error}") from error
     adapters = {name: Adapter(name, command, config["adapter_timeout"]) for name, command in config["adapters"].items()}

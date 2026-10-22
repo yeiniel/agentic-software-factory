@@ -78,6 +78,21 @@ def outcomes(state: Json) -> list[str]:
             return []
 
 
+def check_names(data: Json) -> None:
+    """Everything the Graph points at is a state it defines."""
+    states: dict[str, Json] = data["states"]
+    for name in (data["start"], data["error"]):
+        if name not in states:
+            raise GraphError(f"{name} is not a state")
+    for name, state in states.items():
+        for child in [state.get("entry"), *state.get("contains", []), *state.get("regions", [])]:
+            if child is not None and child not in states:
+                raise GraphError(f"{name}: {child} is not a state")
+        for transition in state.get("transitions", []):
+            if transition["to"] != "$exit" and transition["to"] not in states:
+                raise GraphError(f"{name}: {transition['on']} goes to {transition['to']}, which is not a state")
+
+
 def unreached(data: Json) -> list[str]:
     """The states that neither `start` nor `error` leads to, through containment or a transition."""
     states: dict[str, Json] = data["states"]
@@ -142,6 +157,35 @@ def branches_read(state: Json) -> list[str]:
     return named + ([state["branch"]] if state["type"] == "publish" else [])
 
 
+def check_timeouts(states: dict[str, Json], config: Json) -> None:
+    """A timeout that is a name must be a key of the Factory's config."""
+    for name, state in states.items():
+        if isinstance(state.get("timeout"), str) and state["timeout"] not in config:
+            raise GraphError(f"{name}: the timeout {state['timeout']} is not in the Factory's config")
+
+
+def check_start(data: Json) -> None:
+    """The start loop's attempts are the Runs, and a Task ends in a status, so its states never `$exit`."""
+    states: dict[str, Json] = data["states"]
+    if [name for name, state in states.items() if state.get("runs")] != [data["start"]]:
+        raise GraphError("`runs` marks the start loop, and only the start loop: its attempts are the Runs")
+    for name, state in states.items():
+        for child in state.get("contains", []):
+            if states[child]["type"] == "loop":
+                raise GraphError(f"{name}: {child} is a loop inside a loop; a loop sits in a parallel state")
+    for name in states[data["start"]]["contains"]:
+        for transition in states[name].get("transitions", []):
+            if transition["to"] == "$exit":
+                raise GraphError(f"{name}: {transition['on']} goes to $exit, which would end the start loop")
+
+
+def check_environments(states: dict[str, Json]) -> None:
+    """The Environment is built from the Containerfile of one of the state's own inputs."""
+    for name, state in states.items():
+        if "environment" in state and state["environment"] not in state["inputs"]:
+            raise GraphError(f"{name}: the environment {state['environment']} is not one of its inputs")
+
+
 def check_branches(states: dict[str, Json]) -> None:
     made = {s["output"]["branch"] for s in states.values() if "output" in s}
     for name, state in states.items():
@@ -152,10 +196,17 @@ def check_branches(states: dict[str, Json]) -> None:
 
 def check_targets(states: dict[str, Json]) -> None:
     holders = enclosing(states)
+    roles = {s["role"] for s in states.values() if s["type"] == "agentic"}
     for name, state in states.items():
         for transition in state.get("transitions", []):
             target = transition["to"]
             where = f"{name}: {transition['on']} goes to {target}"
+            for reset in transition.get("reset", []):
+                if states.get(reset, {}).get("type") != "loop":
+                    raise GraphError(f"{where}, resetting {reset}, which is not a loop in the Graph")
+            feedback = transition.get("feedback")
+            if feedback and feedback["for"] not in roles:
+                raise GraphError(f"{where}, with Feedback for {feedback['for']}, a role the Graph does not run")
             if states.get(target, {}).get("status") == "done" and state["type"] != "publish":
                 raise GraphError(f"{where}, which is done; only publish may")
             if target in holders[name] and states[target]["type"] != "loop":
@@ -177,14 +228,18 @@ class Graph:
         return (self.folder / relative).read_text().strip()
 
 
-def load(folder: Path, version: str) -> Graph:
+def load(folder: Path, version: str, config: Json) -> Graph:
     data: Json = json.loads((folder / "graph.json").read_text())
     check_schema(data)
+    check_names(data)
     if orphans := unreached(data):
         raise GraphError(f"{orphans[0]}: no transition reaches this state")
     check_files(folder, data["states"])
     check_messages(folder, data["states"])
     check_branches(data["states"])
+    check_start(data)
+    check_environments(data["states"])
+    check_timeouts(data["states"], config)
     check_outcomes(data["states"])
     check_targets(data["states"])
     if cycle := find_cycle(data["states"]):

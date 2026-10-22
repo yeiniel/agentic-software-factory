@@ -12,16 +12,12 @@ from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from . import verdict as verdicts
 from .adapters import Adapter, AdapterError, Json
 from .contexts import Context, ContextStore
 from .graph import Graph
 from .prompts import compose, render
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def trace_id(task: str) -> str:
@@ -40,9 +36,6 @@ class Span:
     @property
     def traceparent(self) -> str:
         return f"00-{self.trace}-{self.id}-01"
-
-
-SUCCEEDED: Json = {"on": "green", "to": "$exit"}  # what a loop that succeeded does: its container carries on
 
 
 @dataclass
@@ -94,7 +87,6 @@ class Execution:
         self.succeeded: set[str] = set()  # loops kept when an enclosing loop enters again
         self.pending: dict[str, str] = {}  # role -> the Feedback its next attempt starts with
         self.ran: set[str] = set()  # roles whose Run Context exists
-        self.outputs: dict[str, Path] = {}  # branch -> where the Activity left it
         self.report = ""  # the output of the last Activity that was green
 
     def go(self) -> None:
@@ -191,8 +183,7 @@ class Execution:
             if outcome.transition["to"] != name:
                 return outcome
             last = outcome.output
-            if number < loop["attempts"]:
-                self.apply(outcome)
+            if number < loop["attempts"] and self.apply(outcome):
                 self.record("feedback", number, feedback=dict(self.pending))
         return Outcome(self.transition(name, "exhausted"), "max-runs", last)
 
@@ -206,8 +197,6 @@ class Execution:
             current = outcome.transition["to"]
 
     def execute(self, name: str, parent: str, attempt: int) -> Outcome:
-        if name in self.succeeded:
-            return Outcome(SUCCEEDED, "green", "")
         state = self.graph.states[name]
         match state["type"]:
             case "loop":
@@ -238,9 +227,12 @@ class Execution:
                     loop_span.outcome = "succeeded"
                     self.succeeded.add(name)
                     return outcome
+                if outcome.transition["to"] != name:  # not a retry: the Graph sends it somewhere else
+                    loop_span.outcome = "left"
+                    return outcome
                 last = outcome.output
                 text = self.apply(outcome)
-                if number < loop["attempts"]:
+                if text and number < loop["attempts"]:
                     self.record("loop-feedback", self.run, loop=name, attempt=number, feedback=text)
         return Outcome(self.transition(name, "exhausted"), "loop-exhausted", last, loop=name)
 
@@ -251,10 +243,12 @@ class Execution:
             outcome.said = True
         return outcome
 
-    def apply(self, outcome: Outcome) -> str:
-        """Take a retry: its Feedback waits for the role it is for."""
+    def apply(self, outcome: Outcome) -> str | None:
+        """Take a retry: the loops it resets run again, and its Feedback, if any, waits for the role it is for."""
         self.succeeded.difference_update(outcome.transition.get("reset", ()))
-        feedback = outcome.transition["feedback"]
+        feedback = outcome.transition.get("feedback")
+        if feedback is None:
+            return None
         text = render(self.graph.read(feedback["message"]), outcome.check, outcome.output, self.config["feedback_cap"])
         self.pending[feedback["for"]] = text
         return text
@@ -293,17 +287,18 @@ class Execution:
             state["prompt"], self.graph.read(state["instruction"]), self.prompt, self.pending.pop(role, None)
         )
         with self.span("activity", "assemble", parent):
-            if role in self.ran:  # a retry: the Pi session in the Context is kept, the code starts again from the base
+            if role in self.ran:  # a retry: the code starts again from the base
+                a["repo-host"].call("create-branch", repo=self.repo, name=branch, base=self.base)
+            if role in self.ran and state["session"] == "resume":  # the Pi session in the Context is kept
                 ctx = self.runner.contexts.get(self.task, role)
                 ctx.write("prompt", text)
                 ctx.remove("cwd")
-                a["repo-host"].call("create-branch", repo=self.repo, name=branch, base=self.base)
             else:
                 ctx = self.runner.contexts.create(self.task, role)
                 ctx.write("prompt", text)
                 ctx.write("system-prompt", self.graph.read(state["system-prompt"]))
                 ctx.copy(self.graph.folder / state["skills"], "skills")
-                self.ran.add(role)
+            self.ran.add(role)
             workspace = state["workspace"]
             source = branch if workspace == "base" else self.branch(workspace["branch-of"])
             a["repo-host"].call("checkout", repo=self.repo, branch=source, dest=ctx.path("cwd"))
@@ -349,13 +344,13 @@ class Execution:
             return Outcome(self.transition(name, trigger), check, verdict["output"])
         self.report = verdict["output"]
         if "output" in state:
-            self.outputs[state["output"]["branch"]] = ctx.path(state["output"]["path"])
+            branch = self.branch(state["output"]["branch"])
+            a["repo-host"].call("record", repo=self.repo, branch=branch, from_=ctx.path(state["output"]["path"]))
         return Outcome(self.transition(name, "green"), "green", "")
 
     def publish(self, name: str, state: Json, parent: str) -> Outcome:
         with self.span("activity", "publish", parent) as activity:
             branch = self.branch(state["branch"])
-            self.a["repo-host"].call("record", repo=self.repo, branch=branch, from_=self.outputs[state["branch"]])
             pushed = self.a["repo-host"].call("fast-forward-main", repo=self.repo, branch=branch, expect_main=self.base)
             self.record("fast-forward", self.run, **pushed)
             activity.outcome = "advanced" if pushed["advanced"] else "main-moved"
