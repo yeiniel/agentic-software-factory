@@ -41,7 +41,8 @@ def test_specs_not_red_on_base_retry_the_writer_with_the_reason_first(run_factor
 
 
 def test_validation_runs_while_the_implementor_is_still_running(run_factory):
-    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "agent": {"implementor": [{"hang": 1}]}})
+    # the hang outlasts the Writer, its recording and the validation's assembly even when every Adapter call is slow
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "agent": {"implementor": [{"hang": 5}]}})
 
     (validation,) = out.state["validation_runs"]
     implementor = next(s for s in out.state["agent_spans"] if s["role"] == "implementor")
