@@ -62,6 +62,18 @@ def write_tree(root, files):
         (root / name).write_text(text)
 
 
+def head(state, repo):
+    """The `main` of `repo`; the repository `r` is the one the other fixtures know as `state["main"]`."""
+    return state["main"] if repo == "r" else state.setdefault("mains", {}).get(repo, "c0")
+
+
+def move_head(state, repo, commit):
+    if repo == "r":
+        state["main"] = commit
+    else:
+        state.setdefault("mains", {})[repo] = commit
+
+
 def new_commit(state, files):
     state["n"] += 1
     commit = f"c{state['n']}"
@@ -149,7 +161,7 @@ def do_task_store(op, args, body):
 def do_repo_host(op, args, body):
     with locked() as state:
         if op == "main-head":
-            return {"commit": state["main"]}
+            return {"commit": head(state, args["repo"])}
         if op == "create-branch":
             if args["name"] == "main":
                 reject("main is only advanced by fast-forward-main")
@@ -159,7 +171,7 @@ def do_repo_host(op, args, body):
             commit = (
                 args["commit"]
                 if "commit" in args
-                else (state["main"] if args["branch"] == "main" else state["branches"][args["branch"]])
+                else (head(state, args["repo"]) if args["branch"] == "main" else state["branches"][args["branch"]])
             )
             write_tree(args["dest"], state["commits"][commit])
             return {"commit": commit}
@@ -172,10 +184,10 @@ def do_repo_host(op, args, body):
             state["branches"][args["branch"]] = commit
             return {"commit": commit, "changed": files != previous}
         if op == "fast-forward-main":
-            if state["main"] != args["expect-main"]:
-                return {"advanced": False, "head": state["main"]}
-            state["main"] = state["branches"][args["branch"]]
-            return {"advanced": True, "head": state["main"]}
+            if head(state, args["repo"]) != args["expect-main"]:
+                return {"advanced": False, "head": head(state, args["repo"])}
+            move_head(state, args["repo"], state["branches"][args["branch"]])
+            return {"advanced": True, "head": head(state, args["repo"])}
     return None
 
 
@@ -212,7 +224,7 @@ def run_agent(args, ctx):
     (ctx / "session").mkdir(exist_ok=True)
     (ctx / "session" / "session.jsonl").write_text('{"stub": true}\n')
     with locked() as state:
-        state["agent_spans"].append({"role": role, "start": start, "end": time.time()})
+        state["agent_spans"].append({"role": role, "context": str(ctx), "start": start, "end": time.time()})
     return {
         "exit_status": None if timed_out else plan.get("exit_status", 0),
         "timed_out": timed_out,

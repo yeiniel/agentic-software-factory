@@ -58,7 +58,8 @@ below).
 - `--fit on`: let llama.cpp maximise GPU layer offloading automatically.
 - `-fa on`: flash attention.
 - `-c 98304 -np 2`: 49,152 tokens per slot, two slots — one per
-  concurrent Agent (the Implementor and the Acceptance Writer; one Run at a time).
+  concurrent Agent (the Implementor and the Acceptance Writer at the default `task_concurrency` of 1). Raising
+  `task_concurrency` needs `-np` raised to match: slots = concurrency x Agents per Task.
   Pi's context window (`ASF_MODEL_CONTEXT_WINDOW`) must match the per-slot size.
 - `-fitt 256`: `--fit` keeps 256 MiB of VRAM free instead of 1024, so more layers fit on the GPU.
 - `-ub 1024`: physical batch size; speeds up prompt processing without hurting generation (2048 did).

@@ -14,6 +14,7 @@ DEFAULTS = {
     "integrator_timeout": 1800,
     "build_timeout": 900,
     "feedback_cap": 8000,
+    "task_concurrency": 1,
 }
 
 
@@ -26,6 +27,9 @@ def main() -> None:
         "context_root",
         str((Path(os.environ.get("RUNNER_ROOT") or Path.home() / ".local/share/asf/runner") / "contexts").resolve()),
     )
+    concurrency = config["task_concurrency"]
+    if not isinstance(concurrency, int) or isinstance(concurrency, bool) or concurrency < 1:
+        raise SystemExit(f"factory: task_concurrency must be a whole number of at least 1, not {concurrency!r}")
     version = config.get("graph_version") or os.environ.get("ASF_GRAPH_VERSION") or "unversioned"
     try:
         graph = load(

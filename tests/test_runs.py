@@ -5,6 +5,9 @@ import pytest
 
 TASK_EVENT = {"type": "task", "task": "t1", "repo": "r"}
 OTHER_TASK_EVENT = {"type": "task", "task": "t2", "repo": "r"}
+OTHER_REPO_EVENT = {"type": "task", "task": "t2", "repo": "s"}
+THIRD_REPO_EVENT = {"type": "task", "task": "t3", "repo": "u"}
+SLOW = {"implementor": [{"hang": 0.4}] * 3, "acceptance-writer": [{"hang": 0.4}] * 3}
 IMPLEMENTOR_CRASH = {"exit_status": 1, "output": "impl crashed"}
 SPECS_PASS = {"result": "red", "failed_check": "specs-not-red", "output": "specs passed on base"}
 
@@ -149,6 +152,84 @@ def test_two_tasks_run_one_after_the_other(run_factory, golden_transcript):
 
     assert out.exit_code == 0, out.stderr
     golden_transcript(out)
+
+
+def spans_of(out, task):
+    """The (start, end) of each Agent attempt of `task`; the Context path names the Task."""
+    return [(s["start"], s["end"]) for s in out.state["agent_spans"] if f"/{task}/" in s["context"]]
+
+
+def overlap(a, b):
+    return any(x[0] < y[1] and y[0] < x[1] for x in a for y in b)
+
+
+def test_tasks_on_different_repos_run_together_up_to_task_concurrency(run_factory):
+    out = run_factory(
+        {"tasks": {"t1": "a", "t2": "b"}, "events": [TASK_EVENT, OTHER_REPO_EVENT], "agent": SLOW},
+        task_concurrency=2,
+    )
+
+    assert out.exit_code == 0, out.stderr
+    assert overlap(spans_of(out, "t1"), spans_of(out, "t2"))
+    assert out.status("t1") == ["running", "done"] and out.status("t2") == ["running", "done"]
+
+
+def test_tasks_of_one_repo_never_run_together_whatever_the_limit(run_factory):
+    out = run_factory(
+        {"tasks": {"t1": "a", "t2": "b"}, "events": [TASK_EVENT, OTHER_TASK_EVENT], "agent": SLOW},
+        task_concurrency=2,
+    )
+
+    assert out.exit_code == 0, out.stderr
+    assert not overlap(spans_of(out, "t1"), spans_of(out, "t2"))
+    assert out.status("t2") == ["running", "done"]  # started from the main the first left, so no `main-moved`
+
+
+def test_a_task_on_a_busy_repo_does_not_hold_up_the_ones_behind_it(run_factory):
+    out = run_factory(
+        {
+            "tasks": {"t1": "a", "t2": "b", "t3": "c"},
+            "events": [TASK_EVENT, OTHER_TASK_EVENT, OTHER_REPO_EVENT | {"task": "t3"}],
+            "agent": SLOW,
+        },
+        task_concurrency=2,
+    )
+
+    assert out.exit_code == 0, out.stderr
+    assert overlap(spans_of(out, "t1"), spans_of(out, "t3"))  # t2 waits for t1, t3 does not
+    assert not overlap(spans_of(out, "t1"), spans_of(out, "t2"))
+
+
+def test_no_more_tasks_run_at_once_than_task_concurrency(run_factory):
+    out = run_factory(
+        {
+            "tasks": {"t1": "a", "t2": "b", "t3": "c"},
+            "events": [TASK_EVENT, OTHER_REPO_EVENT, THIRD_REPO_EVENT],
+            "agent": SLOW,
+        },
+        task_concurrency=2,
+    )
+
+    assert out.exit_code == 0, out.stderr
+    assert all(out.status(t) == ["running", "done"] for t in ("t1", "t2", "t3"))
+    starts = sorted(min(s for s, _ in spans_of(out, t)) for t in ("t1", "t2", "t3"))
+    first_end = min(max(e for _, e in spans_of(out, t)) for t in ("t1", "t2", "t3"))
+    assert starts[2] >= first_end  # the third began only after one of the others finished
+
+
+def test_tasks_run_one_at_a_time_by_default_even_on_different_repos(run_factory):
+    out = run_factory({"tasks": {"t1": "a", "t2": "b"}, "events": [TASK_EVENT, OTHER_REPO_EVENT], "agent": SLOW})
+
+    assert out.exit_code == 0, out.stderr
+    assert not overlap(spans_of(out, "t1"), spans_of(out, "t2"))
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, "2", True])
+def test_a_task_concurrency_that_is_not_a_positive_whole_number_stops_the_factory_at_start(run_factory, value):
+    out = run_factory({}, task_concurrency=value)
+
+    assert out.exit_code != 0
+    assert "task_concurrency" in out.stderr
 
 
 def test_a_main_push_is_recorded_and_not_acted_on(run_factory, golden_transcript):

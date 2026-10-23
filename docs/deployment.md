@@ -38,6 +38,7 @@ so the command lines below are unchanged. The Console's receiver and TUI start t
 - `CONSOLE_MODEL_URL` (Console container): the model server whose `/metrics` and `/slots` it scrapes while a TUI is connected (`bin/model` starts `llama-server` with `--metrics`).
 - `PODMAN`: the podman executable.
 - Agent and Integrator time limits are the Factory's `agent_timeout` and `integrator_timeout` (the latter also bounds Acceptance Test Validation). The attempt budgets (the Run cap, the Writer and Implementor loops) are fields of the Graph, not of the config.
+- `task_concurrency` (config, default 1): how many Tasks run at once, never two of one repository (ADR 0021). Set it to the model server's slots divided by the Agents a Task keeps running (2 in the default Graph); `bin/model` and `ASF_MODEL_CONTEXT_WINDOW` stay as `model-server.md` says.
 - `graph` (config): the Graph folder, `src/factory/resources/` by default. The Factory validates it against `graph.schema.json` and checks it once, at start, and exits non-zero with the reason on an invalid one; a changed Graph takes a restart. Its version is the commit of this repository it was loaded from: `graph_version` in the config, else `ASF_GRAPH_VERSION` (`deploy/install` renders the current commit into the Quadlet unit and `bin/restart` renders it again; uncommitted changes under `src/factory/resources/` add `-dirty`), else `unversioned`. The `task-received` Record carries it.
 
 ## Running it

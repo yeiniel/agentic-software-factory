@@ -27,10 +27,10 @@ A Task is done when the full acceptance suite passes on `main`. (**Experiment**:
 4. The **Integrator** (non-agent, run in its own Environment on a Run Context holding the base and both branches; it returns a verdict and a branch, and the Factory alone pushes to `main`) then:
    1. Merges the two branches onto the base, which is `main` for the whole Task. A conflict fails the Run.
    2. Runs the entire acceptance suite on the integrated result.
-   3. If green, the Factory records the integrated branch and fast-forwards `main`. Tasks run in sequence, so `main` is the base; if it moved anyway (only a human push can), the Repo Host refuses the fast-forward and the Task is Blocked with reason `main-moved`. The two Agents run in parallel.
+   3. If green, the Factory records the integrated branch and fast-forwards `main`. Tasks of one repository run in sequence (ADR 0021), so `main` is the base; if it moved anyway (only a human push can), the Repo Host refuses the fast-forward and the Task is Blocked with reason `main-moved`. The two Agents run in parallel.
    4. Marks the Task done in the task store. Agents never touch the store.
 5. On failure, `main` is untouched. A failed integration starts a new Run for the same Task (see Retries and Feedback).
-6. Only one Run is in flight at a time for now: the local model server has a fixed number of slots (ADR 0008). Parallel Tasks are future work and depend on more capacity.
+6. Up to `task_concurrency` Tasks are in flight at once, never two of one repository (ADR 0021); the default is one. The local model server has a fixed number of slots (ADR 0008), so the limit is set to what it can serve: each Task in the default Graph keeps two Agents running.
 
 Every actor, agentic and deterministic, leaves a record: each Run writes a structured event log (every Integrator command with its exit code and output, branch and merge results, the Feedback produced) plus the Agents' Pi session transcripts, stored outside the repo. The Console (spec 0006, ADR 0017) makes them observable: the events travel as OTLP to its receiver, which is the system of record in the deployment.
 
@@ -48,7 +48,7 @@ Retries are nested loops (ADR 0016, spec 0005).
 - Each attempt starts a fresh container with a fresh clone of the base, on the role's branch reset to the base: the Agent's code returns to the initial state. The Agent resumes its previous Pi session, whose state lives in a local folder per role per Task that is mounted into the container, behind an abstraction so it can be swapped later; Feedback arrives as an ordinary follow-up prompt that says its previous changes were discarded. A Run's clone contains only its pre-created branch, with the remote and every other branch removed, so blindness holds by construction; the Factory fetches the result back from the clone after the container exits.
 - Feedback contents: why it failed, the spec run output (the **Acceptance Report**), any conflicts, a note that the previous changes were discarded, and a reminder to check against the Task spec when it is unclear whether the implementation or the spec is wrong. It never discloses the other Agent's branch. Output is passed raw and algorithmically, truncated to a size cap, with no LLM summarising step.
 - The Acceptance Report is made informative on failure by two things: a good spec framework, and a repo-owned Pi skill that teaches the Acceptance Writer how to write specs that explain themselves when they fail.
-- An infrastructure error blocks the Task at once, with reason `infrastructure`, and does not use a Run. A refused fast-forward of `main` blocks the Task with reason `main-moved`; there is no retry, since Tasks run in sequence and only a human push can move `main` (ADR 0020).
+- An infrastructure error blocks the Task at once, with reason `infrastructure`, and does not use a Run. A refused fast-forward of `main` blocks the Task with reason `main-moved`; there is no retry, since Tasks of one repository run in sequence and only a human push can move `main` (ADR 0020, ADR 0021).
 
 ## Architecture
 
