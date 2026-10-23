@@ -1,0 +1,12 @@
+#!/bin/sh
+# Usage: bin/new-golden-repo NAME SOURCE_GIT_DIR BASE_COMMIT
+# Create NAME on the git server with `main` at BASE_COMMIT of SOURCE_GIT_DIR, the same commit, so that the
+# implementor-golden Graph finds the specs it holds for that base. Then: bin/task NAME TITLE -m BODY.
+set -eu
+[ $# -eq 3 ] || {
+	sed -n '2p' "$0" >&2
+	exit 2
+}
+name=$1 source=$2 base=$3
+"$(dirname "$0")/new-repo" "$name"
+git --git-dir "$source" push "git://localhost:9418/$name.git" "$base:refs/heads/main"

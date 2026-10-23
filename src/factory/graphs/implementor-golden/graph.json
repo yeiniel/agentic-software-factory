@@ -1,0 +1,225 @@
+{
+  "start": "run",
+  "error": "blocked-infrastructure",
+  "states": {
+    "run": {
+      "type": "loop",
+      "runs": true,
+      "attempts": 1,
+      "entry": "golden",
+      "contains": [
+        "golden",
+        "work",
+        "integrate",
+        "publish"
+      ],
+      "transitions": [
+        {
+          "on": "exhausted",
+          "to": "blocked-max-runs"
+        }
+      ]
+    },
+    "golden": {
+      "type": "deterministic",
+      "script": "golden/run",
+      "inputs": {
+        "base": "base"
+      },
+      "environment": "base",
+      "checks": [
+        "no-golden"
+      ],
+      "timeout": "integrator_timeout",
+      "output": {
+        "branch": "acceptance-writer",
+        "path": "out/golden"
+      },
+      "transitions": [
+        {
+          "on": "green",
+          "to": "work"
+        },
+        {
+          "on": "red:no-golden",
+          "to": "blocked-no-golden"
+        },
+        {
+          "on": "timed-out",
+          "to": "blocked-infrastructure"
+        }
+      ]
+    },
+    "work": {
+      "type": "parallel",
+      "regions": [
+        "implementor"
+      ],
+      "transitions": [
+        {
+          "on": "green",
+          "to": "integrate"
+        }
+      ]
+    },
+    "implementor": {
+      "type": "loop",
+      "attempts": 1,
+      "entry": "implement",
+      "contains": [
+        "implement"
+      ],
+      "transitions": [
+        {
+          "on": "exhausted",
+          "to": "blocked-loop-exhausted"
+        }
+      ]
+    },
+    "implement": {
+      "type": "agentic",
+      "role": "implementor",
+      "instruction": "roles/implementor/instruction.md",
+      "system-prompt": "roles/implementor/system-prompt.md",
+      "skills": "roles/implementor/skills",
+      "prompt": [
+        "instruction",
+        "task",
+        "feedback"
+      ],
+      "workspace": "base",
+      "timeout": "agent_timeout",
+      "session": "resume",
+      "output": {
+        "branch": "implementor"
+      },
+      "transitions": [
+        {
+          "on": "green",
+          "to": "$exit"
+        },
+        {
+          "on": "crashed",
+          "to": "implementor",
+          "feedback": {
+            "for": "implementor",
+            "message": "feedback/crashed.md"
+          }
+        },
+        {
+          "on": "timed-out",
+          "to": "implementor",
+          "feedback": {
+            "for": "implementor",
+            "message": "feedback/timed-out.md"
+          }
+        }
+      ]
+    },
+    "integrate": {
+      "type": "deterministic",
+      "script": "integrator/run",
+      "inputs": {
+        "base": "base",
+        "implementor": {
+          "branch-of": "implementor"
+        },
+        "acceptance-writer": {
+          "branch-of": "acceptance-writer"
+        }
+      },
+      "environment": "base",
+      "checks": [
+        "conflict",
+        "suite"
+      ],
+      "timeout": "integrator_timeout",
+      "output": {
+        "branch": "integrated",
+        "path": "out/integrated"
+      },
+      "transitions": [
+        {
+          "on": "green",
+          "to": "publish"
+        },
+        {
+          "on": "red:conflict",
+          "to": "run",
+          "reset": [
+            "implementor"
+          ],
+          "feedback": {
+            "for": "implementor",
+            "message": "feedback/conflict.md"
+          }
+        },
+        {
+          "on": "red:suite",
+          "to": "run",
+          "reset": [
+            "implementor"
+          ],
+          "feedback": {
+            "for": "implementor",
+            "message": "feedback/suite.md"
+          }
+        },
+        {
+          "on": "timed-out",
+          "to": "run",
+          "reset": [
+            "implementor"
+          ],
+          "feedback": {
+            "for": "implementor",
+            "message": "feedback/timed-out.md"
+          }
+        }
+      ]
+    },
+    "publish": {
+      "type": "publish",
+      "branch": "integrated",
+      "transitions": [
+        {
+          "on": "advanced",
+          "to": "done"
+        },
+        {
+          "on": "main-moved",
+          "to": "blocked-main-moved"
+        }
+      ]
+    },
+    "done": {
+      "type": "status",
+      "status": "done"
+    },
+    "blocked-max-runs": {
+      "type": "status",
+      "status": "blocked",
+      "reason": "max-runs"
+    },
+    "blocked-loop-exhausted": {
+      "type": "status",
+      "status": "blocked",
+      "reason": "loop-exhausted"
+    },
+    "blocked-main-moved": {
+      "type": "status",
+      "status": "blocked",
+      "reason": "main-moved"
+    },
+    "blocked-infrastructure": {
+      "type": "status",
+      "status": "blocked",
+      "reason": "infrastructure"
+    },
+    "blocked-no-golden": {
+      "type": "status",
+      "status": "blocked",
+      "reason": "no-golden"
+    }
+  }
+}
