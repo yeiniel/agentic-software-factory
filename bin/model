@@ -9,7 +9,7 @@ if [ "${1:-}" = stop ]; then
 	exit
 fi
 systemd-run --user --unit=llama-server /usr/bin/llama-server \
-	-m "$HOME/.lmstudio/models/unsloth/Qwen3-Coder-Next-GGUF/Qwen3-Coder-Next-UD-IQ4_NL.gguf" \
-	-a qwen3-coder-next -c 98304 -np 2 -t 10 --fit on -fitt 256 -ub 1024 -fa on --jinja \
+	-m "$HOME/.lmstudio/models/ornith-ai/Ornith-1.5-35B-A3B-GGUF/Ornith-1.5-35B-Q4_K_M.gguf" \
+	-a ornith-1.5-35b -c 98304 -np 2 -t 20 --fit on -fitt 256 -ub 2048 -fa on --jinja \
 	--cache-type-k q8_0 --cache-type-v q8_0 \
 	--cache-ram 24576 --metrics --host 0.0.0.0 --port 8080 && echo "up: llama-server"
