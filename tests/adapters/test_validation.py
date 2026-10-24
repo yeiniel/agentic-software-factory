@@ -50,5 +50,5 @@ def test_a_branch_that_does_not_merge_onto_the_base_is_red_as_merge(context):
     commit(context / "acceptance-writer", {"code.txt": "three\n"})
     # the Writer's branch was cut before the base moved, so its change to the same line conflicts
     verdict = validate(context)
-    assert verdict["result"].strip() == "red" and verdict["failed_check"] == "merge"
+    assert verdict["result"].strip() == "red" and verdict["failed_check"] == "merge-failed"
     assert "code.txt" in verdict["output"]

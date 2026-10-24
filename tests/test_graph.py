@@ -76,20 +76,20 @@ def test_the_factory_refuses_a_state_no_transition_reaches(run_factory, graph_va
 def test_the_factory_refuses_an_outcome_that_has_no_transition(run_factory, graph_variant):
     def forget_the_failed_suite(data):
         transitions = data["states"]["integrate"]["transitions"]
-        transitions[:] = [t for t in transitions if t["on"] != "red:suite"]
+        transitions[:] = [t for t in transitions if t["on"] != "red:suite-failed"]
 
     out = run_factory(SCENARIO, graph=graph_variant(forget_the_failed_suite))
 
     assert out.exit_code == 1
     assert "factory: invalid Graph" in out.stderr
     assert "integrate" in out.stderr  # where
-    assert "red:suite" in out.stderr  # which outcome
+    assert "red:suite-failed" in out.stderr  # which outcome
     assert out.calls == []
 
 
 def test_the_factory_refuses_a_path_into_done_that_does_not_come_from_publish(run_factory, graph_variant):
     def a_failed_suite_is_done(data):
-        failed = next(t for t in data["states"]["integrate"]["transitions"] if t["on"] == "red:suite")
+        failed = next(t for t in data["states"]["integrate"]["transitions"] if t["on"] == "red:suite-failed")
         failed["to"] = "done"
         failed.pop("feedback")
         failed.pop("reset")
@@ -120,11 +120,13 @@ def test_the_factory_refuses_a_name_that_resolves_to_no_file_in_the_folder(run_f
 def test_the_factory_refuses_a_feedback_message_with_a_placeholder_other_than_check_and_output(
     run_factory, graph_variant
 ):
-    out = run_factory(SCENARIO, graph=graph_variant(files={"feedback/suite.md": "The {diff} failed.\n\n{output}\n"}))
+    out = run_factory(
+        SCENARIO, graph=graph_variant(files={"feedback/suite-failed.md": "The {diff} failed.\n\n{output}\n"})
+    )
 
     assert out.exit_code == 1
     assert "factory: invalid Graph" in out.stderr
-    assert "feedback/suite.md" in out.stderr  # where
+    assert "feedback/suite-failed.md" in out.stderr  # where
     assert "{diff}" in out.stderr  # what
     assert out.calls == []
 
@@ -157,12 +159,12 @@ def test_the_factory_refuses_a_workspace_or_a_publish_of_a_branch_nothing_makes(
 
 def test_a_state_can_leave_its_loop_for_a_status_instead_of_retrying(run_factory, graph_variant):
     def an_unmergeable_branch_blocks_the_task(data):
-        merge = next(t for t in data["states"]["validate"]["transitions"] if t["on"] == "red:merge")
+        merge = next(t for t in data["states"]["validate"]["transitions"] if t["on"] == "red:merge-failed")
         merge["to"] = "blocked-loop-exhausted"
         merge.pop("feedback")
 
     out = run_factory(
-        {**SCENARIO, "validation": [{"result": "red", "failed_check": "merge", "output": "no merge"}]},
+        {**SCENARIO, "validation": [{"result": "red", "failed_check": "merge-failed", "output": "no merge"}]},
         graph=graph_variant(an_unmergeable_branch_blocks_the_task),
     )
 
@@ -171,20 +173,20 @@ def test_a_state_can_leave_its_loop_for_a_status_instead_of_retrying(run_factory
     assert out.events("task/t1", "task-status")[-1]["reason"] == "loop-exhausted"
     assert [r["role"] for r in out.state["agent_runs"]].count("acceptance-writer") == 1  # not retried
     (run,) = out.state["status_body"]["t1"][-1]["history"]
-    assert run["outcome"]["failed_check"] == "merge"
+    assert run["outcome"]["failed_check"] == "merge-failed"
     assert run["outcome"]["output"] == "no merge"
 
 
 def test_a_retry_without_a_feedback_message_starts_the_role_with_no_feedback(run_factory, graph_variant):
     def retries_say_nothing(data):
-        for state, trigger in (("implement", "crashed"), ("integrate", "red:suite")):
+        for state, trigger in (("implement", "crashed"), ("integrate", "red:suite-failed")):
             next(t for t in data["states"][state]["transitions"] if t["on"] == trigger).pop("feedback")
 
     out = run_factory(
         {
             **SCENARIO,
             "agent": {"implementor": [{"exit_status": 1, "output": "crashed"}]},
-            "integrator": [{"result": "red", "failed_check": "suite", "output": "FAIL"}],
+            "integrator": [{"result": "red", "failed_check": "suite-failed", "output": "FAIL"}],
         },
         graph=graph_variant(retries_say_nothing),
     )
@@ -284,15 +286,16 @@ def test_a_graph_without_a_version_is_unversioned(run_factory):
 
 
 def test_placeholders_in_a_feedback_message_are_filled_with_the_check_and_the_raw_output(run_factory, graph_variant):
-    folder = graph_variant(files={"feedback/suite.md": "[{check}] failed:\n{output}"})
+    folder = graph_variant(files={"feedback/suite-failed.md": "[{check}] failed:\n{output}"})
 
     out = run_factory(
-        {**SCENARIO, "integrator": [{"result": "red", "failed_check": "suite", "output": "FAIL x"}]}, graph=folder
+        {**SCENARIO, "integrator": [{"result": "red", "failed_check": "suite-failed", "output": "FAIL x"}]},
+        graph=folder,
     )
 
     first, second = [r["prompt"] for r in out.state["agent_runs"] if r["role"] == "implementor"]
     assert "Feedback" not in first
-    assert "[suite] failed:\nFAIL x" in second
+    assert "[suite-failed] failed:\nFAIL x" in second
 
 
 def test_the_factory_refuses_a_transition_to_a_state_that_does_not_exist(run_factory, graph_variant):
@@ -356,7 +359,7 @@ def test_the_factory_refuses_a_feedback_for_a_role_the_graph_does_not_run(run_fa
 
 def test_the_factory_refuses_a_reset_of_something_that_is_not_a_loop(run_factory, graph_variant):
     def reset_the_agent(data):
-        failed = next(t for t in data["states"]["integrate"]["transitions"] if t["on"] == "red:suite")
+        failed = next(t for t in data["states"]["integrate"]["transitions"] if t["on"] == "red:suite-failed")
         failed["reset"] = ["implement"]  # an Activity, not a loop
 
     out = run_factory(SCENARIO, graph=graph_variant(reset_the_agent))
@@ -371,7 +374,7 @@ def test_the_factory_refuses_a_reset_of_something_that_is_not_a_loop(run_factory
 
 def test_the_factory_refuses_a_reset_of_a_state_that_does_not_exist(run_factory, graph_variant):
     def reset_nothing(data):
-        failed = next(t for t in data["states"]["integrate"]["transitions"] if t["on"] == "red:suite")
+        failed = next(t for t in data["states"]["integrate"]["transitions"] if t["on"] == "red:suite-failed")
         failed["reset"] = ["nowhere"]
 
     out = run_factory(SCENARIO, graph=graph_variant(reset_nothing))

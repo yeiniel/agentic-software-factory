@@ -9,7 +9,7 @@ from typing import Any
 from .adapters import Adapter, AdapterError, Json
 from .contexts import ContextStore
 from .graph import Graph
-from .interpreter import TaskRunner
+from .interpreter import TaskRunner, trace_id
 
 END: object = object()
 
@@ -69,6 +69,19 @@ def record_main_push(adapters: dict[str, Adapter], event: Json) -> None:
         print(f"could not record main push: {error}", file=sys.stderr)
 
 
+def record_receipt(adapters: dict[str, Adapter], graph: Graph, task: str, repo: str) -> None:
+    """Say in the Records that the Factory took the Task, before it waits for its turn."""
+    try:
+        for kind, data in (
+            ("task-received", {"repo": repo, "graph": graph.version}),
+            ("task-status", {"status": "todo"}),
+        ):
+            body = {"kind": kind, "run": None, "trace": trace_id(task), **data}
+            adapters["records"].call("append", body=body, stream=f"task/{task}", run=None)
+    except AdapterError as error:
+        print(f"could not record receipt of {task}: {error}", file=sys.stderr)
+
+
 def serve(adapters: dict[str, Adapter], config: Json, graph: Graph) -> None:
     events: queue.Queue[Any] = queue.Queue()
     failure: list[Exception] = []
@@ -83,6 +96,7 @@ def serve(adapters: dict[str, Adapter], config: Json, graph: Graph) -> None:
         elif isinstance(event, Finished):
             tasks.running.discard(event.repo)
         elif event["type"] == "task":
+            record_receipt(adapters, graph, event["task"], event["repo"])
             tasks.waiting.append((event["task"], event["repo"]))
         elif event["type"] == "main-push":
             record_main_push(adapters, event)

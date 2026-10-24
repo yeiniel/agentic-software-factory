@@ -246,12 +246,32 @@ class Store:
             (nodes[node["parent"]]["children"] if node["parent"] in nodes else roots).append(node)
         return roots
 
-    def log(self, task: str, after: int = 0) -> list[Json]:
+    def descendants(self, task: str, span: str) -> set[str]:
+        """The span and every span below it, from the stored parents."""
+        children: dict[str | None, list[str]] = {}
+        for row in self.query("select id, parent from spans where task = ?", task):
+            children.setdefault(row["parent"], []).append(row["id"])
+        found, todo = {span}, [span]
+        while todo:
+            for child in children.get(todo.pop(), []):
+                found.add(child)
+                todo.append(child)
+        return found
+
+    def log(self, task: str, after: int = 0, span: str | None = None) -> list[Json]:
+        """The task's log from `after`; with `span`, only the records of that span and the spans below it."""
         entries: list[Json] = []
+        within = ""
+        args: list[object] = [task, after]
+        if span:
+            ids = sorted(self.descendants(task, span))
+            within = f" and span in ({','.join('?' * len(ids))})"
+            args += ids
         for row in self.query(
-            "select * from logs where task = ? and seq > ? and kind not in ('started', 'finished') order by seq",
-            task,
-            after,
+            "select * from logs where task = ? and seq > ? and kind not in ('started', 'finished')"  # noqa: S608
+            + within
+            + " order by seq",
+            *args,
         ):
             attrs = json.loads(row["attrs"])
             texts = (

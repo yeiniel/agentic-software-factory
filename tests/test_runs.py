@@ -28,7 +28,7 @@ def test_an_implementor_failure_retriggers_only_the_implementor_with_feedback(ru
         {
             "tasks": {"t1": "add a greeting"},
             "events": [TASK_EVENT],
-            "integrator": [red("suite", "FAIL: greeting is empty")],
+            "integrator": [red("suite-failed", "FAIL: greeting is empty")],
         }
     )
 
@@ -58,7 +58,7 @@ def test_a_writer_fault_is_found_even_when_the_implementor_times_out(run_factory
             "tasks": {"t1": "x"},
             "events": [TASK_EVENT],
             "agent": {"implementor": [{"hang": 5}]},
-            "validation": [red("merge", "merge failed")],
+            "validation": [red("merge-failed", "merge failed")],
         },
         agent_timeout=1,
     )
@@ -95,7 +95,7 @@ def test_a_failed_integration_reenters_only_the_implementor_loop_with_a_fresh_bu
         {
             "tasks": {"t1": "x"},
             "events": [TASK_EVENT],
-            "integrator": [red("suite", "FAIL: greeting is empty")],
+            "integrator": [red("suite-failed", "FAIL: greeting is empty")],
             "agent": {"implementor": [{}, IMPLEMENTOR_CRASH, {}]},
         }
     )
@@ -106,7 +106,7 @@ def test_a_failed_integration_reenters_only_the_implementor_loop_with_a_fresh_bu
 
 def test_a_merge_conflict_is_blamed_on_the_implementor_by_default(run_factory, golden_transcript):
     out = run_factory(
-        {"tasks": {"t1": "x"}, "events": [TASK_EVENT], "integrator": [red("conflict", "CONFLICT in a.txt")]}
+        {"tasks": {"t1": "x"}, "events": [TASK_EVENT], "integrator": [red("merge-conflict", "CONFLICT in a.txt")]}
     )
 
     assert out.exit_code == 0, out.stderr
@@ -118,7 +118,7 @@ def test_a_task_is_blocked_after_two_runs_with_its_history_and_main_untouched(ru
         {
             "tasks": {"t1": "x"},
             "events": [TASK_EVENT],
-            "integrator": [red("suite", "red 1"), red("suite", "red 2"), red("suite", "red 3")],
+            "integrator": [red("suite-failed", "red 1"), red("suite-failed", "red 2"), red("suite-failed", "red 3")],
         }
     )
 
@@ -129,7 +129,7 @@ def test_a_task_is_blocked_after_two_runs_with_its_history_and_main_untouched(ru
 
 def test_feedback_is_truncated_to_the_size_cap(run_factory, golden_transcript):
     out = run_factory(
-        {"tasks": {"t1": "x"}, "events": [TASK_EVENT], "integrator": [red("suite", "A" * 500 + "THE-END")]},
+        {"tasks": {"t1": "x"}, "events": [TASK_EVENT], "integrator": [red("suite-failed", "A" * 500 + "THE-END")]},
         feedback_cap=100,
     )
 
@@ -200,6 +200,38 @@ def test_a_task_on_a_busy_repo_does_not_hold_up_the_ones_behind_it(run_factory):
     assert not overlap(spans_of(out, "t1"), spans_of(out, "t2"))
 
 
+def test_queued_tasks_are_recorded_todo_in_order_before_the_first_run_finishes(run_factory):
+    out = run_factory(
+        {
+            "tasks": {"t1": "a", "t2": "b", "t3": "c"},
+            "events": [TASK_EVENT, OTHER_REPO_EVENT, THIRD_REPO_EVENT],
+            "agent": SLOW,
+        }
+    )
+
+    assert out.exit_code == 0, out.stderr
+    kinds = [(r["stream"], r["event"]["kind"], r["event"].get("status")) for r in out.records]
+    receipts = [k[0] for k in kinds if k[1] == "task-received"]
+    assert receipts == ["task/t1", "task/t2", "task/t3"]
+    first_finish = next(i for i, k in enumerate(kinds) if k[1] == "run-finished")
+    assert all(("task/" + t, "task-status", "todo") in kinds[:first_finish] for t in ("t1", "t2", "t3"))
+    for task in ("t2", "t3"):  # recorded todo, started only on its turn
+        stream = [k for k in kinds if k[0] == f"task/{task}"]
+        assert [k[1] for k in stream[:3]] == ["task-received", "task-status", "task-status"]
+        assert [k[2] for k in stream[1:3]] == ["todo", "running"]
+
+
+def test_a_task_behind_a_busy_repository_is_recorded_todo_on_receipt(run_factory):
+    out = run_factory(
+        {"tasks": {"t1": "a", "t2": "b"}, "events": [TASK_EVENT, OTHER_TASK_EVENT], "agent": SLOW},
+        task_concurrency=2,
+    )
+
+    kinds = [(r["stream"], r["event"]["kind"], r["event"].get("status")) for r in out.records]
+    first_finish = next(i for i, k in enumerate(kinds) if k[1] == "run-finished")
+    assert ("task/t2", "task-status", "todo") in kinds[:first_finish]
+
+
 def test_no_more_tasks_run_at_once_than_task_concurrency(run_factory):
     out = run_factory(
         {
@@ -245,7 +277,7 @@ def test_an_adapter_error_blocks_visibly_and_does_not_consume_a_run(run_factory,
         {
             "tasks": {"t1": "x"},
             "events": [TASK_EVENT, TASK_EVENT],
-            "integrator": [red("suite", "red")],
+            "integrator": [red("suite-failed", "red")],
             "fail": [{"port": "runner", "op": "run", "call": 5}],
         }
     )
@@ -321,7 +353,7 @@ def test_a_green_verdict_carries_the_acceptance_report_into_the_run_record(run_f
     golden_transcript(out)
 
 
-@pytest.mark.parametrize("check", ["conflict", "suite"])
+@pytest.mark.parametrize("check", ["merge-conflict", "suite-failed"])
 def test_a_red_integration_verdict_names_the_failed_check(run_factory, golden_transcript, check):
     out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "integrator": [red(check, "out")]})
 
@@ -329,7 +361,7 @@ def test_a_red_integration_verdict_names_the_failed_check(run_factory, golden_tr
     golden_transcript(out)
 
 
-@pytest.mark.parametrize("check", ["specs-not-red", "merge"])
+@pytest.mark.parametrize("check", ["specs-not-red", "merge-failed"])
 def test_a_red_validation_verdict_names_the_failed_check(run_factory, golden_transcript, check):
     out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT], "validation": [red(check, "out")]})
 
@@ -358,7 +390,7 @@ def test_a_malformed_integration_verdict_is_an_infrastructure_error(run_factory,
 @pytest.mark.parametrize(
     "validation",
     [
-        {"result": "red", "failed_check": "suite", "output": "x"},  # a check of the integration process
+        {"result": "red", "failed_check": "suite-failed", "output": "x"},  # a check of the integration process
         {"result": "maybe", "output": "x"},
         {"result": "green", "no_output": True},
     ],

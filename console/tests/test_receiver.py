@@ -8,7 +8,7 @@ import urllib.request
 
 import pytest
 
-from replay import Script, blocked_task, green_task, retried_task
+from replay import Script, blocked_task, green_task, queued_task, retried_task
 
 
 def by_task(api):
@@ -158,6 +158,65 @@ def test_transcript_entries_are_merged_into_the_log_by_their_attempt(replay, rec
         'calls read {"path": "a.py"}',
         "read returned: print(1)",
     ]
+
+
+def span_id(api, task, name):
+    tree = api(f"/api/task?id={task}")["spans"]
+    return next(n["id"] for n in flat(tree) if n["name"] == name)
+
+
+def texts(api, task, span=None):
+    suffix = f"&span={span}" if span else ""
+    return [e["text"] for e in api(f"/api/task/log?id={task}{suffix}")["log"]]
+
+
+def test_the_log_of_a_leaf_holds_its_own_records_and_nothing_from_the_agents(replay, api):
+    retried_task(replay)
+
+    integrate = span_id(api, "r/retried", "integrate")
+    mine = texts(api, "r/retried", integrate)
+    assert mine and all("greeting is empty" in t or "integrate" in t for t in mine)
+    assert len(mine) < len(texts(api, "r/retried"))
+
+
+def test_the_log_of_a_run_holds_the_records_of_every_descendant_in_order(replay, api):
+    retried_task(replay)
+
+    tree = api("/api/task?id=r/retried")["spans"]
+    first = next(n for n in tree if n["name"] == "1")
+    log = api(f"/api/task/log?id=r/retried&span={first['id']}")["log"]
+    assert [e["seq"] for e in log] == sorted(e["seq"] for e in log)
+    kinds = " ".join(e["text"] for e in log)
+    assert "run-started" in kinds and "greeting is empty" in kinds and "run-finished" in kinds
+    assert all(e["run"] == 1 for e in log)
+    assert len(log) < len(api("/api/task/log?id=r/retried")["log"])  # Run 2's records are left out
+
+
+def test_the_log_of_a_running_activity_grows_as_records_arrive(replay, api):
+    s = Script(replay, "r/live")
+    s.event("task-received", repo="r")
+    run = s.open("run", "1", None, 1)
+    agent = s.open("activity", "agent", run, 1, role="implementor")
+    assert texts(api, "r/live", agent) == []
+
+    s.event("agent", 1, agent, role="implementor", exit_status=0, output="done")
+    assert len(texts(api, "r/live", agent)) == 1
+
+
+def test_a_queued_task_is_listed_todo_with_no_run_and_keeps_its_receipt_time(replay, api):
+    queued_task(replay)
+    received = by_task(api)["r/queued"]["received"]
+
+    s = Script(replay, "r/queued")
+    s.status("running")
+    s.open("run", "1", None, 1)
+
+    task = by_task(api)["r/queued"]
+    assert task["received"] == received and task["status"] == "running"
+    queued_task(replay, "r/other")
+    other = by_task(api)["r/other"]
+    assert (other["status"], other["run"], other["activity"], other["repo"]) == ("todo", None, None, "r")
+    assert api("/api/task?id=r/other")["spans"] == []
 
 
 def test_the_log_can_be_read_from_a_point(replay, api):

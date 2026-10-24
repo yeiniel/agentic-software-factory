@@ -2,6 +2,7 @@
 
 import json
 import threading
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
@@ -110,15 +111,19 @@ def stub():
         "/api/task/log": {"log": LOG},
     }
 
+    requests = payloads.setdefault("requests", [])
+
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            path = self.path.split("?")[0]
+            path, _, query = self.path.partition("?")
+            requests.append(urllib.parse.parse_qs(query))
             if path == "/stream":
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b'data: {"type": "hello"}\n\n')
                 return
-            body = json.dumps(payloads[path]).encode()
+            payload = payloads[path]
+            body = json.dumps(payload(urllib.parse.parse_qs(query)) if callable(payload) else payload).encode()
             self.send_response(200)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -209,3 +214,66 @@ async def test_the_number_keys_switch_between_the_views(stub):
         for key, view in (("3", "metrics"), ("2", "task"), ("1", "tasks")):
             await pilot.press(key)
             assert app.query_one(TabbedContent).active == view
+
+
+def by_span(entries):
+    """A stub log API: the entries of the span asked for, or all of them."""
+    return lambda query: {"log": [e for e in entries if not query.get("span") or e["span"] in query["span"]]}
+
+
+SELECTABLE = [
+    {"seq": 1, "ts": NOW, "source": "factory", "role": None, "run": 2, "span": "1", "text": "run-started"},
+    {"seq": 2, "ts": NOW + 1, "source": "agent", "role": "implementor", "run": 2, "span": "2", "text": "says: reading"},
+]
+
+
+async def open_task(pilot):
+    await settle(pilot)
+    await pilot.press("enter")
+    await settle(pilot)
+
+
+def pane(app):
+    return "\n".join(line.text for line in app.query_one("#log", RichLog).lines)
+
+
+async def test_selecting_a_leaf_sends_its_id_and_shows_its_records_under_its_title(stub):
+    stub[0]["/api/task/log"] = by_span(SELECTABLE)
+    app = ConsoleApp(Client(stub[1]))
+    async with app.run_test() as pilot:
+        await open_task(pilot)
+        assert "run-started" in pane(app) and "says: reading" in pane(app)
+        await pilot.press("down", "down")  # the run, then its Activity
+        await settle(pilot)
+        assert stub[0]["requests"][-1].get("span") == ["2"]
+        assert pane(app).strip().endswith("says: reading") and "run-started" not in pane(app)
+        assert app.query_one("#log", RichLog).border_title == "agent, Run 2"
+
+
+async def test_selecting_a_run_shows_the_merged_records_and_escape_returns_to_the_whole_task(stub):
+    stub[0]["/api/task/log"] = by_span(SELECTABLE)
+    app = ConsoleApp(Client(stub[1]))
+    async with app.run_test() as pilot:
+        await open_task(pilot)
+        await pilot.press("down")
+        await settle(pilot)
+        assert stub[0]["requests"][-1].get("span") == ["1"]
+        assert app.query_one("#log", RichLog).border_title == "Run 2"
+        await pilot.press("escape")
+        await settle(pilot)
+        assert "span" not in stub[0]["requests"][-1]
+        assert app.query_one("#log", RichLog).border_title == "all of r/a"
+        assert "run-started" in pane(app) and "says: reading" in pane(app)
+
+
+async def test_a_rebuild_before_the_cursor_event_is_handled_still_selects_the_node(stub):
+    stub[0]["/api/task/log"] = by_span(SELECTABLE)
+    app = ConsoleApp(Client(stub[1]))
+    async with app.run_test() as pilot:
+        await open_task(pilot)
+        tree = app.query_one("#tree", Tree)
+        tree.cursor_line = 2
+        app.show_task(SPANS, [])  # a refresh lands before the cursor's event does
+        assert app.span == "2" and tree.cursor_line == 2
+        await settle(pilot)
+        assert stub[0]["requests"][-1].get("span") == ["2"]

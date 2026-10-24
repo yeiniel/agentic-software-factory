@@ -15,6 +15,8 @@ ConsoleApp.CSS
 ConsoleApp.BINDINGS
 ConsoleApp.on_mount
 ConsoleApp.on_data_table_row_selected
+ConsoleApp.on_tree_node_highlighted
+ConsoleApp.action_clear_selection
 Server.daemon_threads
 Store.row_factory
 handler = make_handler({})
@@ -24,5 +26,7 @@ handler.do_POST
 format
 active = None  # TabbedContent.active
 active
+border_title = None  # RichLog.border_title
+border_title
 Violation = None  # factory.graph.Violation, used in a cast
 Violation

@@ -91,6 +91,14 @@ def test_a_main_push_that_cannot_be_recorded_is_said_on_stderr_and_serving_conti
     assert out.status("t1") == ["running", "done"]
 
 
+def test_a_receipt_that_cannot_be_recorded_is_said_on_stderr_and_the_task_still_runs(run_factory):
+    out = run_factory({**SCENARIO, "events": [TASK_EVENT], "fail": [{"port": "records", "op": "append", "call": 1}]})
+
+    assert out.exit_code == 0
+    assert "could not record receipt of t1" in out.stderr
+    assert out.status("t1") == ["running", "done"]
+
+
 def test_a_repository_with_a_containerfile_has_it_in_the_validation_and_integration_contexts(
     run_factory, golden_transcript
 ):

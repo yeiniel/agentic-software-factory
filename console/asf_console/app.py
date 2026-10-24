@@ -13,7 +13,7 @@ from textual.widgets import DataTable, Footer, Header, RichLog, Static, TabbedCo
 from textual.widgets.tree import TreeNode
 
 from .client import DEFAULT_URL, Client, Json
-from .views import TASK_COLUMNS, log_line, metrics_lines, span_label, task_row
+from .views import TASK_COLUMNS, log_line, metrics_lines, node_title, span_label, task_row
 
 
 class ConsoleApp(App[None]):
@@ -28,6 +28,7 @@ class ConsoleApp(App[None]):
         Binding("1", "show('tasks')", "Tasks"),
         Binding("2", "show('task')", "Task"),
         Binding("3", "show('metrics')", "Metrics"),
+        Binding("escape", "clear_selection", "Whole Task"),
         Binding("q", "quit", "Quit"),
     ]
 
@@ -37,6 +38,8 @@ class ConsoleApp(App[None]):
         self.refresh_every = refresh
         self.selected: str | None = None
         self.log_after = 0
+        self.span: str | None = None  # the node whose log the pane shows; None is the whole Task
+        self.titles: dict[str | None, str] = {}
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -66,10 +69,35 @@ class ConsoleApp(App[None]):
             self.call_after_refresh(self.query_one(focus).focus)
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        self.selected, self.log_after = event.row_key.value, 0
-        self.query_one("#log", RichLog).clear()
+        self.selected, self.span = event.row_key.value, None
+        self.query_one("#tree", Tree).clear()
+        self.restart_log()
         self.action_show("task")
         self.refresh_all()
+
+    def restart_log(self) -> None:
+        self.log_after = 0
+        self.query_one("#log", RichLog).clear()
+
+    def action_clear_selection(self) -> None:
+        tree = cast("Tree[str | None]", self.query_one("#tree", Tree))
+        tree.move_cursor(tree.root)
+
+    def follow_cursor(self) -> bool:
+        """Select the node the cursor is on, if it is not the one selected; True when the selection changed."""
+        tree = cast("Tree[str | None]", self.query_one("#tree", Tree))
+        node = tree.get_node_at_line(tree.cursor_line)
+        span = node.data if node else None
+        if span == self.span:
+            return False
+        self.span = span
+        self.restart_log()
+        self.query_one("#log", RichLog).border_title = self.titles.get(span, "")
+        return True
+
+    def on_tree_node_highlighted(self, _event: Tree.NodeHighlighted[str | None]) -> None:
+        if self.follow_cursor():
+            self.refresh_all()
 
     @work(thread=True, exclusive=True, group="refresh")
     def refresh_all(self) -> None:
@@ -77,7 +105,8 @@ class ConsoleApp(App[None]):
             data = {"tasks": self.client.get("/api/tasks")["tasks"], "metrics": self.client.get("/api/metrics")}
             if self.selected:
                 data["spans"] = self.client.get("/api/task", id=self.selected)["spans"]
-                data["log"] = self.client.get("/api/task/log", id=self.selected, after=self.log_after)["log"]
+                query = {"id": self.selected, "after": self.log_after, **({"span": self.span} if self.span else {})}
+                data["log"] = self.client.get("/api/task/log", **query)["log"]
             self.call_from_thread(self.show, data, None)
         except OSError as error:
             self.call_from_thread(self.show, None, str(error))
@@ -117,19 +146,33 @@ class ConsoleApp(App[None]):
             self.show_task(data["spans"], data["log"])
 
     def show_task(self, spans: list[Json], entries: list[Json]) -> None:
-        tree = cast("Tree[None]", self.query_one("#tree", Tree))
+        tree = cast("Tree[str | None]", self.query_one("#tree", Tree))
+        moved = self.follow_cursor()  # the cursor may have moved since the last event was handled
         tree.clear()
         tree.root.label = self.selected or ""
+        lines: dict[str | None, int] = {None: 0}  # every node is expanded, so its line is its place in preorder
+        self.titles = {None: f"all of {self.selected}"}
 
-        def add(parent: TreeNode[None], node: Json) -> None:
-            child = parent.add(span_label(node), expand=True) if node["children"] else parent.add_leaf(span_label(node))
+        def add(parent: TreeNode[str | None], node: Json, run: str | None) -> None:
+            run = node["name"] if node["span"] == "run" else run
+            self.titles[node["id"]] = node_title(node, run)
+            label = span_label(node)
+            child = (
+                parent.add(label, node["id"], expand=True) if node["children"] else parent.add_leaf(label, node["id"])
+            )
+            lines[node["id"]] = len(lines)
             for sub in node["children"]:
-                add(child, sub)
+                add(child, sub, run)
 
         for node in spans:
-            add(tree.root, node)
+            add(tree.root, node, None)
         tree.root.expand()
+        tree.cursor_line = lines[self.span]
         log = self.query_one("#log", RichLog)
+        log.border_title = self.titles[self.span]
+        if moved:  # these entries are of the node before; ask again for the new one
+            self.refresh_all()
+            return
         for entry in entries:
             log.write(log_line(entry))
             self.log_after = max(self.log_after, entry["seq"])

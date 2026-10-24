@@ -41,6 +41,14 @@ def span_label(node: Json) -> str:
     return f"{node['span']} {node['name']}{role}  {outcome}"
 
 
+def node_title(node: Json, run: str | None) -> str:
+    """What the log pane shows when this node is selected: the node, and the Run it belongs to."""
+    if node["span"] == "run":
+        return f"Run {node['name']}"
+    what = f"attempt {node['name']}" if node["span"] == "attempt" else node["name"]
+    return f"{what}, Run {run}" if run else what
+
+
 def log_line(entry: Json) -> str:
     stamp = time.strftime("%H:%M:%S", time.localtime(entry["ts"]))
     who = (entry.get("role") or "agent").upper() if entry["source"] == "agent" else "FACTORY"

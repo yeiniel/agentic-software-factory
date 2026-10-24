@@ -83,15 +83,42 @@ def test_every_event_of_a_task_carries_the_trace(run_factory):
 def test_task_received_is_recorded_before_anything_else(run_factory):
     out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT]})
 
-    first = out.records[0]
+    first, second = out.records[:2]
     assert first["stream"] == "task/t1" and first["event"]["kind"] == "task-received"
-    assert first["event"]["repo"] == "r"
+    assert first["event"]["repo"] == "r" and second["event"]["kind"] == "task-status"
+    assert second["event"]["status"] == "todo"
+
+
+def test_task_events_carry_no_span_and_the_others_name_a_span_of_their_run(run_factory):
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT]})
+
+    events = [r["event"] for r in out.records if r["stream"] == "task/t1"]
+    started = {e["id"]: e["run"] for e in events if e["kind"] == "started"}
+    for event in events:
+        if event["kind"] in ("started", "finished"):
+            continue  # their `span` is the kind of span
+        if event["kind"] in ("task-received", "task-status"):
+            assert "span" not in event
+        else:
+            assert started[event["span"]] == event["run"], event["kind"]
+
+
+def test_an_event_belongs_to_the_span_of_its_activity_attempt_or_run(run_factory):
+    out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT]})
+
+    named = {e["id"]: (e["span"], e["name"]) for e in spans(out, "started")}
+    assert {named[e["span"]] for e in spans(out, "integrate")} == {("activity", "integrate")}
+    assert {named[e["span"]] for e in spans(out, "agent")} == {("activity", "agent")}
+    assert {named[e["span"]] for e in spans(out, "branch-recorded")} == {("activity", "agent")}
+    assert {named[e["span"]][0] for e in spans(out, "attempt")} == {"attempt"}
+    assert {named[e["span"]][0] for e in spans(out, "run-started") + spans(out, "run-finished")} == {"run"}
 
 
 def test_a_task_status_event_follows_every_status_written(run_factory):
     out = run_factory({"tasks": {"t1": "x"}, "events": [TASK_EVENT]})
 
-    assert [e["status"] for e in spans(out, "task-status")] == out.status("t1") == ["running", "done"]
+    assert [e["status"] for e in spans(out, "task-status")] == ["todo", "running", "done"]
+    assert out.status("t1") == ["running", "done"]
 
 
 def test_a_blocked_task_records_its_status_and_reason(run_factory):

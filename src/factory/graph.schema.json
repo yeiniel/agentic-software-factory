@@ -130,7 +130,7 @@
           "additionalProperties": { "$ref": "#/$defs/source" }
         },
         "environment": { "$ref": "#/$defs/name", "description": "The input whose Containerfile the Environment is built from." },
-        "checks": { "description": "The failed checks the script may report.", "type": "array", "items": { "$ref": "#/$defs/name" }, "minItems": 1, "uniqueItems": true },
+        "checks": { "description": "The failed checks the script may report: lower-case words joined by hyphens that say what failed, as merge-conflict.", "type": "array", "items": { "$ref": "#/$defs/name" }, "minItems": 1, "uniqueItems": true },
         "timeout": { "$ref": "#/$defs/timeout" },
         "output": {
           "type": "object",

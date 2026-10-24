@@ -60,12 +60,12 @@
       "script": "validation/run",
       "inputs": { "base": "base", "acceptance-writer": { "branch-of": "acceptance-writer" } },
       "environment": "base",
-      "checks": ["specs-not-red", "merge"],
+      "checks": ["specs-not-red", "merge-failed"],
       "timeout": "integrator_timeout",
       "transitions": [
         { "on": "green", "to": "$exit" },
         { "on": "red:specs-not-red", "to": "writer", "feedback": { "for": "acceptance-writer", "message": "feedback/specs-not-red.md" } },
-        { "on": "red:merge", "to": "writer", "feedback": { "for": "acceptance-writer", "message": "feedback/merge.md" } },
+        { "on": "red:merge-failed", "to": "writer", "feedback": { "for": "acceptance-writer", "message": "feedback/merge-failed.md" } },
         { "on": "timed-out", "to": "writer", "feedback": { "for": "acceptance-writer", "message": "feedback/timed-out.md" } }
       ]
     },
@@ -79,13 +79,13 @@
         "acceptance-writer": { "branch-of": "acceptance-writer" }
       },
       "environment": "base",
-      "checks": ["conflict", "suite"],
+      "checks": ["merge-conflict", "suite-failed"],
       "timeout": "integrator_timeout",
       "output": { "branch": "integrated", "path": "out/integrated" },
       "transitions": [
         { "on": "green", "to": "publish" },
-        { "on": "red:conflict", "to": "run", "reset": ["implementor"], "feedback": { "for": "implementor", "message": "feedback/conflict.md" } },
-        { "on": "red:suite", "to": "run", "reset": ["implementor"], "feedback": { "for": "implementor", "message": "feedback/suite.md" } },
+        { "on": "red:merge-conflict", "to": "run", "reset": ["implementor"], "feedback": { "for": "implementor", "message": "feedback/merge-conflict.md" } },
+        { "on": "red:suite-failed", "to": "run", "reset": ["implementor"], "feedback": { "for": "implementor", "message": "feedback/suite-failed.md" } },
         { "on": "timed-out", "to": "run", "reset": ["implementor"], "feedback": { "for": "implementor", "message": "feedback/timed-out.md" } }
       ]
     },

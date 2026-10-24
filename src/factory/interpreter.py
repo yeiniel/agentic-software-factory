@@ -47,6 +47,7 @@ class Outcome:
     output: str
     green: bool = False  # the publish that advanced `main`
     loop: str | None = None  # the loop that ran out of attempts
+    loop_span: str | None = None  # the span of that loop
     said: bool = False  # the Records already say so
     data: Json = field(default_factory=Json)
 
@@ -91,7 +92,6 @@ class Execution:
 
     def go(self) -> None:
         try:
-            self.record("task-received", None, repo=self.repo, graph=self.graph.version)
             self.prompt = self.a["task-store"].call("get-prompt", task=self.task)["prompt"]
             self.base = self.a["repo-host"].call("main-head", repo=self.repo)["commit"]
             for state in self.graph.states.values():
@@ -120,8 +120,9 @@ class Execution:
     def branch(self, name: str) -> str:
         return f"factory/{self.task}/{name}"
 
-    def record(self, kind: str, run: int | None, **data: object) -> None:
-        body = {"kind": kind, "run": run, "trace": trace_id(self.task), **data}
+    def record(self, kind: str, run: int | None, within: str | None = None, /, **data: object) -> None:
+        """Append an event; `within` is the id of the innermost running span it belongs to, sent as `span`."""
+        body = {"kind": kind, "run": run, "trace": trace_id(self.task), **({"span": within} if within else {}), **data}
         self.a["records"].call("append", body=body, stream=f"task/{self.task}", run=run)
 
     @contextmanager
@@ -171,20 +172,20 @@ class Execution:
             roles = self.roles(name)
             started = {role: self.pending.get(role) for role in roles}
             self.set_status("running")
-            self.record("run-started", number, roles=roles)
             with self.span("run", str(number), None) as run_span:
+                self.record("run-started", number, run_span.id, roles=roles)
                 outcome = self.drive(loop, run_span.id, 0)
                 summary = outcome.summary()
                 run_span.outcome = summary["result"]
                 self.history.append(
                     {"run": number, "roles": roles, "feedback": started, "attempts": self.logs, "outcome": summary}
                 )
-                self.record("run-finished", number, outcome=summary)
+                self.record("run-finished", number, run_span.id, outcome=summary)
             if outcome.transition["to"] != name:
                 return outcome
             last = outcome.output
             if number < loop["attempts"] and self.apply(outcome):
-                self.record("feedback", number, feedback=dict(self.pending))
+                self.record("feedback", number, run_span.id, feedback=dict(self.pending))
         return Outcome(self.transition(name, "exhausted"), "max-runs", last)
 
     def drive(self, loop: Json, parent: str, attempt: int) -> Outcome:
@@ -222,7 +223,7 @@ class Execution:
                     outcome = self.drive(loop, at.id, number)
                     at.outcome = "green" if outcome.succeeded else outcome.check
                 log.append({"attempt": number, "result": at.outcome})
-                self.record("attempt", self.run, loop=name, attempt=number, result=at.outcome)
+                self.record("attempt", self.run, at.id, loop=name, attempt=number, result=at.outcome)
                 if outcome.succeeded:
                     loop_span.outcome = "succeeded"
                     self.succeeded.add(name)
@@ -233,13 +234,13 @@ class Execution:
                 last = outcome.output
                 text = self.apply(outcome)
                 if text and number < loop["attempts"]:
-                    self.record("loop-feedback", self.run, loop=name, attempt=number, feedback=text)
-        return Outcome(self.transition(name, "exhausted"), "loop-exhausted", last, loop=name)
+                    self.record("loop-feedback", self.run, loop_span.id, loop=name, attempt=number, feedback=text)
+        return Outcome(self.transition(name, "exhausted"), "loop-exhausted", last, loop=name, loop_span=loop_span.id)
 
     def noted(self, outcome: Outcome) -> Outcome:
         """Say it in the Records when an outcome is a loop that ran out of attempts, from the thread taking it up."""
         if outcome.loop and not outcome.said:
-            self.record("loop-exhausted", self.run, loop=outcome.loop)
+            self.record("loop-exhausted", self.run, outcome.loop_span, loop=outcome.loop)
             outcome.said = True
         return outcome
 
@@ -304,9 +305,9 @@ class Execution:
             a["repo-host"].call("checkout", repo=self.repo, branch=source, dest=ctx.path("cwd"))
         with self.span("activity", "agent", parent, role=role) as activity:
             result = self.run_environment("agentic", ctx, self.timeout(state), activity.traceparent)
-            self.record("agent", self.run, role=role, **result)
+            self.record("agent", self.run, activity.id, role=role, **result)
             recorded = a["repo-host"].call("record", repo=self.repo, branch=branch, from_=ctx.path("cwd"))
-            self.record("branch-recorded", self.run, role=role, branch=branch, **recorded)
+            self.record("branch-recorded", self.run, activity.id, role=role, branch=branch, **recorded)
             if result["timed_out"]:
                 activity.outcome = "timed-out"
                 return Outcome(self.transition(name, "timed-out"), "timed-out", "Timed out.")
@@ -332,7 +333,7 @@ class Execution:
                 ctx.copy(containerfile, "cwd/Containerfile")
         with self.span("activity", name, parent) as activity:
             result = self.run_environment("deterministic", ctx, self.timeout(state))
-            self.record(name, self.run, **result)
+            self.record(name, self.run, activity.id, **result)
             if result["timed_out"]:
                 verdict = {"result": "red", "failed_check": "timed-out", "output": "Timed out."}
             else:
@@ -352,7 +353,7 @@ class Execution:
         with self.span("activity", "publish", parent) as activity:
             branch = self.branch(state["branch"])
             pushed = self.a["repo-host"].call("fast-forward-main", repo=self.repo, branch=branch, expect_main=self.base)
-            self.record("fast-forward", self.run, **pushed)
+            self.record("fast-forward", self.run, activity.id, **pushed)
             activity.outcome = "advanced" if pushed["advanced"] else "main-moved"
         if pushed["advanced"]:
             return Outcome(

@@ -81,6 +81,10 @@ Not a port: local files in the core (`src/factory/contexts.py`). The core owns t
 `base`, `main`, `implementor`, `acceptance-writer` plus a copy of `main`'s `Containerfile`; it leaves
 `result`, `failed_check` and `output` in `out/` and the integrated clone in `out/integrated`.
 
+A check name (`failed_check`, and the `<check>` of the Graph's `red:<check>`) is lower-case words joined by hyphens and
+says what failed or what was found: `timed-out`, `specs-not-red`, `no-golden`, `merge-failed`, `merge-conflict`,
+`suite-failed`. A noun alone (`suite`) does not.
+
 ## Records
 
 - `append --stream S [--run N]`, body: one JSON event → `{}`. Streams: `task/<id>` and `factory`.
@@ -99,7 +103,10 @@ Spec 0006 added the following; earlier kinds and fields are unchanged (`run-star
 `branch-recorded`, `validate`, `integrate`, `fast-forward`, `run-finished`, `feedback`, `loop-exhausted`,
 `infrastructure-error`).
 
-- `task-received` `{repo, graph}`: the Event Source reported the Task; `graph` is the version of the Graph it runs (spec 0008).
+- `span`: every event emitted while a Run executes, other than `started` and `finished` (whose `span` is the kind of span), names the `id` of the innermost running span it belongs to: its Activity for `agent`,
+  `branch-recorded`, `validate`, `integrate` and `fast-forward`, its attempt for `attempt`, its loop for `loop-feedback` and `loop-exhausted`, the Run for
+  `run-started`, `run-finished` and `feedback`. `task-received` and `task-status` belong to the Task and have none. The OTLP Records implementation sets it as the log record's span id.
+- `task-received` `{repo, graph}`: the Factory took the Task from the Event Source, before it waits for its turn; `graph` is the version of the Graph it runs (spec 0008). Followed by `task-status` `todo`, which the Task Store never sees.
 - `task-status` `{status, reason?, commit?}`: after every status written to the Task Store. `reason` for
   `blocked` is the one the Graph's status state gives: in the default Graph `loop-exhausted`, `max-runs`,
   `main-moved` or `infrastructure`.

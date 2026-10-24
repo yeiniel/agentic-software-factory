@@ -25,7 +25,7 @@ git -C "$work/specs" config user.name Validation
 git -C "$work/specs" config user.email validation@example.invalid
 git -C "$work/specs" fetch -q "$cwd/acceptance-writer" HEAD || exit 1
 if ! git -C "$work/specs" merge --no-edit FETCH_HEAD >"$work/merge" 2>&1; then
-	red merge "$work/merge"
+	red merge-failed "$work/merge"
 fi
 if (cd "$work/specs" && make test) >"$work/report" 2>&1; then
 	red specs-not-red "$work/report"

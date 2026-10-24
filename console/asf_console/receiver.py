@@ -3,7 +3,7 @@
   python -m asf_console.serve [--db FILE] [--otlp-port 4318] [--api-port 4319] [--model-url URL]
 
 Two listeners share one store: OTLP for the Factory and the Runner, and the API for clients (put it on
-loopback only). GET /api/tasks, /api/task?id=T, /api/task/log?id=T[&after=SEQ], /api/metrics, and /stream
+loopback only). GET /api/tasks, /api/task?id=T, /api/task/log?id=T[&after=SEQ][&span=ID], /api/metrics, and /stream
 (server-sent events: `{"type": "changed", "task": T}` after every write).
 """
 
@@ -126,7 +126,8 @@ class Receiver:
         return {"task": task, "spans": self.store.tree(task)}
 
     def log(self, request: Request) -> Json:
-        return {"log": self.store.log(request.query["id"], int(request.query.get("after", 0)))}
+        query = request.query
+        return {"log": self.store.log(query["id"], int(query.get("after", 0)), query.get("span"))}
 
     def metrics(self, _request: Request) -> Json:
         return {**metrics(self.store), "model": self.model.state}

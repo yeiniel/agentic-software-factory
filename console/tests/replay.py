@@ -31,8 +31,10 @@ class Script:
         self.trace = hashlib.sha256(task.encode()).hexdigest()[:32]
         self.spans = {}
 
-    def event(self, kind, run=None, **data):
-        self.replay.append(self.task, {"kind": kind, "run": run, "trace": self.trace, **data}, run)
+    def event(self, kind, run=None, within=None, /, **data):
+        """`within` is the id of the span the event belongs to, sent as `span`."""
+        span = {"span": within} if within else {}
+        self.replay.append(self.task, {"kind": kind, "run": run, "trace": self.trace, **span, **data}, run)
 
     def open(self, kind, name, parent=None, run=None, **attrs):
         span = secrets.token_hex(8)
@@ -59,12 +61,14 @@ def attempt(s, run, loop, number, parent, outcome, role, usage=None, activities=
     loop_id = parent
     at = s.open("attempt", str(number), loop_id, run)
     agent = s.open("activity", "agent", at, run, role=role)
-    s.event("agent", run, role=role, exit_status=0, output=f"{role} output", **({"usage": usage} if usage else {}))
+    s.event(
+        "agent", run, agent, role=role, exit_status=0, output=f"{role} output", **({"usage": usage} if usage else {})
+    )
     s.close(agent, "ok", duration)
     for name, result, took in activities:
         s.step("activity", name, at, run, result, took)
     s.close(at, outcome, duration + 1)
-    s.event("attempt", run, loop=loop, attempt=number, result=outcome)
+    s.event("attempt", run, at, loop=loop, attempt=number, result=outcome)
     return at
 
 
@@ -72,8 +76,8 @@ def green_task(replay, task="r/green"):
     s = Script(replay, task)
     s.event("task-received", repo="r")
     s.status("running")
-    s.event("run-started", 1, roles=["implementor", "acceptance-writer"])
     run = s.open("run", "1", None, 1)
+    s.event("run-started", 1, run, roles=["implementor", "acceptance-writer"])
     w = s.open("loop", "writer", run, 1)
     attempt(
         s,
@@ -100,10 +104,11 @@ def green_task(replay, task="r/green"):
         duration=8.0,
     )
     s.close(i, "succeeded", 12)
-    s.step("activity", "integrate", run, 1, "green", 7.0)
+    integrate = s.step("activity", "integrate", run, 1, "green", 7.0)
+    s.event("integrate", 1, integrate, exit_status=0, output="suite green")
     s.step("activity", "publish", run, 1, "advanced", 1.0)
     s.close(run, "green", 30)
-    s.event("run-finished", 1, outcome={"result": "green"})
+    s.event("run-finished", 1, run, outcome={"result": "green"})
     s.status("done", commit="c9")
     return s
 
@@ -116,12 +121,20 @@ def blocked_task(replay, task="r/blocked"):
     run = s.open("run", "1", None, 1)
     i = s.open("loop", "implementor", run, 1)
     attempt(s, 1, "implementor", 1, i, "crashed", "implementor")
-    s.event("loop-feedback", 1, loop="implementor", attempt=1, feedback="Your last attempt crashed: boom")
+    s.event("loop-feedback", 1, i, loop="implementor", attempt=1, feedback="Your last attempt crashed: boom")
     attempt(s, 1, "implementor", 2, i, "crashed", "implementor")
     s.close(i, "exhausted", 6)
-    s.event("loop-exhausted", 1, loop="implementor")
+    s.event("loop-exhausted", 1, i, loop="implementor")
     s.close(run, "red", 8)
     s.status("blocked", reason="loop-exhausted")
+    return s
+
+
+def queued_task(replay, task="r/queued"):
+    """Taken by the Factory and waiting for its turn: received and `todo`, nothing else."""
+    s = Script(replay, task)
+    s.event("task-received", repo="r", graph="v1")
+    s.status("todo")
     return s
 
 
@@ -131,11 +144,16 @@ def retried_task(replay, task="r/retried"):
     s.event("task-received", repo="r")
     s.status("running")
     run1 = s.open("run", "1", None, 1)
-    s.step("activity", "integrate", run1, 1, "suite", 4.0)
+    s.event("run-started", 1, run1, roles=["implementor"])
+    s.step("activity", "publish", run1, 1, "main-moved", 0.5)
+    integrate = s.step("activity", "integrate", run1, 1, "suite-failed", 4.0)
+    s.event("integrate", 1, integrate, exit_status=0, output="FAIL: greeting is empty")
     s.close(run1, "red", 10)
-    s.event("feedback", 1, feedback={"implementor": "the suite failed: greeting is empty"})
+    s.event("run-finished", 1, run1, outcome={"result": "red"})
+    s.event("feedback", 1, run1, feedback={"implementor": "the suite failed: greeting is empty"})
     s.status("running")
     run2 = s.open("run", "2", None, 2)
+    s.event("run-started", 2, run2, roles=["implementor"])
     s.step("activity", "integrate", run2, 2, "green", 4.0)
     s.close(run2, "green", 10)
     s.status("done", commit="c5")

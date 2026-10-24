@@ -37,7 +37,7 @@ The Console never writes to the Factory, the Task Store or the Repo Host and has
 
 - Existing event kinds and fields are unchanged (the Records contract keeps its shape and spawn-per-event call); fields are only added, so `bin/follow` keeps working.
 - Each Run, loop, attempt and Activity emits `started` and `finished` events with `id` and `parent`; `finished` carries `duration` and the outcome.
-- `task-received` when the Event Source reports a Task, and `task-status` on every status the core writes to the Task Store, so the Console never queries the Task Store.
+- `task-received` when the Factory takes the Task from the Event Source (spec 0009: before it waits for its turn, followed by `task-status` `todo`), and `task-status` on every status the core writes to the Task Store, so the Console never queries the Task Store.
 - The Agent event carries model turns, tool calls and tokens when the session provides them.
 - The Run Context for a retry keeps its Pi session as before; the core computes the `traceparent` for each attempt.
 

@@ -33,7 +33,7 @@ for role in implementor acceptance-writer; do
 	git -C "$out/integrated" fetch -q "$cwd/$role" HEAD || exit 1
 	if ! git -C "$out/integrated" merge --no-edit -m "Integrate $role" FETCH_HEAD >"$work/merge" 2>&1; then
 		git -C "$out/integrated" merge --abort
-		red conflict "$work/merge"
+		red merge-conflict "$work/merge"
 	fi
 done
 
@@ -41,5 +41,5 @@ done
 if (cd "$out/integrated" && make test) >"$out/output" 2>&1; then
 	echo green >"$out/result"
 else
-	red suite "$out/output"
+	red suite-failed "$out/output"
 fi

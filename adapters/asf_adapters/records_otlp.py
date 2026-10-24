@@ -63,6 +63,8 @@ def append(args: Args) -> Json:
         }
         if event["kind"] == "started":
             log["spanId"] = event["id"]
+        elif event.get("span"):  # any other event names the span it belongs to
+            log["spanId"] = event["span"]
         _otlp.post("/v1/logs", _otlp.logs([log]))
     return {}
 

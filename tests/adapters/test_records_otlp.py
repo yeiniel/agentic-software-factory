@@ -139,3 +139,22 @@ def test_booleans_keep_their_type(exe, env, receiver):
     env["OTEL_EXPORTER_OTLP_ENDPOINT"] = url
     exe("records-otlp").ok("append", {"kind": "agent", "timed_out": True}, stream="task/t1")
     assert {"key": "asf.timed_out", "value": {"boolValue": True}} in first_log(got)["attributes"]
+
+
+def test_an_event_with_a_span_is_a_log_record_with_that_span_id(exe, env, receiver):
+    url, got = receiver
+    env["OTEL_EXPORTER_OTLP_ENDPOINT"] = url
+    exe("records-otlp").ok(
+        "append", {"kind": "integrate", "run": 1, "trace": TRACE, "span": SPAN}, stream="task/r/t1", run=1
+    )
+
+    log = first_log(got)
+    assert log["traceId"] == TRACE and log["spanId"] == SPAN
+
+
+def test_an_event_without_a_span_is_a_log_record_without_a_span_id(exe, env, receiver):
+    url, got = receiver
+    env["OTEL_EXPORTER_OTLP_ENDPOINT"] = url
+    exe("records-otlp").ok("append", {"kind": "task-received", "run": None, "trace": TRACE}, stream="task/r/t1")
+
+    assert "spanId" not in first_log(got)

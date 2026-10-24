@@ -130,8 +130,8 @@
       },
       "environment": "base",
       "checks": [
-        "conflict",
-        "suite"
+        "merge-conflict",
+        "suite-failed"
       ],
       "timeout": "integrator_timeout",
       "output": {
@@ -144,25 +144,25 @@
           "to": "publish"
         },
         {
-          "on": "red:conflict",
+          "on": "red:merge-conflict",
           "to": "run",
           "reset": [
             "implementor"
           ],
           "feedback": {
             "for": "implementor",
-            "message": "feedback/conflict.md"
+            "message": "feedback/merge-conflict.md"
           }
         },
         {
-          "on": "red:suite",
+          "on": "red:suite-failed",
           "to": "run",
           "reset": [
             "implementor"
           ],
           "feedback": {
             "for": "implementor",
-            "message": "feedback/suite.md"
+            "message": "feedback/suite-failed.md"
           }
         },
         {

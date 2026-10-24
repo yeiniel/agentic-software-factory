@@ -51,9 +51,21 @@ def lane_of(call, spans):
     return None
 
 
+def is_receipt(call):
+    """The Records the Factory appends when it takes a Task, which race with the Task already running."""
+    body = call["body"]
+    return call["port"] == "records" and (
+        body["kind"] == "task-received" or (body["kind"] == "task-status" and body["status"] == "todo")
+    )
+
+
 def canonical(calls):
-    """The calls with each concurrent step's calls grouped by lane, so the order is reproducible."""
+    """The calls with each concurrent step's calls grouped by lane, and the receipts first, so the order is reproducible."""
     spans, buffers, out = {}, {lane: [] for lane in LANES}, []
+    listen = [c for c in calls if c["op"] == "listen"]
+    calls = [c for c in calls if c["op"] != "listen"]
+    calls = [c for c in calls if is_receipt(c)] + [c for c in calls if not is_receipt(c)]
+    out.extend(listen)
 
     def flush():
         for lane in LANES:

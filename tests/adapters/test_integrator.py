@@ -63,14 +63,14 @@ def test_a_conflict_fails_the_second_check_with_git_output(context):
     commit(context / "acceptance-writer", {"code.txt": "three\n"})
     commit(context / "implementor", {"code.txt": "two\n"})
     verdict = integrate(context)
-    assert verdict["result"].strip() == "red" and verdict["failed_check"] == "conflict"
+    assert verdict["result"].strip() == "red" and verdict["failed_check"] == "merge-conflict"
     assert "code.txt" in verdict["output"]
 
 
 def test_a_red_suite_reports_the_acceptance_report_verbatim(context):
     commit(context / "acceptance-writer", {"spec_feature": ""})
     verdict = integrate(context)
-    assert verdict["result"].strip() == "red" and verdict["failed_check"] == "suite"
+    assert verdict["result"].strip() == "red" and verdict["failed_check"] == "suite-failed"
     assert verdict["output"].startswith("feature.txt is missing\n")
 
 
@@ -84,4 +84,4 @@ def test_the_run_script_works_in_a_container_built_from_the_repos_image(exe, con
     done = exe("runner").run("run", type="deterministic", context=ctx, timeout=120)
     assert done.returncode == 0, done.stderr
     files = json.loads(done.stdout)["files"]
-    assert files["failed_check"] == "suite" and files["output"].startswith("feature.txt is missing\n")
+    assert files["failed_check"] == "suite-failed" and files["output"].startswith("feature.txt is missing\n")
